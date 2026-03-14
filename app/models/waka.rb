@@ -1,0 +1,2 @@
+class Waka < ApplicationRecord
+end
