@@ -1,0 +1,31 @@
+<h1>和歌新規登録</h1>
+
+<%= form_with model: @waka do |f| %>
+  <div>
+    <%= f.label :upper_phrase, '上の句' %>
+    <%= f.text_field :upper_phrase %>
+  </div>
+  <div>
+    <%= f.label :lower_phrase, '下の句' %>
+    <%= f.text_field :lower_phrase %>
+  </div>
+  <div>
+    <%= f.label :author, '作者' %>
+    <%= f.text_field :author %>
+  </div>
+  <div>
+    <%= f.label :source, '出典' %>
+    <%= f.text_field :source %>
+  </div>
+  <div>
+    <%= f.label :era, '時代' %>
+    <%= f.text_field :era %>
+  </div>
+  <div>
+    <%= f.label :notes, '備考' %>
+    <%= f.text_area :notes %>
+  </div>
+  <%= f.submit '登録する' %>
+<% end %>
+
+<%= link_to '一覧に戻る', wakas_path %>

@@ -1,0 +1,15 @@
+<h1>和歌一覧</h1>
+
+<%= link_to '新規登録', new_waka_path %>
+
+<% @wakas.each do |waka| %>
+  <div>
+    <p><%= waka.upper_phrase %></p>
+    <p><%= waka.lower_phrase %></p>
+    <p><%= waka.author %></p>
+    <%= link_to '詳細', waka %>
+    <%= link_to '編集', edit_waka_path(waka) %>
+    <%= button_to '削除', waka, method: :delete, data: { turbo_confirm: '削除しますか？' } %>
+  </div>
+  <hr>
+<% end %>
