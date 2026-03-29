@@ -17,7 +17,7 @@ default: &default
   encoding: unicode
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
   username: keiba_user
-  password: keiba_pass
+  password: 
   host: localhost
 
 development:
