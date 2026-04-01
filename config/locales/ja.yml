@@ -1,0 +1,14 @@
+ja:
+  activerecord:
+    attributes:
+      waka:
+        upper_phrase: "上の句"
+        lower_phrase: "下の句"
+        author: "作者"
+        source: "出典"
+        era: "時代"
+        notes: "備考"
+    errors:
+      messages:
+        blank: "を入力してください"
+

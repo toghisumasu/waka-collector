@@ -1,5 +1,14 @@
 <h1>和歌編集</h1>
-
+<% if @waka.errors.any? %>
+  <div>
+    <p><%= @waka.errors.count %>件のエラーがあります</p>
+    <ul>
+      <% @waka.errors.full_messages.each do |message| %>
+        <li><%= message %></li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>
 <%= form_with model: @waka do |f| %>
   <div>
     <%= f.label :upper_phrase, '上の句' %>
