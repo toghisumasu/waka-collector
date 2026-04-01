@@ -1,6 +1,12 @@
 class WakasController < ApplicationController
   def index
     @wakas = Waka.all
+    if params[:keyword].present?
+      @wakas = @wakas.where('upper_phrase LIKE ? OR lower_phrase LIKE ? OR author LIKE ?',
+                            "%#{params[:keyword]}%",
+                            "%#{params[:keyword]}%",
+                            "%#{params[:keyword]}%")
+    end
   end
 
   def show

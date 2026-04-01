@@ -1,7 +1,10 @@
 <h1>和歌一覧</h1>
 
 <%= link_to '新規登録', new_waka_path %>
-
+  <%= form_with url: wakas_path, method: :get do |f| %>
+    <%= f.text_field :keyword, value: params[:keyword], placeholder: '作者・上の句・下の句で検索' %>
+    <%= f.submit '検索' %>
+  <% end %>
 <% @wakas.each do |waka| %>
   <div>
     <p><%= waka.upper_phrase %></p>
