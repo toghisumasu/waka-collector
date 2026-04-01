@@ -7,6 +7,7 @@ class WakasController < ApplicationController
                             "%#{params[:keyword]}%",
                             "%#{params[:keyword]}%")
     end
+    @wakas = @wakas.page(params[:page]).per(10)
   end
 
   def show
