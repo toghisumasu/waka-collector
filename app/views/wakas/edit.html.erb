@@ -11,12 +11,20 @@
 <% end %>
 <%= form_with model: @waka do |f| %>
   <div>
-    <%= f.label :upper_phrase, '上の句' %>
-    <%= f.text_field :upper_phrase %>
+    <%= f.label :upper_phrase_text, '上の句' %>
+    <%= f.text_field :upper_phrase_text %>
   </div>
   <div>
-    <%= f.label :lower_phrase, '下の句' %>
-    <%= f.text_field :lower_phrase %>
+    <%= f.label :lower_phrase_text, '下の句' %>
+    <%= f.text_field :lower_phrase_text %>
+  </div>
+  <div>
+    <%= f.label :upper_phrase_yomi, '上の句（読み）' %>
+    <%= f.text_field :upper_phrase_yomi %>
+  </div>
+  <div>
+    <%= f.label :lower_phrase_yomi, '下の句（読み）' %>
+    <%= f.text_field :lower_phrase_yomi %>
   </div>
   <div>
     <%= f.label :author, '作者' %>
@@ -36,5 +44,4 @@
   </div>
   <%= f.submit '更新する' %>
 <% end %>
-
 <%= link_to '一覧に戻る', wakas_path %>

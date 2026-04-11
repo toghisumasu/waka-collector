@@ -1,7 +1,8 @@
 <h1>和歌詳細</h1>
 
-<p><%= @waka.upper_phrase %></p>
-<p><%= @waka.lower_phrase %></p>
+<p><%= @waka.upper_phrase_text %></p>
+<p><%= @waka.lower_phrase_text %></p>
+<p>読み：<%= @waka.upper_phrase_yomi %> <%= @waka.lower_phrase_yomi %></p>
 <p>作者：<%= @waka.author %></p>
 <p>出典：<%= @waka.source %></p>
 <p>時代：<%= @waka.era %></p>

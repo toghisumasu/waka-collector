@@ -10,18 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_03_14_113407) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_02_033912) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
   create_table "wakas", force: :cascade do |t|
-    t.string "upper_phrase"
-    t.string "lower_phrase"
+    t.string "upper_phrase_text"
+    t.string "lower_phrase_text"
     t.string "author"
     t.string "source"
     t.string "era"
     t.text "notes"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "upper_phrase_yomi"
+    t.string "lower_phrase_yomi"
   end
 end

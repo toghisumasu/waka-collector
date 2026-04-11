@@ -2,8 +2,10 @@ ja:
   activerecord:
     attributes:
       waka:
-        upper_phrase: "上の句"
-        lower_phrase: "下の句"
+        upper_phrase_text: "上の句"
+        lower_phrase_text: "下の句"
+        upper_phrase_yomi: "上の句（読み）"
+        lower_phrase_yomi: "下の句（読み）"
         author: "作者"
         source: "出典"
         era: "時代"
@@ -11,4 +13,3 @@ ja:
     errors:
       messages:
         blank: "を入力してください"
-

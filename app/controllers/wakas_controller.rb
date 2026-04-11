@@ -2,7 +2,9 @@ class WakasController < ApplicationController
   def index
     @wakas = Waka.all
     if params[:keyword].present?
-      @wakas = @wakas.where('upper_phrase LIKE ? OR lower_phrase LIKE ? OR author LIKE ?',
+      @wakas = @wakas.where('upper_phrase_text LIKE ? OR lower_phrase_text LIKE ? OR upper_phrase_yomi LIKE ? OR lower_phrase_yomi LIKE ? OR author LIKE ?',
+                            "%#{params[:keyword]}%",
+                            "%#{params[:keyword]}%",
                             "%#{params[:keyword]}%",
                             "%#{params[:keyword]}%",
                             "%#{params[:keyword]}%")
@@ -49,6 +51,6 @@ class WakasController < ApplicationController
   private
 
   def waka_params
-    params.require(:waka).permit(:upper_phrase, :lower_phrase, :author, :source, :era, :notes)
+    params.require(:waka).permit(:upper_phrase_text, :lower_phrase_text, :upper_phrase_yomi, :lower_phrase_yomi, :author, :source, :era, :notes)
   end
 end
