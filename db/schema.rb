@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_04_02_033912) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_12_010322) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -25,5 +25,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_02_033912) do
     t.datetime "updated_at", null: false
     t.string "upper_phrase_yomi"
     t.string "lower_phrase_yomi"
+    t.integer "flag"
   end
 end
