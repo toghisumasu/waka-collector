@@ -37,3 +37,4 @@
 /config/database.yml
 *:Zone.Identifier
 db/wakas_backup.sql
+app/controllers/*.swp
