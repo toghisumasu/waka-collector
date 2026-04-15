@@ -12,6 +12,9 @@ class WakasController < ApplicationController
                             "%#{params[:keyword]}%",
                             "%#{params[:keyword]}%")
     end
+    if params[:flag].present?
+      @wakas = @wakas.where(flag: params[:flag])
+    end
     @wakas = @wakas.page(params[:page]).per(10)
   end
 
