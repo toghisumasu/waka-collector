@@ -1,5 +1,4 @@
 <h1>和歌詳細</h1>
-
 <p><%= @waka.upper_phrase_text %></p>
 <p><%= @waka.lower_phrase_text %></p>
 <p>読み：<%= @waka.upper_phrase_yomi %> <%= @waka.lower_phrase_yomi %></p>
@@ -7,6 +6,7 @@
 <p>出典：<%= @waka.source %></p>
 <p>時代：<%= @waka.era %></p>
 <p>備考：<%= @waka.notes %></p>
+<p>フラグ：<%= @waka.flag_label %></p>
 
 <%= link_to '編集', edit_waka_path(@waka) %>
 <%= link_to '一覧に戻る', wakas_path %>

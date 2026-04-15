@@ -54,6 +54,7 @@ class WakasController < ApplicationController
   private
 
   def waka_params
-    params.require(:waka).permit(:upper_phrase_text, :lower_phrase_text, :upper_phrase_yomi, :lower_phrase_yomi, :author, :source, :era, :notes)
+      params.require(:waka).permit(:upper_phrase_text, :lower_phrase_text, :upper_phrase_yomi, :lower_phrase_yomi, :author, :source, :era, :notes, :flag)
   end
+
 end

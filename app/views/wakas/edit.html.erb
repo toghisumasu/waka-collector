@@ -42,6 +42,11 @@
     <%= f.label :notes, '備考' %>
     <%= f.text_area :notes %>
   </div>
+  <div>
+    <%= f.label :flag, 'フラグ' %>
+    <%= f.select :flag, Waka::FLAG_TYPES.map { |k, v| [v, k] } %>
+  </div>
+
   <%= f.submit '更新する' %>
 <% end %>
 <%= link_to '一覧に戻る', wakas_path %>
