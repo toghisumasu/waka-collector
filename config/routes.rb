@@ -1,5 +1,6 @@
 Rails.application.routes.draw do
-  resources :wakas        # ← この行を追加
+  resources :wakas
+  resources :rengas, only: [:new, :create, :show]        # ← この行を追加
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

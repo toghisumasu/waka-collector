@@ -1,0 +1,30 @@
+<h1>連歌成立</h1>
+
+<p><strong>前句：</strong><%= @renga.maeku %>
+   <small>（<%= @renga.maeku_author %>）</small></p>
+<p><strong>付け句：</strong><%= @renga.tsugeku %>
+   <small>（<%= @renga.tsugeku_author %>）</small></p>
+
+<h3>式目チェック</h3>
+<% res = @renga.style_check_result %>
+<p>結果：<strong><%= res["result"] %></strong></p>
+
+<% if res["issues"].present? %>
+  <h4>違反内容</h4>
+  <ul>
+    <% res["issues"].each do |issue| %>
+      <li><%= issue %></li>
+    <% end %>
+  </ul>
+<% end %>
+
+<% if res["breakdown"].present? %>
+  <h4>音分解（メンタムさんの数え方）</h4>
+  <ul>
+    <% res["breakdown"].each do |b| %>
+      <li><%= b %></li>
+    <% end %>
+  </ul>
+<% end %>
+
+<%= link_to "次の連歌へ", new_renga_path %>

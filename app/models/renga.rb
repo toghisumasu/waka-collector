@@ -1,0 +1,2 @@
+class Renga < ApplicationRecord
+end

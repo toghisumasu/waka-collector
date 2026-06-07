@@ -10,9 +10,21 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_04_12_010322) do
+ActiveRecord::Schema[7.2].define(version: 2026_06_07_005905) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "rengas", force: :cascade do |t|
+    t.text "maeku"
+    t.text "tsugeku"
+    t.string "maeku_author"
+    t.string "tsugeku_author"
+    t.string "generated_by_model"
+    t.jsonb "style_check_result"
+    t.jsonb "honka_reference"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
 
   create_table "wakas", force: :cascade do |t|
     t.string "upper_phrase_text"

@@ -1,0 +1,25 @@
+<h1>連歌 — 前句を入力</h1>
+
+<% if flash[:alert] %>
+  <p style="color:#b00"><%= flash[:alert] %></p>
+<% end %>
+
+<%= form_with model: @renga do |f| %>
+  <div>
+    <%= f.label :maeku, "前句（五七五）" %><br>
+    <%= f.text_area :maeku,
+          placeholder: "春はあけぼの やうやう白く なりゆく山ぎは" %>
+  </div>
+
+  <fieldset>
+    <legend>本歌参照候補</legend>
+    <% @honkas.each do |honka| %>
+      <label>
+        <%= check_box_tag "renga[honka_ids][]", honka.id %>
+        <%= honka.upper_phrase_text.to_s + honka.lower_phrase_text.to_s + "（" + honka.author.to_s + "）" %>
+      </label><br>
+    <% end %>
+  </fieldset>
+
+  <%= f.submit "付け句を生成する" %>
+<% end %>
