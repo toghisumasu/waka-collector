@@ -4,22 +4,26 @@ class KuValidator
   CHOUKU = 17  # 長句（5-7-5）
   TANKU  = 14  # 短句（7-7）
 
-  def initialize(text)
+  def initialize(text, type: :chouku)
     @text = text
+    @type = type
+    @target = (type == :chouku) ? CHOUKU : TANKU
   end
 
   def validate
     return { result: "ng", mora: 0, message: "句が入力されていません" } unless valid_by_morphemes?
 
     mora = count_mora
+    diff = (mora - @target).abs
+    label = (@type == :chouku) ? "長句（17音）" : "短句（14音）"
 
-    if mora == CHOUKU || mora == TANKU
+    if mora == @target
       { result: "ok", mora: mora, message: nil }
-    elsif (mora - CHOUKU).abs <= 1 || (mora - TANKU).abs <= 1
-      type = (mora - CHOUKU).abs <= 1 ? "長句" : "短句"
-      { result: "warning", mora: mora, message: "#{type}として字#{mora > CHOUKU || mora > TANKU ? '余り' : '足らず'}です（#{mora}音）。このまま続けますか？" }
+    elsif diff == 1
+      over = mora > @target ? "字余り" : "字足らず"
+      { result: "warning", mora: mora, message: "#{label}として#{over}です（#{mora}音）。このまま続けますか？" }
     else
-      { result: "ng", mora: mora, message: "長句（17音）にも短句（14音）にも合致しません（#{mora}音）" }
+      { result: "ng", mora: mora, message: "#{label}に合致しません（#{mora}音）" }
     end
   end
 

@@ -7,14 +7,26 @@ class RengasController < ApplicationController
   end
 
   def create
-    maeku = renga_params[:maeku]
+    maeku     = renga_params[:maeku]
+    confirmed = params[:confirmed] == "true"
 
     # 句の検証（KuValidator）
-    unless KuValidator.new(maeku).valid?
-      @renga = Renga.new(maeku: maeku)
+    check = KuValidator.new(maeku).validate
+
+    if check[:result] == "ng"
+      @renga  = Renga.new(maeku: maeku)
       @honkas = Waka.limit(5)
-      flash.now[:alert] = "前句が句として成立していません"
+      flash.now[:alert] = check[:message]
       render :new, status: :unprocessable_entity
+      return
+    end
+
+    if check[:result] == "warning" && !confirmed
+      @renga     = Renga.new(maeku: maeku)
+      @honkas    = Waka.limit(5)
+      @warning   = check[:message]
+      @confirmed = true
+      render :new
       return
     end
 

@@ -4,6 +4,10 @@
   <p style="color:#b00"><%= flash[:alert] %></p>
 <% end %>
 
+<% if @warning %>
+  <p style="color:#c60"><strong><%= @warning %></strong></p>
+<% end %>
+
 <%= form_with model: @renga do |f| %>
   <div>
     <%= f.label :maeku, "前句（五七五）" %><br>
@@ -21,5 +25,11 @@
     <% end %>
   </fieldset>
 
-  <%= f.submit "付け句を生成する" %>
+  <% if @confirmed %>
+    <%= hidden_field_tag :confirmed, "true" %>
+    <%= f.submit "字余りのまま続ける" %>
+    <%= f.submit "差し戻す" %>
+  <% else %>
+    <%= f.submit "付け句を生成する" %>
+  <% end %>
 <% end %>
