@@ -113,6 +113,10 @@ GEM
     factory_bot_rails (6.5.1)
       factory_bot (~> 6.5)
       railties (>= 6.1.0)
+    ffi (1.17.4)
+    ffi (1.17.4-arm64-darwin)
+    ffi (1.17.4-x86_64-darwin)
+    ffi (1.17.4-x86_64-linux-gnu)
     globalid (1.3.0)
       activesupport (>= 6.1)
     i18n (1.14.8)
@@ -166,6 +170,8 @@ GEM
     mini_portile2 (2.8.9)
     minitest (5.27.0)
     msgpack (1.8.0)
+    natto (1.2.0)
+      ffi (>= 1.9.0)
     net-imap (0.5.13)
       date
       net-protocol
@@ -358,6 +364,7 @@ DEPENDENCIES
   importmap-rails
   jbuilder
   kaminari
+  natto
   pg (~> 1.1)
   puma (>= 5.0)
   rails (~> 7.2.3)
