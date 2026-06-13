@@ -5,6 +5,32 @@
 <p><strong>付け句：</strong><%= @renga.tsugeku %>
    <small>（<%= @renga.tsugeku_author %>）</small></p>
 
+<h3>字数判定（KuValidator）</h3>
+<%
+  maeku_mora    = KuValidator.new(@renga.maeku).count_mora
+  maeku_type    = KuValidator.nearest_verse_type(maeku_mora)
+  maeku_check   = KuValidator.new(@renga.maeku, type: maeku_type).validate
+
+  tsugeku_type  = (maeku_type == :chouku) ? :tanku : :chouku
+  tsugeku_check = KuValidator.new(@renga.tsugeku, type: tsugeku_type).validate
+%>
+<ul>
+  <li>
+    前句（<%= maeku_type == :chouku ? "長句・17音" : "短句・14音" %>）：
+    <%= maeku_check[:mora] %>音 → <strong><%= maeku_check[:result] %></strong>
+    <% if maeku_check[:message].present? %>
+      （<%= maeku_check[:message] %>）
+    <% end %>
+  </li>
+  <li>
+    付け句（<%= tsugeku_type == :chouku ? "長句・17音" : "短句・14音" %>）：
+    <%= tsugeku_check[:mora] %>音 → <strong><%= tsugeku_check[:result] %></strong>
+    <% if tsugeku_check[:message].present? %>
+      （<%= tsugeku_check[:message] %>）
+    <% end %>
+  </li>
+</ul>
+
 <h3>式目チェック</h3>
 <% res = @renga.style_check_result %>
 <p>結果：<strong><%= res["result"] %></strong></p>

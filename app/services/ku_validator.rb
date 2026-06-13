@@ -5,6 +5,10 @@ class KuValidator
   TANKU  = 14  # 短句（7-7）
   USER_DIC = Rails.root.join("dict", "user.dic").to_s
 
+  # 音数が17と14のどちらに近いかで句種を判定
+  def self.nearest_verse_type(mora)
+    (mora - CHOUKU).abs <= (mora - TANKU).abs ? :chouku : :tanku
+  end
 
   def initialize(text, type: :chouku)
     @text = text
@@ -61,3 +65,4 @@ class KuValidator
     morphemes.length >= 2
   end
 end
+

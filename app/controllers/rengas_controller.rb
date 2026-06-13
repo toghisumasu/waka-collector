@@ -19,7 +19,11 @@ class RengasController < ApplicationController
     previous_renga_id = renga_params[:previous_renga_id]
     confirmed         = params[:confirmed] == "true"
 
-    check = KuValidator.new(maeku).validate
+    maeku_mora      = KuValidator.new(maeku).count_mora
+    maeku_type      = KuValidator.nearest_verse_type(maeku_mora)
+    next_verse_type = (maeku_type == :chouku) ? :tanku : :chouku
+
+    check = KuValidator.new(maeku, type: maeku_type).validate
 
     if check[:result] == "ng"
       @renga  = Renga.new(maeku: maeku, previous_renga_id: previous_renga_id)
@@ -40,7 +44,8 @@ class RengasController < ApplicationController
 
     honka_ids = Array(renga_params[:honka_ids]).reject(&:blank?).map(&:to_i)
     honkas    = honka_ids.any? ? Waka.where(id: honka_ids) : []
-    tsugeku = RengaGenerator.new(maeku, honkas).generate_tsugeku
+
+    tsugeku = RengaGenerator.new(maeku, honkas, next_verse_type).generate_tsugeku
     result  = RengaChecker.new([maeku, tsugeku]).check
 
     @renga = Renga.create!(
