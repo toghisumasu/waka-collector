@@ -3,6 +3,8 @@
 class KuValidator
   CHOUKU = 17  # 長句（5-7-5）
   TANKU  = 14  # 短句（7-7）
+  USER_DIC = Rails.root.join("dict", "user.dic").to_s
+
 
   def initialize(text, type: :chouku)
     @text = text
@@ -29,7 +31,7 @@ class KuValidator
 
   def count_mora
     require 'natto'
-    nm = Natto::MeCab.new
+    nm = Natto::MeCab.new(userdic: USER_DIC)
     clean = @text.gsub(/\s+/, '')
 
     yomi_parts = []
@@ -48,7 +50,7 @@ class KuValidator
 
   def valid_by_morphemes?
     require 'natto'
-    nm = Natto::MeCab.new
+    nm = Natto::MeCab.new(userdic: USER_DIC)
     clean = @text.gsub(/\s+/, '')
 
     return false if clean.empty?
