@@ -27,4 +27,19 @@
   </ul>
 <% end %>
 
-<%= link_to "次の連歌へ", new_renga_path %>
+<p>
+  <%= link_to "この付句を前句として続ける",
+        new_renga_path(previous_renga_id: @renga.id) %>
+</p>
+
+<% if @renga.previous_renga_id.present? %>
+  <p>
+    <%= link_to "前の句に戻る",
+          renga_path(@renga.previous_renga_id) %>
+  </p>
+<% end %>
+
+<p>
+  <%= link_to "新しい連歌を始める", new_renga_path %>
+</p>
+

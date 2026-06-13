@@ -9,6 +9,7 @@
 <% end %>
 
 <%= form_with model: @renga do |f| %>
+  <%= f.hidden_field :previous_renga_id %>
   <div>
     <%= f.label :maeku, "前句（五七五）" %><br>
     <%= f.text_area :maeku,

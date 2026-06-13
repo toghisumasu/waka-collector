@@ -4,25 +4,17 @@ class RengasController < ApplicationController
   def new
     @renga  = Renga.new
     @honkas = Waka.limit(5)
-
-    if params[:previous_renga_id].present?
-      @previous_renga = Renga.find_by(id: params[:previous_renga_id])
-      if @previous_renga
-        @renga.maeku             = @previous_renga.tsugeku
-        @renga.previous_renga_id = @previous_renga.id
-      end
-    end
   end
 
   def create
-    maeku             = renga_params[:maeku]
-    previous_renga_id = renga_params[:previous_renga_id]
-    confirmed         = params[:confirmed] == "true"
+    maeku     = renga_params[:maeku]
+    confirmed = params[:confirmed] == "true"
 
+    # 句の検証（KuValidator）
     check = KuValidator.new(maeku).validate
 
     if check[:result] == "ng"
-      @renga  = Renga.new(maeku: maeku, previous_renga_id: previous_renga_id)
+      @renga  = Renga.new(maeku: maeku)
       @honkas = Waka.limit(5)
       flash.now[:alert] = check[:message]
       render :new, status: :unprocessable_entity
@@ -30,7 +22,7 @@ class RengasController < ApplicationController
     end
 
     if check[:result] == "warning" && !confirmed
-      @renga     = Renga.new(maeku: maeku, previous_renga_id: previous_renga_id)
+      @renga     = Renga.new(maeku: maeku)
       @honkas    = Waka.limit(5)
       @warning   = check[:message]
       @confirmed = true
@@ -50,13 +42,12 @@ class RengasController < ApplicationController
       tsugeku_author:     "メンタムさん",
       generated_by_model: OllamaClient::MODEL,
       style_check_result: result,
-      honka_reference:    honka_ids,
-      previous_renga_id:  previous_renga_id
+      honka_reference:    honka_ids
     )
 
     redirect_to @renga, notice: "付け句が生成されました"
   rescue RuntimeError => e
-    @renga  = Renga.new(maeku: maeku, previous_renga_id: previous_renga_id)
+    @renga  = Renga.new(maeku: maeku)
     @honkas = Waka.limit(5)
     flash.now[:alert] = e.message
     render :new, status: :service_unavailable
@@ -69,7 +60,6 @@ class RengasController < ApplicationController
   private
 
   def renga_params
-    params.require(:renga).permit(:maeku, :previous_renga_id, honka_ids: [])
+    params.require(:renga).permit(:maeku, honka_ids: [])
   end
 end
-
