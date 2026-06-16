@@ -226,6 +226,7 @@ else
 end
 puts ""
 
+used_afters = []  # dynamic blacklist
 5.times do |i|
   seed       = pool.sample
   hints      = extract_hints(seed)
@@ -284,23 +285,34 @@ puts ""
     has_kanji     = ku.match?(/[^\u3040-\u309F\u3099-\u309C\s]/)
     is_echo       = ECHO_AFTERS.include?(ku)
     is_repetition = (ku == seed[:yomi])
+    is_sticky     = used_afters.count(ku) >= 2
 
     temp_label = temperature == 0.8 ? "🌡" : ""
     flags = [
       (has_kanji     ? "漢字混入" : nil),
       (is_echo       ? "echo"     : nil),
-      (is_repetition ? "鸚鵡返し"  : nil)
+      (is_repetition ? "鸚鵡返し"  : nil),
+      (is_sticky     ? "固着"      : nil)
     ].compact.join("・")
     flag_str = flags.empty? ? "" : "・#{flags}"
 
     puts "  attempt#{attempt + 1}#{temp_label}[例:#{example[:after]}]: #{ku}（#{mora}音#{flag_str}）#{elapsed.round(1)}秒"
 
-    if mora == 7 && !has_kanji && !is_echo && !is_repetition
+    if mora == 7 && !has_kanji && !is_echo && !is_repetition && !is_sticky
       result_ku = ku
+      used_afters << ku
       break
     end
 
     wrong_streak += 1
+
+    if wrong_streak >= 3
+      seed         = pool.sample
+      hints        = extract_hints(seed)
+      wrong_streak = 0
+      feedback     = nil
+      puts "  [seed swap] #{seed[:surface]} [#{seed[:position]}]"
+    end
 
     # 版0の差分フィードバック復帰
     # 音数は「あと○音」の差分指示（収束実績あり）

@@ -5,7 +5,7 @@ class RengaGenerator
     chouku: { label: "五七五", mora_desc: "五音＋七音＋五音（合わせて17音）",
               example: "「山深く 紅葉色づく 秋の風」（5+7+5音）" },
     tanku:  { label: "七七",   mora_desc: "七音＋七音（合わせて14音）",
-              example: "「静けさ残り 夜空に星が光る」（7+7音）" }
+              example: "「夕暮れ近き 鐘の音響く」（7+7音）" }
   }.freeze
 
   def initialize(maeku, honka_candidates = [], verse_type = :tanku)
@@ -15,7 +15,12 @@ class RengaGenerator
   end
 
   def generate_tsugeku
-    raw = OllamaClient.generate(build_prompt)
+    messages = [{ role: "user", content: build_prompt }]
+
+    raw = OllamaClient.chat_with_tools(messages, tools: [OllamaTools::COUNT_MORA], timeout: 600) do |name, args|
+      OllamaTools.execute(name, args)
+    end
+
     raw.to_s.strip.lines.map(&:strip).reject(&:empty?).first.to_s
   end
 
@@ -34,6 +39,12 @@ class RengaGenerator
       - 例：#{format[:example]}
       - 前句に出てくる言葉は使わない（去嫌）。
       - 解説や前置きは一切書かず、付け句本体のみを出力する。
+
+      【モーラ数の確認】
+      - 句が完成したら、count_moraツールでモーラ数を確認する。
+      - #{format[:mora_desc]}になっているか確認する。
+      - 一致しない場合は句を作り直し、再度count_moraで確認する。
+      - 確認が済んだら、最終的な付け句を1行だけ出力する。
 
       【前句】
       #{@maeku}
