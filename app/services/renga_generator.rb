@@ -33,6 +33,7 @@ class RengaGenerator
   end
 
   def generate_tsugeku
+    start_time = Time.now
     nm   = build_mecab
     pool = Rails.cache.fetch("seed_pool_v1", expires_in: 1.hour) { build_seed_pool(nm) }
     pool = filter_pool(pool)
@@ -54,7 +55,9 @@ class RengaGenerator
         example     = EXAMPLES[attempt % EXAMPLES.size]
         temperature = wrong_streak >= 2 ? 0.8 : 0.5
         prompt      = build_after_prompt(seed, example, feedback, hints, m_nature)
+        gen_start = Time.now
         raw         = OllamaClient.generate(prompt, timeout: 120, think: false, temperature: temperature)
+        Rails.logger.info "[RengaGenerator] attempt: #{Time.now - gen_start}s"
         ku          = raw.to_s.strip.lines.map(&:strip).reject(&:empty?).first.to_s
         mora        = count_mora_from_kana(ku)
         has_kanji   = ku.match?(/[^\u3040-\u309F\u3099-\u309C\s]/)
@@ -84,6 +87,7 @@ class RengaGenerator
       break if result_ku
     end
 
+    Rails.logger.info "[RengaGenerator] total: #{Time.now - start_time}s"
     result_ku.to_s
   end
 
