@@ -227,6 +227,7 @@ end
 puts ""
 
 used_afters = []  # dynamic blacklist
+all_attempts = []  # 音数NG含む全候補ブラックリスト
 5.times do |i|
   seed       = pool.sample
   hints      = extract_hints(seed)
@@ -285,7 +286,8 @@ used_afters = []  # dynamic blacklist
     has_kanji     = ku.match?(/[^\u3040-\u309F\u3099-\u309C\s]/)
     is_echo       = ECHO_AFTERS.include?(ku)
     is_repetition = (ku == seed[:yomi])
-    is_sticky     = used_afters.count(ku) >= 2
+    all_attempts << ku
+    is_sticky     = used_afters.count(ku) >= 2 || all_attempts.count(ku) >= 3
 
     temp_label = temperature == 0.8 ? "🌡" : ""
     flags = [
