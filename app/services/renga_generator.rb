@@ -68,7 +68,8 @@ class RengaGenerator
         is_sticky       = used_afters.count(ku) >= 2 || all_attempts.count(ku) >= 3
         is_maeku_repeat = maeku_stems.any? { |w| w.include?(ku) || ku.include?(w) }
 
-        if mora == 7 && !has_kanji && !is_echo && !is_rep && !is_sticky && !is_maeku_repeat
+        target_mora = (@verse_type == :chouku) ? 5 : 7
+        if mora == target_mora && !has_kanji && !is_echo && !is_rep && !is_sticky && !is_maeku_repeat
           result_ku = "#{seed[:surface]}#{ku}"
           used_afters << ku
           break
@@ -227,24 +228,45 @@ class RengaGenerator
     maeku_hint = m_nature.any? ? "前句の情景：#{m_nature.join("・")}" : nil
     hint_parts = [maeku_hint, hints ? "元の和歌より：#{hints}" : nil].compact
     hint_line  = hint_parts.any? ? "【付合の手がかり】#{hint_parts.join(" / ")}\n" : ""
-    feedback_line = feedback ? "【やり直し】前回「#{feedback[:ku]}」は#{feedback[:issue]}。#{feedback[:message]}\n" : ""
-    <<~PROMPT
-      あなたは連歌の執筆役です。
-      【前句】
-      #{@maeku}
-      #{hint_line}【指示】
-      短句（七七）の前半はすでに決まっています。
-      後半の7音のみをひらがなで出力してください。
-      前半の言葉は出力しないこと。
-      前半を「主部・条件・理由」、後半をそれを受ける「述部」として完成させてください。
-      例：「#{example[:before]}」→「#{example[:after]}」
-      前半（決定済み）：#{seed[:surface]}
-      #{feedback_line}【出力ルール】
-      - ひらがなのみで7音ちょうどを1行で出力する。
-      - 前半の言葉を繰り返さない。
-      - 例文の言葉（「#{example[:after]}」）をそのままコピーしない。
-      - 説明・記号・句読点は一切出力しない。
-      後半の7音：
-    PROMPT
+    feedback_line = feedback ? "【やり直し】前回「#{feedback[:ku]}」は #{feedback[:issue]}。#{feedback[:message]}\n" : ""
+    if @verse_type == :chouku
+      <<~PROMPT
+        あなたは連歌の執筆役です。
+        【前句】
+        #{@maeku}
+        #{hint_line}【指示】
+        長句（五七五）の第2句はすでに決まっています。
+        第3句の5音のみをひらがなで出力してください。
+        第2句の言葉は出力しないこと。
+        第2句を「主部・条件」、第3句をそれを受ける「結び」として完成させてください。
+        例：「#{example[:before]}」→「#{example[:after]}」
+        第2句（決定済み）：#{seed[:surface]}
+        #{feedback_line}【出力ルール】
+        - ひらがなのみで5音ちょうどを1行で出力する。
+        - 第2句の言葉を繰り返さない。
+        - 例文の言葉（「#{example[:after]}」）をそのままコピーしない。
+        - 説明・記号・句読点は一切出力しない。
+        第3句の5音：
+      PROMPT
+    else
+      <<~PROMPT
+        あなたは連歌の執筆役です。
+        【前句】
+        #{@maeku}
+        #{hint_line}【指示】
+        短句（七七）の前半はすでに決まっています。
+        後半の7音のみをひらがなで出力してください。
+        前半の言葉は出力しないこと。
+        前半を「主部・条件・理由」、後半をそれを受ける「述部」として完成させてください。
+        例：「#{example[:before]}」→「#{example[:after]}」
+        前半（決定済み）：#{seed[:surface]}
+        #{feedback_line}【出力ルール】
+        - ひらがなのみで7音ちょうどを1行で出力する。
+        - 前半の言葉を繰り返さない。
+        - 例文の言葉（「#{example[:after]}」）をそのままコピーしない。
+        - 説明・記号・句読点は一切出力しない。
+        後半の7音：
+      PROMPT
+    end
   end
 end
