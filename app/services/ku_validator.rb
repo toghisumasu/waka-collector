@@ -34,20 +34,20 @@ class KuValidator
   end
 
   def count_mora
+    yomi_string.gsub(/[ゃゅょ]/, '').length
+  end
+
+  def yomi_string
     require 'natto'
     nm = Natto::MeCab.new(userdic: USER_DIC)
     clean = @text.gsub(/\s+/, '')
-
     yomi_parts = []
     nm.parse(clean) do |node|
       next if node.is_eos?
       features = node.feature.split(",")
       yomi_parts << (features[7] || node.surface)
     end
-
-    yomi_str = yomi_parts.join("")
-    hiragana = yomi_str.tr('ァ-ヴー', 'ぁ-ゔー')
-    hiragana.gsub(/[ゃゅょ]/, '').length
+    yomi_parts.join("").tr('ァ-ヴー', 'ぁ-ゔー')
   end
 
   private
