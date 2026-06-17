@@ -43,6 +43,7 @@ class RengaGenerator
     result_ku   = nil
 
     m_season = maeku_season
+    maeku_stems = KuValidator.new(@maeku).yomi_string.scan(/[ぁ-んゕゖ]{3,}/)
     m_nature = maeku_nature
 
     5.times do
@@ -64,9 +65,10 @@ class RengaGenerator
         is_echo     = ECHO_AFTERS.include?(ku)
         is_rep      = (ku == seed[:yomi])
         all_attempts << ku
-        is_sticky   = used_afters.count(ku) >= 2 || all_attempts.count(ku) >= 3
+        is_sticky       = used_afters.count(ku) >= 2 || all_attempts.count(ku) >= 3
+        is_maeku_repeat = maeku_stems.any? { |w| w.include?(ku) || ku.include?(w) }
 
-        if mora == 7 && !has_kanji && !is_echo && !is_rep && !is_sticky
+        if mora == 7 && !has_kanji && !is_echo && !is_rep && !is_sticky && !is_maeku_repeat
           result_ku = "#{seed[:surface]}#{ku}"
           used_afters << ku
           break
@@ -78,7 +80,7 @@ class RengaGenerator
           wrong_streak = 0
           feedback     = nil
         else
-          issue   = has_kanji ? "漢字混入" : is_echo ? "echo" : is_rep ? "鸚鵡返し" : is_sticky ? "固着" : "#{mora}音"
+          issue   = has_kanji ? "漢字混入" : is_echo ? "echo" : is_rep ? "鸚鵡返し" : is_sticky ? "固着" : is_maeku_repeat ? "前句重複" : "#{mora}音"
           message = mora > 7 ? "もっと短く" : mora < 7 ? "もっと長く" : "別の言葉で"
           feedback = { ku: ku, issue: issue, message: message }
         end
