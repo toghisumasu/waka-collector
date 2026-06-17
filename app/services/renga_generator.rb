@@ -16,6 +16,14 @@ class RengaGenerator
 
   ECHO_AFTERS = EXAMPLES.map { |e| e[:after] }.freeze
 
+  DECORATION_POOL = %w[
+    しづかなる ほのぼのと うすうすと あはれにも たをやかに
+    はかなくも しめやかに さびしげに ゆふぐれの あさぼらけ
+    おぼろなる かそけくも もろともに しらしらと みやびなる
+    さながらに おぼつかな ひそやかに なかなかに こころなき
+    むなしくも やはらかに ひとひらの たえだえに ほのかなる
+  ].freeze
+
   SEASON_WORDS = {
     spring: %w[春 霞 梅 桜 鶯 柳 蛙 燕 桃 朧 若草 菜の花 山吹 かすみ うぐいす わらび ふきのとう すみれ たんぽぽ よもぎ],
     summer: %w[夏 郭公 ほととぎす 蛍 五月雨 蓮 卯の花 青葉 緑 時鳥 さみだれ あやめ しょうぶ],
@@ -70,7 +78,12 @@ class RengaGenerator
 
         target_mora = (@verse_type == :chouku) ? 5 : 7
         if mora == target_mora && !has_kanji && !is_echo && !is_rep && !is_sticky && !is_maeku_repeat
-          result_ku = "#{seed[:surface]}#{ku}"
+          if @verse_type == :chouku
+            deco = DECORATION_POOL.sample
+            result_ku = "#{deco}#{seed[:surface]}#{ku}"
+          else
+            result_ku = "\#{seed[:surface]}\#{ku}"
+          end
           used_afters << ku
           break
         end
