@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 require "natto"
+require "yaml"
 
 class RengaGenerator
   USER_DIC = Rails.root.join("dict", "user.dic").to_s
@@ -16,13 +17,13 @@ class RengaGenerator
 
   ECHO_AFTERS = EXAMPLES.map { |e| e[:after] }.freeze
 
-  DECORATION_POOL = %w[
-    しづかなる ほのぼのと うすうすと あはれにも たをやかに
-    はかなくも しめやかに さびしげに ゆふぐれの あさぼらけ
-    おぼろなる かそけくも もろともに しらしらと みやびなる
-    さながらに おぼつかな ひそやかに なかなかに こころなき
-    むなしくも やはらかに ひとひらの たえだえに ほのかなる
-  ].freeze
+  DECORATION_POOL = YAML.load_file(
+    Rails.root.join("app/data/decoration_pool.yml")
+  ).freeze
+
+  MAKURA_MAP = YAML.load_file(
+    Rails.root.join("app/data/makura_map.yml")
+  ).freeze
 
   SEASON_WORDS = {
     spring: %w[春 霞 梅 桜 鶯 柳 蛙 燕 桃 朧 若草 菜の花 山吹 かすみ うぐいす わらび ふきのとう すみれ たんぽぽ よもぎ],
