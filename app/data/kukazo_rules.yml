@@ -1,0 +1,29 @@
+---
+seasons:
+  春:
+    max: 5
+    min: 3
+  秋:
+    max: 5
+    min: 3
+  夏:
+    max: 3
+  冬:
+    max: 3
+bui:
+  恋:
+    max: 5
+  旅:
+    max: 3
+  述懐:
+    max: 3
+  神祇:
+    max: 3
+  釈教:
+    max: 3
+  山類:
+    max: 3
+  水辺:
+    max: 3
+  居所:
+    max: 3
