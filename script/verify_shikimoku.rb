@@ -201,15 +201,18 @@ puts "─" * 56
 puts "  ※ 体用の区別は未反映。偽陽性の確認が目的。"
 puts
 
+require_relative '../app/services/bui_dictionary'
+bui_dict = BuiDictionary.new(File.join(__dir__, '../app/data/bui_dictionary.yml'))
+
 minase = [
-  { bui: ["降物","山類","聳物","時分"], season: "春" }, # 1 雪ながら山本かすむ夕べかな
-  { bui: ["水辺"],                      season: "春" }, # 2 行く水とほく梅にほふ里
-  { bui: ["植物"],                      season: "春" }, # 3 川風に一むら柳春見えて
-  { bui: ["水辺"],                      season: nil  }, # 4 舟さす音もしるき明け方（雑）
-  { bui: ["光物","聳物"],               season: "秋" }, # 5 月や猶霧わたる夜に残るらん
-  { bui: ["降物"],                      season: "秋" }, # 6 霜おく野はら秋は暮れけり
-  { bui: ["動物"],                      season: "秋" }, # 7 鳴く虫の心ともなく草枯れて
-  { bui: ["居所"],                      season: nil  }, # 8 垣根をとへばあらはなる道（雑）
+  { bui: ["降物","山類","聳物","時分"], season: "春", word: nil      }, # 1
+  { bui: ["水辺"],                      season: "春", word: "行く水" }, # 2 体
+  { bui: ["植物"],                      season: "春", word: nil      }, # 3
+  { bui: ["水辺"],                      season: nil,  word: "舟"     }, # 4 用
+  { bui: ["光物","聳物"],               season: "秋", word: nil      }, # 5
+  { bui: ["降物"],                      season: "秋", word: nil      }, # 6
+  { bui: ["動物"],                      season: "秋", word: nil      }, # 7
+  { bui: ["居所"],                      season: nil,  word: nil      }, # 8
 ]
 
 v = checker.scan_chain(minase)
@@ -233,21 +236,28 @@ end
 
 puts
 puts "  ──所見──"
-puts "  句去違反：水辺 pos4（pos2から間1句<5）"
-puts "    → 水無瀬では合法。水辺の体用各別物が未実装なので偽陽性。仕様1の予告通り。"
+puts "  句去違反1件：水辺 pos4（辞書なし）→ 偽陽性（体用未区別）"
 puts "  句数違反：なし"
-puts "    → 春3句(1-3)→雑(4)の転換は最短3句ちょうどで適法。"
-puts "       秋3句(5-7)→雑(8)の転換も同様。"
-puts "  句去偽陽性が1件・句数違反が0件 = ShikimokuChecker は仕様どおり動作。"
 puts
 
-# 試験3は pass/fail ではなく所見確認なので合計に含めない
+puts "  ── 体用辞書あり（bui_dict）で再チェック ──"
+v2 = checker.kuzari_violations(
+  minase[0..2].map { |h| Array(h[:bui]) },
+  minase[3][:bui],
+  bui_dict: bui_dict,
+  history_words: minase[0..2].map { |h| h[:word] },
+  candidate_word: minase[3][:word]
+)
+res3 = check("体用辞書あり：水辺pos4（舟=用）はpos2（行く水=体）と体用相別→違反なし",
+             v2.empty?, true)
+total_pass += 1 if res3
+total_fail += 1 unless res3
+puts
 
 # ─────────────────────────────────────────────────────────────
 #  集計
 # ─────────────────────────────────────────────────────────────
 puts "═" * 56
 puts "総合：#{total_pass} pass / #{total_fail} fail"
-puts "（試験3は偽陽性確認が目的のため集計外）"
 exit(total_fail.zero? ? 0 : 1)
 

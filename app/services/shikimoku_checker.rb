@@ -52,7 +52,7 @@ class ShikimokuChecker
   # history_bui   : Array<Array<String>>  各句の部立集合（古い順）
   # candidate_bui : Array<String>         付けようとする句の部立集合
   # 返り値: Array<Hash>  { bui:, required:, actual:, last_pos: }
-  def kuzari_violations(history_bui, candidate_bui)
+  def kuzari_violations(history_bui, candidate_bui, bui_dict: nil, history_words: [], candidate_word: nil)
     n = history_bui.size
     violations = []
 
@@ -60,9 +60,18 @@ class ShikimokuChecker
       interval = @rules[bui]
       next unless interval
 
-      j = n.downto(1).find { |pos| Array(history_bui[pos - 1]).include?(bui) }
+      cand_taiyo = bui_dict&.taiyo(candidate_word)
+
+      j = n.downto(1).find do |pos|
+        next false unless Array(history_bui[pos - 1]).include?(bui)
+        if bui_dict && cand_taiyo && history_words[pos - 1]
+          hist_taiyo = bui_dict.taiyo(history_words[pos - 1])
+          next false if hist_taiyo != cand_taiyo
+        end
+        true
+      end
       next if j.nil?
-      next if j == n  # 連続は句数の領分・ここでは対象外
+      next if j == n
 
       between = n - j
       next if between >= interval
@@ -145,10 +154,15 @@ class ShikimokuChecker
   #  統合チェック：句去 + 句数（Hash 形式）
   # ══════════════════════════════════════════════════════
 
-  def all_violations(history, candidate)
+  def all_violations(history, candidate, bui_dict: nil)
     history_bui   = history.map { |v| Array(v[:bui]) }
-    candidate_bui = Array(candidate[:bui])
-    kuzari_violations(history_bui, candidate_bui) +
+    history_words = history.map { |v| v[:word] }
+    candidate_bui  = Array(candidate[:bui])
+    candidate_word = candidate[:word]
+    kuzari_violations(history_bui, candidate_bui,
+                      bui_dict: bui_dict,
+                      history_words: history_words,
+                      candidate_word: candidate_word) +
       kukazo_violations(history, candidate)
   end
 
