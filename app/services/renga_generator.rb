@@ -83,7 +83,7 @@ class RengaGenerator
             deco = DECORATION_POOL.sample
             result_ku = "#{deco}#{seed[:surface]}#{ku}"
           else
-            result_ku = "\#{seed[:surface]}\#{ku}"
+            result_ku = "#{seed[:surface]}#{ku}"
           end
           used_afters << ku
           break
