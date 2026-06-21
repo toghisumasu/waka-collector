@@ -176,14 +176,14 @@ class ShikimokuChecker
 
   # chain: Array<Hash>         → 句去 + 句数（統合・推奨）
   #        Array<Array<String>> → 句去のみ（後方互換）
-  def scan_chain(chain)
+  def scan_chain(chain, bui_dict: nil)
     results = []
     chain.each_with_index do |candidate, i|
       history = chain[0...i]
       if candidate.is_a?(Hash)
-        all_violations(history, candidate).each { |v| results << v.merge(pos: i + 1) }
+        all_violations(history, candidate, bui_dict: bui_dict).each { |v| results << v.merge(pos: i + 1) }
       else
-        kuzari_violations(history, candidate).each { |v| results << v.merge(pos: i + 1) }
+        kuzari_violations(history, candidate, bui_dict: bui_dict).each { |v| results << v.merge(pos: i + 1) }
       end
     end
     results
