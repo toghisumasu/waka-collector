@@ -247,6 +247,44 @@ res3 = check("体用辞書あり：初折表1〜8の句去違反は0件",
 total_pass += 1 if res3
 total_fail += 1 unless res3
 puts
+# ---------------------------------------------------------
+#  Test4: Minase Ura 9-22 (Hash / kuzari+kukazo)
+# ---------------------------------------------------------
+puts "=" * 56
+puts "Test4: Minase Ura 9-22 (kuzari+kukazo)"
+puts "-" * 56
+minase_ura = [
+  { word: "yamafulaki",     bui: ["腴素物", "居所"], season: "秋" },
+  { word: "narenusumahi",   bui: ["居所"],  season: "雑" },
+  { word: "imasarani",      bui: ["人倫"], season: "雑" },
+  { word: "uturohan",       bui: [],                   season: "雑" },
+  { word: "okiwaburu",      bui: ["降物", "植物"], season: "春" },
+  { word: "madanokoru",     bui: ["光物", "腴素物"], season: "春" },
+  { word: "kurenuToya",     bui: ["動物"],    season: "春" },
+  { word: "miyamawoyuke",   bui: ["山類"], season: "雑" },
+  { word: "haruruma",       bui: ["衣裳", "降物"], season: "冬" },
+  { word: "wagakusamakura", bui: ["光物"], season: "秋" },
+  { word: "itadura",        bui: ["時分"],   season: "秋" },
+  { word: "yumeni",         bui: ["植物"],  season: "秋" },
+  { word: "mishihamina",    bui: ["名所"], season: "雑" },
+  { word: "oino",           bui: ["述懐"], season: "雑" },
+]
+chain_1_22 = minase + minase_ura
+puts "  [kuzari without dict]"
+v4 = checker.scan_chain(chain_1_22)
+kuzari4 = v4.reject { |v| v[:type] == :kukazo }
+if kuzari4.empty?
+  puts "    none"
+else
+  kuzari4.each { |viol| puts "    -> pos#{viol[:pos]+1}: bui=#{viol[:bui]} gap=#{viol[:gap]} required=#{viol[:required]}" }
+end
+puts "  -- with bui_dict --"
+v4d = checker.scan_chain(chain_1_22, bui_dict: bui_dict)
+kuzari4d = v4d.reject { |v| v[:type].to_s.start_with?("kukazo") }
+res4 = check("bui_dict: ura 9-22 kuzari=0", kuzari4d.size, 0)
+total_pass += 1 if res4
+total_fail += 1 unless res4
+puts
 
 # ─────────────────────────────────────────────────────────────
 #  集計
