@@ -254,12 +254,12 @@ puts "=" * 56
 puts "Test4: Minase Ura 9-22 (kuzari+kukazo)"
 puts "-" * 56
 minase_ura = [
-  { word: "yamafulaki",     bui: ["腴素物", "居所"], season: "秋" },
+  { word: "yamafulaki",     bui: ["聳物", "居所"], season: "秋" },
   { word: "narenusumahi",   bui: ["居所"],  season: "雑" },
   { word: "imasarani",      bui: ["人倫"], season: "雑" },
   { word: "uturohan",       bui: [],                   season: "雑" },
   { word: "okiwaburu",      bui: ["降物", "植物"], season: "春" },
-  { word: "madanokoru",     bui: ["光物", "腴素物"], season: "春" },
+  { word: "madanokoru",     bui: ["光物", "聳物"], season: "春" },
   { word: "kurenuToya",     bui: ["動物"],    season: "春" },
   { word: "miyamawoyuke",   bui: ["山類"], season: "雑" },
   { word: "haruruma",       bui: ["衣裳", "降物"], season: "冬" },
@@ -284,6 +284,44 @@ kuzari4d = v4d.reject { |v| v[:type].to_s.start_with?("kukazo") }
 res4 = check("bui_dict: ura 9-22 kuzari=0", kuzari4d.size, 0)
 total_pass += 1 if res4
 total_fail += 1 unless res4
+puts
+# ---------------------------------------------------------
+#  Test5: Minase Omote 23-36 (Hash / kuzari+kukazo)
+# ---------------------------------------------------------
+puts "=" * 56
+puts "Test5: Minase Omote 23-36 (kuzari+kukazo)"
+puts "-" * 56
+minase_omote2 = [
+  { word: "irokimotoki",  bui: [],                          season: "雑" },
+  { word: "soretomotomo", bui: ["時分"],         season: "秋" },
+  { word: "kumonikefuu",  bui: ["聳物", "山類", "植物"], season: "春" },
+  { word: "kikebaimaha",  bui: ["動物"],         season: "春" },
+  { word: "oborogeno",    bui: ["光物"],        season: "春" },
+  { word: "karineno",     bui: ["降物", "時分"], season: "秋" },
+  { word: "suenonaru",    bui: ["居所", "聳物"], season: "秋" },
+  { word: "fukikuru",     bui: ["衣裳"],         season: "秋" },
+  { word: "sayurubi",     bui: ["光物", "衣裳"], season: "冬" },
+  { word: "tanomumohakana", bui: ["山類"],      season: "冬" },
+  { word: "saritomono",   bui: ["述懐"],        season: "雑" },
+  { word: "kokorobososhi", bui: [],                         season: "雑" },
+  { word: "inotinoMi",    bui: ["恋"],         season: "恋" },
+  { word: "nahoNani",     bui: ["恋"],         season: "恋" },
+]
+chain_1_36 = minase + minase_ura + minase_omote2
+puts "  [kuzari without dict]"
+v5 = checker.scan_chain(chain_1_36)
+kuzari5 = v5.reject { |v| v[:type].to_s.start_with?("kukazo") }
+if kuzari5.empty?
+  puts "    none"
+else
+  kuzari5.each { |viol| puts "    -> pos#{viol[:pos]+1}: bui=#{viol[:bui]} gap=#{viol[:gap]} required=#{viol[:required]}" }
+end
+puts "  -- with bui_dict --"
+v5d = checker.scan_chain(chain_1_36, bui_dict: bui_dict)
+kuzari5d = v5d.reject { |v| v[:type].to_s.start_with?("kukazo") }
+res5 = check("bui_dict: omote2 23-36 kuzari=0", kuzari5d.size, 0)
+total_pass += 1 if res5
+total_fail += 1 unless res5
 puts
 
 # ─────────────────────────────────────────────────────────────
