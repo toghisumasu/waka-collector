@@ -209,12 +209,60 @@ class ShikimokuChecker
   end
 
   # ══════════════════════════════════════════════════════
+  #  長短交互チェック（Phase 8-2）
+  # ══════════════════════════════════════════════════════
+  #
+  # verse[:verse_type] = :chouku（長句 5-7-5）or :tanku（短句 7-7）
+  # 発句は :chouku 固定。隣接する2句が同じ verse_type なら違反。
+  # verse_type キーのない句はスキップ（型未確定の句と混在可）。
+
+  # history: Array<Hash>  直前までの句列
+  # candidate: Hash       今付けようとする句
+  # 返り値: Array<Hash> { type: :chotan_chigai, pos:, verse_type:, expected: }
+  def chotan_violations(history, candidate)
+    return [] unless candidate.is_a?(Hash) && candidate[:verse_type]
+
+    prev = history.reverse_each.find { |v| v.is_a?(Hash) && v[:verse_type] }
+    return [] unless prev
+
+    return [] if prev[:verse_type] != candidate[:verse_type]
+
+    expected = (candidate[:verse_type] == :chouku) ? :tanku : :chouku
+    [{ type: :chotan_chigai,
+       verse_type: candidate[:verse_type],
+       expected: expected }]
+  end
+
+  def chotan_ok?(history, candidate)
+    chotan_violations(history, candidate).empty?
+  end
+
+  # scan_chain に長短交互チェックを統合（verse_type があるときのみ）
+  def scan_chain_with_chotan(chain, bui_dict: nil)
+    results = []
+    chain.each_with_index do |candidate, i|
+      history = chain[0...i]
+      if candidate.is_a?(Hash)
+        all_violations(history, candidate, bui_dict: bui_dict).each { |v| results << v.merge(pos: i + 1) }
+        chotan_violations(history, candidate).each { |v| results << v.merge(pos: i + 1) }
+      else
+        kuzari_violations(history, candidate, bui_dict: bui_dict).each { |v| results << v.merge(pos: i + 1) }
+      end
+    end
+    results
+  end
+
+  # ══════════════════════════════════════════════════════
   #  違反の人間可読表示
   # ══════════════════════════════════════════════════════
 
   def self.describe(violation)
     pos_str = violation[:pos] ? "#{violation[:pos]}句目：" : ""
     case violation[:type]
+    when :chotan_chigai
+      type_ja = violation[:verse_type] == :chouku ? "長句" : "短句"
+      exp_ja  = violation[:expected]   == :chouku ? "長句" : "短句"
+      "#{pos_str}#{type_ja}が連続（次は#{exp_ja}が必要）"
     when :kukazo_over
       if violation[:season]
         "#{pos_str}季「#{violation[:season]}」が#{violation[:streak]}句連続（上限#{violation[:max]}句）"
