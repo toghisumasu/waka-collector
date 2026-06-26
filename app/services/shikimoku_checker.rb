@@ -237,6 +237,38 @@ class ShikimokuChecker
     chotan_violations(history, candidate).empty?
   end
 
+  # ══════════════════════════════════════════════════════
+  #  定座チェック（月・花）
+  # ══════════════════════════════════════════════════════
+  #
+  # verse[:tsuki] = true … その句に「月」が詠まれている
+  # verse[:hana]  = true … その句に「花（桜）」が詠まれている
+  #
+  # faces: Array<Hash> { name:, range: Range<Integer>(1-based), req: bool }
+  #   req: false の面はチェックしない（名残裏免除など）
+  #
+  # 月チェック: 各面（面=表/裏の区切り）に月を1句以上
+  # 花チェック: 各折（折単位）に花を1句以上
+
+  def teiza_tsuki_violations(chain, faces)
+    faces.each_with_object([]) do |face, violations|
+      next unless face[:req]
+      verses = chain[(face[:range].min - 1)..(face[:range].max - 1)]
+      unless verses.any? { |v| v.is_a?(Hash) && v[:tsuki] }
+        violations << { type: :teiza_tsuki, fold: face[:name], range: face[:range] }
+      end
+    end
+  end
+
+  def teiza_hana_violations(chain, folds)
+    folds.each_with_object([]) do |fold, violations|
+      verses = chain[(fold[:range].min - 1)..(fold[:range].max - 1)]
+      unless verses.any? { |v| v.is_a?(Hash) && v[:hana] }
+        violations << { type: :teiza_hana, fold: fold[:name], range: fold[:range] }
+      end
+    end
+  end
+
   # scan_chain に長短交互チェックを統合（verse_type があるときのみ）
   def scan_chain_with_chotan(chain, bui_dict: nil)
     results = []
@@ -259,6 +291,10 @@ class ShikimokuChecker
   def self.describe(violation)
     pos_str = violation[:pos] ? "#{violation[:pos]}句目：" : ""
     case violation[:type]
+    when :teiza_tsuki
+      "#{pos_str}面「#{violation[:fold]}」（#{violation[:range]}句）に月なし"
+    when :teiza_hana
+      "#{pos_str}折「#{violation[:fold]}」（#{violation[:range]}句）に花なし"
     when :chotan_chigai
       type_ja = violation[:verse_type] == :chouku ? "長句" : "短句"
       exp_ja  = violation[:expected]   == :chouku ? "長句" : "短句"
