@@ -31,12 +31,12 @@ puts "─" * 56
 p1 = 0; f1 = 0
 def r1(r, p, f) = r ? [p+1, f] : [p, f+1]
 
-# (1a) 降物の三句去違反
-chain = [["降物"], ["水辺"], ["植物"], ["降物"]]
+# (1a) 降物の三句去違反（間1句: between=1 < interval-1=2 → 違反）
+chain = [["降物"], ["水辺"], ["降物"]]
 v = checker.scan_chain(chain)
-res = check("降物の三句去違反を検出（pos4・間2句<3）",
+res = check("降物の三句去違反を検出（pos3・間1句<2）",
             v.map { |h| [h[:pos], h[:bui], h[:actual], h[:required]] },
-            [[4, "降物", 2, 3]])
+            [[3, "降物", 1, 3]])
 p1, f1 = r1(res, p1, f1)
 
 # (1b) 降物が間4句で適法
@@ -49,12 +49,12 @@ res = check("山類の連続は句去対象外（違反0）",
             checker.scan_chain([["山類"], ["山類"], ["山類"]]), [])
 p1, f1 = r1(res, p1, f1)
 
-# (1d) 山類が直近pos3から間4句<5でNG
-chain = [["山類"],["山類"],["山類"],["水辺"],["動物"],["旅"],["神祇"],["山類"]]
+# (1d) 山類が直近pos3から間3句<4でNG（between=3 < interval-1=4）
+chain = [["山類"],["山類"],["山類"],["水辺"],["動物"],["旅"],["山類"]]
 v = checker.scan_chain(chain)
-res = check("山類の五句去違反（pos8・直近pos3から間4句<5）",
+res = check("山類の五句去違反（pos7・直近pos3から間3句<4）",
             v.map { |h| [h[:pos], h[:bui], h[:actual], h[:required], h[:last_pos]] },
-            [[8, "山類", 4, 5, 3]])
+            [[7, "山類", 3, 5, 3]])
 p1, f1 = r1(res, p1, f1)
 
 # (1e) 規制外の部立（時分・人倫）は近接しても違反なし
@@ -62,9 +62,9 @@ res = check("時分・人倫は句去対象外（違反0）",
             checker.scan_chain([["時分"],["人倫"],["時分"],["人倫"]]), [])
 p1, f1 = r1(res, p1, f1)
 
-# (1f) 候補単体検査
-ok = checker.kuzari_ok?([["聳物"],["水辺"],["植物"]], ["聳物"])
-res = check("候補聳物がpos4で句去不足→不可（kuzari_ok?=false）", ok, false)
+# (1f) 候補単体検査（間1句: between=1 < interval-1=2 → 不可）
+ok = checker.kuzari_ok?([["聳物"],["水辺"]], ["聳物"])
+res = check("候補聳物がpos3で句去不足→不可（kuzari_ok?=false）", ok, false)
 p1, f1 = r1(res, p1, f1)
 
 puts "試験1：#{p1} pass / #{f1} fail"
