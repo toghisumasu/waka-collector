@@ -297,10 +297,10 @@ minase_omote2 = [
   { word: "kumonikefuu",  bui: ["聳物", "山類", "植物"], season: "春" },
   { word: "kikebaimaha",  bui: ["動物"],         season: "春" },
   { word: "oborogeno",    bui: ["光物"],        season: "春" },
-  { word: "karineno",     bui: ["降物", "時分"], season: "秋" },
-  { word: "suenonaru",    bui: ["居所", "聳物"], season: "秋" },
-  { word: "fukikuru",     bui: ["衣裳"],         season: "秋" },
-  { word: "sayurubi",     bui: ["光物", "衣裳"], season: "冬" },
+  { word: "karineno",     bui: ["降物", "時分", "旅"], season: "秋" },  # かりね＝旅寝
+  { word: "suenonaru",    bui: ["聳物", "居所"],      season: "秋" },
+  { word: "fukikuru",     bui: ["衣裳"],               season: "秋" },
+  { word: "sayurubi",     bui: ["光物", "時分", "衣裳"], season: "冬" }, # さゆる日も袖うすき
   { word: "tanomumohakana", bui: ["山類"],      season: "冬" },
   { word: "saritomono",   bui: ["述懐"],        season: "雑" },
   { word: "kokorobososhi", bui: [],                         season: "雑" },
@@ -308,20 +308,119 @@ minase_omote2 = [
   { word: "nahoNani",     bui: ["恋"],         season: "恋" },
 ]
 chain_1_36 = minase + minase_ura + minase_omote2
+p5 = 0; f5 = 0
+def r5(r, p, f) = r ? [p+1, f] : [p, f+1]
+
 puts "  [kuzari without dict]"
 v5 = checker.scan_chain(chain_1_36)
 kuzari5 = v5.reject { |v| v[:type].to_s.start_with?("kukazo") }
 if kuzari5.empty?
   puts "    none"
 else
-  kuzari5.each { |viol| puts "    -> pos#{viol[:pos]+1}: bui=#{viol[:bui]} gap=#{viol[:gap]} required=#{viol[:required]}" }
+  kuzari5.each { |viol| puts "    -> #{ShikimokuChecker.describe(viol)}" }
 end
-puts "  -- with bui_dict --"
+
+puts "  -- kuzari with bui_dict --"
 v5d = checker.scan_chain(chain_1_36, bui_dict: bui_dict)
 kuzari5d = v5d.reject { |v| v[:type].to_s.start_with?("kukazo") }
-res5 = check("bui_dict: omote2 23-36 kuzari=0", kuzari5d.size, 0)
-total_pass += 1 if res5
-total_fail += 1 unless res5
+# pos30-31 連続衣裳は「同走継続」扱い（j==n スキップ設計）→ 句去対象外
+res5a = check("bui_dict: omote2 23-36 kuzari=0（連続衣裳は句数で管理）",
+              kuzari5d.size, 0)
+p5, f5 = r5(res5a, p5, f5)
+
+puts "  -- kukazo (kuzari+kukazo 統合) --"
+kukazo5d = v5d.select { |v| v[:type].to_s.start_with?("kukazo") }
+# pos25(雲にけふ 春): 直前の秋(pos24のみ streak=1)から転季 → 秋の最短3句不足
+res5b = check("omote2 pos25 秋→春転換で秋連続1句（最短3句不足）kukazo_under検出",
+              kukazo5d.select { |v| v[:pos] == 25 }.map { |v| [v[:type], v[:season], v[:streak], v[:min]] },
+              [[:kukazo_under, "秋", 1, 3]])
+p5, f5 = r5(res5b, p5, f5)
+
+puts "Test5：#{p5} pass / #{f5} fail"
+total_pass += p5; total_fail += f5
+puts
+
+# ─────────────────────────────────────────────────────────────
+#  試験6：長短交互チェック（Phase 8-2）
+# ─────────────────────────────────────────────────────────────
+puts "═" * 56
+puts "試験6：長短交互チェック（chotan_violations）"
+puts "─" * 56
+
+p6 = 0; f6 = 0
+def r6(r, p, f) = r ? [p+1, f] : [p, f+1]
+
+# (6a) 発句（長）→脇（短）→第三（長）→四句目（短）→五句目（長）: 違反なし
+chain6_ok = [
+  { verse_type: :chouku, bui: [], season: "春"  }, # 発句
+  { verse_type: :tanku,  bui: [], season: "春"  }, # 脇
+  { verse_type: :chouku, bui: [], season: nil   }, # 第三
+  { verse_type: :tanku,  bui: [], season: nil   }, # 四句目
+  { verse_type: :chouku, bui: [], season: nil   }, # 五句目
+]
+v6a = checker.scan_chain_with_chotan(chain6_ok)
+chotan6a = v6a.select { |v| v[:type] == :chotan_chigai }
+res6a = check("長短正常交互（5句）→ 長短違反0",
+              chotan6a, [])
+p6, f6 = r6(res6a, p6, f6)
+
+# (6b) 長→長（連続）: 違反
+chain6_ng1 = [
+  { verse_type: :chouku, bui: [], season: "春" },
+  { verse_type: :chouku, bui: [], season: "春" },
+]
+v6b = checker.scan_chain_with_chotan(chain6_ng1)
+chotan6b = v6b.select { |v| v[:type] == :chotan_chigai }
+res6b = check("長句連続（pos2）→ chotan_chigai検出",
+              chotan6b.map { |v| [v[:pos], v[:verse_type], v[:expected]] },
+              [[2, :chouku, :tanku]])
+p6, f6 = r6(res6b, p6, f6)
+
+# (6c) 短→短（連続）: 違反
+chain6_ng2 = [
+  { verse_type: :chouku, bui: [], season: "春" },
+  { verse_type: :tanku,  bui: [], season: "春" },
+  { verse_type: :tanku,  bui: [], season: nil  },
+]
+v6c = checker.scan_chain_with_chotan(chain6_ng2)
+chotan6c = v6c.select { |v| v[:type] == :chotan_chigai }
+res6c = check("短句連続（pos3）→ chotan_chigai検出",
+              chotan6c.map { |v| [v[:pos], v[:verse_type], v[:expected]] },
+              [[3, :tanku, :chouku]])
+p6, f6 = r6(res6c, p6, f6)
+
+# (6d) verse_type なし句はスキップ（型未確定の句と混在）
+chain6_skip = [
+  { verse_type: :chouku, bui: [], season: "春" },
+  { bui: [], season: nil },                          # verse_type なし → スキップ
+  { verse_type: :chouku, bui: [], season: nil  },    # 見かけ上長→長だが間に型なし句あり
+]
+v6d = checker.scan_chain_with_chotan(chain6_skip)
+chotan6d = v6d.select { |v| v[:type] == :chotan_chigai }
+res6d = check("verse_type なし句をスキップして交互確認",
+              chotan6d.map { |v| [v[:pos], v[:verse_type], v[:expected]] },
+              [[3, :chouku, :tanku]])
+p6, f6 = r6(res6d, p6, f6)
+
+# (6e) 水無瀬三吟 初折表1〜8（長短順を反映）: 違反なし
+minase_chotan = [
+  { verse_type: :chouku, bui: ["降物","山類","聳物","時分"], season: "春"  }, # 1 長
+  { verse_type: :tanku,  bui: ["水辺"],                      season: "春"  }, # 2 短
+  { verse_type: :chouku, bui: ["植物"],                      season: "春"  }, # 3 長
+  { verse_type: :tanku,  bui: ["水辺"],                      season: nil   }, # 4 短
+  { verse_type: :chouku, bui: ["光物","聳物"],               season: "秋"  }, # 5 長
+  { verse_type: :tanku,  bui: ["降物"],                      season: "秋"  }, # 6 短
+  { verse_type: :chouku, bui: ["動物"],                      season: "秋"  }, # 7 長
+  { verse_type: :tanku,  bui: ["居所"],                      season: nil   }, # 8 短
+]
+v6e = checker.scan_chain_with_chotan(minase_chotan, bui_dict: bui_dict)
+chotan6e = v6e.select { |v| v[:type] == :chotan_chigai }
+res6e = check("水無瀬 初折表1〜8 長短交互 → 違反0",
+              chotan6e, [])
+p6, f6 = r6(res6e, p6, f6)
+
+puts "試験6：#{p6} pass / #{f6} fail"
+total_pass += p6; total_fail += f6
 puts
 
 # ─────────────────────────────────────────────────────────────

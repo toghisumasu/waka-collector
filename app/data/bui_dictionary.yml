@@ -7,3 +7,24 @@
   primary_bui: 水辺
   season: null
   taiyo: 用
+
+# ── 水無瀬三吟・連歌頻出語（読み登録済み in dict/user_entries.csv）──
+紅葉:
+  primary_bui: 植物
+  season: 秋
+  taiyo: 体
+
+妙高:
+  primary_bui: 山類
+  season: null
+  taiyo: 体
+
+時雨:
+  primary_bui: 降物
+  season: 冬
+  taiyo: 体
+
+東風:
+  primary_bui: 聳物
+  season: 春
+  taiyo: 体
