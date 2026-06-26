@@ -35,10 +35,11 @@ class RengaGenerator
   FUKA_GETSU = %w[花 鳥 風 月 雪 霞 波 雲 雨 山 川 海 野 里 露 松 竹 草 水 煙 霧].freeze
   SEASON_JP  = { spring: "春", summer: "夏", autumn: "秋", winter: "冬" }.freeze
 
-  def initialize(maeku, honka_candidates = [], verse_type = :tanku)
+  def initialize(maeku, honka_candidates = [], verse_type = :tanku, constraints: {})
     @maeku            = maeku
     @honka_candidates = honka_candidates
-    @verse_type       = verse_type
+    @verse_type       = constraints[:verse_type] || verse_type
+    @constraints      = constraints
   end
 
   def generate_tsugeku
@@ -215,7 +216,19 @@ class RengaGenerator
   end
 
   def filter_pool(pool)
-    season = maeku_season
+    hint = @constraints[:season_hint]
+
+    if hint && hint[:must_switch]
+      candidate = pool.reject { |s| s[:season] == hint[:current] }
+      return candidate.any? ? candidate : pool
+    end
+
+    if hint && hint[:must_continue]
+      candidate = pool.select { |s| s[:season] == hint[:current] }
+      return candidate.any? ? candidate : pool
+    end
+
+    season    = maeku_season
     return pool unless season
     candidate = pool.select { |s| s[:season] == SEASON_JP[season] }
     candidate.any? ? candidate : pool
