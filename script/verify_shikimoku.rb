@@ -590,6 +590,19 @@ res7c = check("全100句 pos25 秋→春kukazo_under健在",
               true)
 p7, f7 = r7(res7c, p7, f7)
 
+# ── kukazo_under pos10・pos25・pos59 の解釈（docs/minase_analysis.md より） ──
+# アルゴリズムは厳格に秋最短3句規制を適用し、以下3箇所を違反として検出する:
+#   pos10 (秋1句=pos9 → 雑 pos10): 初折裏「孤立した秋1句で終止、雑3句を挟んで春へ転換という大胆な運び」
+#   pos25 (秋1句=pos24 → 春 pos25): 二折表「24句『夕暮の空』が季感の薄い秋句。25句の花散る景の大転換が転季のクッション代わり」
+#   pos59 (秋1句=pos58 → 雑 pos59): 三折表「逆行転季の連続（55→56→57→58）…『転』に入ったサイン」
+# いずれも宗祇・肖柏・宗長が意図した季の色付き（単独の季感）であり、
+# 式目上の許容範囲（intentional single-verse seasonal color）と判断する。
+# 違反数が 3 であることを確認し、実際の連歌の技法として記録する。
+kukazo_under7 = kukazo7.select { |v| v[:type] == :kukazo_under }
+res7d = check("全100句 kukazo_under=3（秋単独句の大胆転季・式目上の許容範囲）",
+              kukazo_under7.size, 3)
+p7, f7 = r7(res7d, p7, f7)
+
 puts "試験7：#{p7} pass / #{f7} fail"
 total_pass += p7; total_fail += f7
 puts
