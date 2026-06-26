@@ -73,6 +73,30 @@ class RengasController < ApplicationController
 
   private
 
+  def build_verse_history(previous_renga_id, maeku, maeku_type)
+    chain = []
+    if previous_renga_id.present?
+      renga = Renga.find_by(id: previous_renga_id)
+      while renga && chain.size < 9
+        chain.unshift(renga)
+        renga = renga.previous_renga_id.present? ? Renga.find_by(id: renga.previous_renga_id) : nil
+      end
+    end
+    history = chain.each_with_index.map do |r, i|
+      offset = chain.size - i
+      vtype  = offset.odd? ? maeku_type : (maeku_type == :chouku ? :tanku : :chouku)
+      { bui: [], season: season_from_text(r.tsugeku), verse_type: vtype }
+    end
+    history << { bui: [], season: season_from_text(maeku), verse_type: maeku_type }
+    history
+  end
+
+  def season_from_text(text)
+    return nil if text.blank?
+    key = RengaGenerator::SEASON_WORDS.find { |_, words| words.any? { |w| text.include?(w) } }&.first
+    key ? RengaGenerator::SEASON_JP[key] : nil
+  end
+
   def renga_params
     params.require(:renga).permit(:maeku, :previous_renga_id, honka_ids: [])
   end
