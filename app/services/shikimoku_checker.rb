@@ -336,5 +336,55 @@ class ShikimokuChecker
         "間#{v[:actual]}句で再出（#{v[:required]}句去・不足#{v[:required] - v[:actual]}）"
     end
   end
+  # -------------------------------------------------------
+  # next_constraints: 次句生成のための制約サマリーを返す
+  # @param history [Array<Hash>]  verse Hash の配列（候補句は含まない）
+  # @return [Hash] { verse_type:, forbidden_bui:, season_hint: }
+  # -------------------------------------------------------
+  def next_constraints(history, bui_dict: nil)
+    {
+      verse_type:    next_verse_type(history),
+      forbidden_bui: compute_forbidden_bui(history),
+      season_hint:   compute_season_hint(history)
+    }
+  end
+
+  private
+
+  def next_verse_type(history)
+    return :tanku if history.empty?
+    last_type = history.last[:verse_type]
+    return :tanku if last_type.nil?
+    last_type == :chouku ? :tanku : :chouku
+  end
+
+  def compute_forbidden_bui(history)
+    n = history.size
+    forbidden = []
+    @rules.each do |bui, rule|
+      interval = rule.is_a?(Hash) ? rule["default"] : rule
+      j = (1..n).to_a.reverse.find { |pos| history[pos - 1][:bui]&.include?(bui) }
+      next unless j
+      forbidden << bui if (n - j) < interval - 1
+    end
+    forbidden.uniq
+  end
+
+  def compute_season_hint(history)
+    current = history.last&.dig(:season)
+    return { current: nil, count: 0, must_continue: false, must_switch: false }       if current.nil? || current == "\u96d1"
+    count = 0
+    history.reverse_each { |v| break if v[:season] != current; count += 1 }
+    rules   = @kukazo_rules.dig("seasons", current) || {}
+    max_val = rules["max"]
+    min_val = rules["min"]
+    {
+      current:       current,
+      count:         count,
+      must_continue: min_val ? count < min_val : false,
+      must_switch:   max_val ? count >= max_val : false
+    }
+  end
+
 end
 

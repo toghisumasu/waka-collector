@@ -681,6 +681,42 @@ puts
 # ─────────────────────────────────────────────────────────────
 #  集計
 # ─────────────────────────────────────────────────────────────
+
+puts "═" * 56
+puts "試陸91：next_constraints (初折表pos1～6)"
+puts "-" * 56
+
+chain_omote1_nc = [
+  { bui: ["降物","植物"], season: "春", verse_type: :chouku },
+  { bui: ["水辺","植物"], season: "春", verse_type: :tanku  },
+  { bui: ["植物","水辺"], season: "春", verse_type: :chouku },
+  { bui: ["時分","水辺"], season: "春", verse_type: :tanku  },
+  { bui: ["光物","時分"], season: "秋", verse_type: :chouku },
+  { bui: ["降物"],                season: "秋", verse_type: :tanku  },
+]
+
+c = checker.next_constraints(chain_omote1_nc)
+
+r9 = []
+[
+  [c[:verse_type] == :chouku,                   "(9a) verse_type=:chouku"],
+  [c[:forbidden_bui].include?("降物"),  "(9b) 降物は禁止"],
+  [c[:forbidden_bui].include?("光物"),  "(9c) 光物は禁止"],
+  [c[:forbidden_bui].include?("植物"),  "(9d) 植物は禁止"],
+  [c[:forbidden_bui].include?("水辺"),  "(9e) 水辺は禁止(五句去)"],
+  [c[:season_hint][:current] == "秋",       "(9f) current=秋"],
+  [c[:season_hint][:count]   == 2,              "(9g) count=2"],
+  [c[:season_hint][:must_continue] == true,     "(9h) must_continue=true"],
+  [c[:season_hint][:must_switch]   == false,    "(9i) must_switch=false"],
+].each do |ok, label|
+  puts "#{ok ? '  OK ' : '✗ NG '} #{label}"
+  r9 << ok
+end
+p9 = r9.count(true); f9 = r9.count(false)
+puts "試陸91：#{p9} pass / #{f9} fail"
+total_pass += p9; total_fail += f9
+total_pass += p9; total_fail += f9
+
 puts "═" * 56
 puts "総合：#{total_pass} pass / #{total_fail} fail"
 exit(total_fail.zero? ? 0 : 1)
