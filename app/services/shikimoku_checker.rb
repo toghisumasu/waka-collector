@@ -74,7 +74,7 @@ class ShikimokuChecker
       next if j == n
 
       between = n - j
-      next if between >= interval
+      next if between >= interval - 1  # 古典の数え年方式: 差=interval で合法
 
       violations << { bui: bui, required: interval, actual: between, last_pos: j }
     end
