@@ -52,13 +52,23 @@ class ShikimokuChecker
   # history_bui   : Array<Array<String>>  各句の部立集合（古い順）
   # candidate_bui : Array<String>         付けようとする句の部立集合
   # 返り値: Array<Hash>  { bui:, required:, actual:, last_pos: }
-  def kuzari_violations(history_bui, candidate_bui, bui_dict: nil, history_words: [], candidate_word: nil)
+  #
+  # 植物細分化オプション:
+  #   history_plant_types : Array<String|nil>  各句の plant_type（"flower"/"grass"/"tree"/nil）
+  #   candidate_plant_type: String|nil         候補句の plant_type
+  #   同種間は kuzari_rules の default 句去、異種間は cross 句去を適用。
+  #   どちらかが nil の場合は default を使用（後方互換）。
+  def kuzari_violations(history_bui, candidate_bui, bui_dict: nil, history_words: [],
+                        candidate_word: nil, history_plant_types: [], candidate_plant_type: nil)
     n = history_bui.size
     violations = []
 
     Array(candidate_bui).uniq.each do |bui|
-      interval = @rules[bui]
-      next unless interval
+      rule = @rules[bui]
+      next unless rule
+
+      # ルールが Hash（植物など細分化済み）か Integer かで基本句去を取得
+      base_interval = rule.is_a?(Hash) ? rule["default"] : rule
 
       cand_taiyo = bui_dict&.taiyo(candidate_word)
 
@@ -72,6 +82,14 @@ class ShikimokuChecker
       end
       next if j.nil?
       next if j == n
+
+      # 植物細分化: 両句に plant_type が設定されていて異種なら cross 句去を使用
+      interval = base_interval
+      if rule.is_a?(Hash) && candidate_plant_type && history_plant_types[j - 1]
+        if candidate_plant_type != history_plant_types[j - 1]
+          interval = rule["cross"]
+        end
+      end
 
       between = n - j
       next if between >= interval - 1  # 古典の数え年方式: 差=interval で合法
@@ -155,14 +173,18 @@ class ShikimokuChecker
   # ══════════════════════════════════════════════════════
 
   def all_violations(history, candidate, bui_dict: nil)
-    history_bui   = history.map { |v| Array(v[:bui]) }
-    history_words = history.map { |v| v[:word] }
-    candidate_bui  = Array(candidate[:bui])
-    candidate_word = candidate[:word]
+    history_bui         = history.map { |v| Array(v[:bui]) }
+    history_words       = history.map { |v| v[:word] }
+    history_plant_types = history.map { |v| v[:plant_type]&.to_s }
+    candidate_bui       = Array(candidate[:bui])
+    candidate_word      = candidate[:word]
+    candidate_plant_type = candidate[:plant_type]&.to_s
     kuzari_violations(history_bui, candidate_bui,
                       bui_dict: bui_dict,
                       history_words: history_words,
-                      candidate_word: candidate_word) +
+                      candidate_word: candidate_word,
+                      history_plant_types: history_plant_types,
+                      candidate_plant_type: candidate_plant_type) +
       kukazo_violations(history, candidate)
   end
 

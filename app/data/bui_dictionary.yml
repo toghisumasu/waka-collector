@@ -13,6 +13,75 @@
   primary_bui: 植物
   season: 秋
   taiyo: 体
+  plant_type: tree
+
+# ── 植物細分化（花/草/木）──
+# 同種（花↔花・草↔草・木↔木）: 五句去  cross種間: 三句去
+梅:
+  primary_bui: 植物
+  season: 春
+  taiyo: 体
+  plant_type: flower
+
+桜:
+  primary_bui: 植物
+  season: 春
+  taiyo: 体
+  plant_type: flower
+
+花:
+  primary_bui: 植物
+  season: 春
+  taiyo: 体
+  plant_type: flower
+
+柳:
+  primary_bui: 植物
+  season: 春
+  taiyo: 体
+  plant_type: tree
+
+松:
+  primary_bui: 植物
+  season: null
+  taiyo: 体
+  plant_type: tree
+
+木:
+  primary_bui: 植物
+  season: null
+  taiyo: 体
+  plant_type: tree
+
+荻:
+  primary_bui: 植物
+  season: 秋
+  taiyo: 体
+  plant_type: grass
+
+薄:
+  primary_bui: 植物
+  season: 秋
+  taiyo: 体
+  plant_type: grass
+
+萩:
+  primary_bui: 植物
+  season: 秋
+  taiyo: 体
+  plant_type: grass
+
+蓬:
+  primary_bui: 植物
+  season: 夏
+  taiyo: 体
+  plant_type: grass
+
+草:
+  primary_bui: 植物
+  season: null
+  taiyo: 体
+  plant_type: grass
 
 妙高:
   primary_bui: 山類

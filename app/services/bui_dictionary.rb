@@ -26,5 +26,10 @@ class BuiDictionary
   def yo?(word)
     taiyo(word) == '用'
   end
+
+  # 植物細分化: "flower" / "grass" / "tree" / nil（未登録）
+  def plant_type(word)
+    @data.dig(word, 'plant_type')
+  end
 end
 

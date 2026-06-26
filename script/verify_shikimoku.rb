@@ -434,32 +434,32 @@ puts
 minase_full = [
   # ── 初折表 1-8 ──
   { word: "雪ながら",      bui: ["降物","山類","聳物","時分"], season: "春", verse_type: :chouku },                    # 1
-  { word: "行く水とほく",  bui: ["水辺","植物","居所"],       season: "春", verse_type: :tanku  },                    # 2
-  { word: "川風に",        bui: ["水辺","植物"],              season: "春", verse_type: :chouku },                    # 3
+  { word: "行く水とほく",  bui: ["水辺","植物","居所"],       season: "春", verse_type: :tanku,  plant_type: :flower },  # 2 梅
+  { word: "川風に",        bui: ["水辺","植物"],              season: "春", verse_type: :chouku, plant_type: :tree   },  # 3 柳
   { word: "舟さす音も",   bui: ["水辺","時分"],              season: "雑", verse_type: :tanku  },                    # 4
   { word: "月や猶",        bui: ["光物","聳物","時分"],       season: "秋", verse_type: :chouku, tsuki: true },       # 5 ★月
   { word: "霜おく野はら",  bui: ["降物","時分"],              season: "秋", verse_type: :tanku  },                    # 6
-  { word: "なく蟲の",      bui: ["動物","植物"],              season: "秋", verse_type: :chouku },                    # 7
+  { word: "なく蟲の",      bui: ["動物","植物"],              season: "秋", verse_type: :chouku, plant_type: :grass  },  # 7 草かれ
   { word: "かきねをとへば",bui: ["居所"],                    season: "雑", verse_type: :tanku  },                    # 8
   # ── 初折裏 9-22 ──
   { word: "山ふかき",      bui: ["山類","居所"],              season: "秋", verse_type: :chouku },                    # 9
   { word: "なれぬすまひ",  bui: ["居所","述懐"],              season: "雑", verse_type: :tanku  },                    # 10
   { word: "今更に",        bui: ["人倫","述懐"],              season: "雑", verse_type: :chouku },                    # 11
   { word: "うつろはん",    bui: ["述懐"],                    season: "雑", verse_type: :tanku  },                    # 12
-  { word: "置きわぶる",    bui: ["降物","植物"],              season: "春", verse_type: :chouku, hana: true },        # 13 ★花
+  { word: "置きわぶる",    bui: ["降物","植物"],              season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 13 ★花(桜)
   { word: "まだ残る日の",  bui: ["光物","聳物"],              season: "春", verse_type: :tanku  },                    # 14
   { word: "暮れぬとや",    bui: ["動物","時分"],              season: "春", verse_type: :chouku },                    # 15
   { word: "深山をゆけば",  bui: ["山類"],                    season: "雑", verse_type: :tanku  },                    # 16
   { word: "はるゝまも",    bui: ["降物","旅","衣裳"],         season: "冬", verse_type: :chouku },                    # 17
   { word: "わが草枕",      bui: ["旅","光物"],                season: "秋", verse_type: :tanku,  tsuki: true },       # 18 ★月
   { word: "いたづらに",    bui: ["時分"],                    season: "秋", verse_type: :chouku },                    # 19
-  { word: "夢にうらむる",  bui: ["植物"],                    season: "秋", verse_type: :tanku  },                    # 20
+  { word: "夢にうらむる",  bui: ["植物"],                    season: "秋", verse_type: :tanku,  plant_type: :grass  },  # 20 荻
   { word: "見しはみな",    bui: ["名所","述懐"],              season: "雑", verse_type: :chouku },                    # 21
   { word: "老の行方よ",    bui: ["述懐"],                    season: "雑", verse_type: :tanku  },                    # 22
   # ── 二折表 23-36 ──
   { word: "色もなき",      bui: ["述懐"],                    season: "雑", verse_type: :chouku },                    # 23
   { word: "それも友なる",  bui: ["時分"],                    season: "秋", verse_type: :tanku  },                    # 24
-  { word: "雲にけふ",      bui: ["聳物","山類","植物"],       season: "春", verse_type: :chouku, hana: true },        # 25 ★花
+  { word: "雲にけふ",      bui: ["聳物","山類","植物"],       season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 25 ★花(桜)
   { word: "きけば今はの",  bui: ["動物"],                    season: "春", verse_type: :tanku  },                    # 26
   { word: "おぼろげの",    bui: ["光物"],                    season: "春", verse_type: :chouku, tsuki: true },       # 27 ★月
   { word: "かりねの露の",  bui: ["降物","時分","旅"],         season: "秋", verse_type: :tanku  },                    # 28
@@ -474,7 +474,7 @@ minase_full = [
   # ── 二折裏 37-50 ──
   { word: "君を置きて",    bui: ["恋","人倫"],               season: "恋", verse_type: :chouku },                    # 37
   { word: "そのおもかげに",bui: ["恋"],                      season: "恋", verse_type: :tanku  },                    # 38
-  { word: "草木さへ",      bui: ["植物","名所","述懐"],       season: "雑", verse_type: :chouku },                    # 39
+  { word: "草木さへ",      bui: ["植物","名所","述懐"],       season: "雑", verse_type: :chouku, plant_type: :grass  },  # 39 草木（草主）
   { word: "身のうき宿も",  bui: ["居所","述懐"],              season: "雑", verse_type: :tanku  },                    # 40
   { word: "たらちねの",    bui: ["人倫","述懐"],              season: "雑", verse_type: :chouku },                    # 41
   { word: "月日の末や",    bui: ["光物"],                    season: "雑", verse_type: :tanku,  tsuki: true },       # 42 ★月
@@ -482,7 +482,7 @@ minase_full = [
   { word: "また生まれこぬ",bui: ["釈教"],                    season: "雑", verse_type: :tanku  },                    # 44
   { word: "あふまでと",    bui: ["降物","恋"],               season: "恋", verse_type: :chouku },                    # 45
   { word: "身を秋風も",    bui: ["恋"],                      season: "秋", verse_type: :tanku  },                    # 46
-  { word: "松むしの",      bui: ["動物","植物"],              season: "秋", verse_type: :chouku },                    # 47
+  { word: "松むしの",      bui: ["動物","植物"],              season: "秋", verse_type: :chouku, plant_type: :grass  },  # 47 蓬生
   { word: "しめゆふ山は",  bui: ["山類","光物","神祇"],       season: "秋", verse_type: :tanku,  tsuki: true },       # 48 ★月
   { word: "鐘に我",        bui: ["釈教"],                    season: "冬", verse_type: :chouku },                    # 49
   { word: "いただきけりな",bui: ["降物"],                    season: "冬", verse_type: :tanku  },                    # 50
@@ -491,21 +491,21 @@ minase_full = [
   { word: "夕しほ風の",    bui: ["水辺","人倫"],              season: "雑", verse_type: :tanku  },                    # 52
   { word: "行方なき",      bui: ["聳物"],                    season: "春", verse_type: :chouku },                    # 53
   { word: "くるかた見えぬ",bui: ["山類","居所"],              season: "春", verse_type: :tanku  },                    # 54
-  { word: "茂みより",      bui: ["植物"],                    season: "春", verse_type: :chouku, hana: true },        # 55 ★花
-  { word: "木の本わくる",  bui: ["植物","降物"],              season: "春", verse_type: :tanku  },                    # 56
+  { word: "茂みより",      bui: ["植物"],                    season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 55 ★花(桜)
+  { word: "木の本わくる",  bui: ["植物","降物"],              season: "春", verse_type: :tanku,  plant_type: :tree   },  # 56 木の本
   { word: "秋はなど",      bui: ["降物","山類"],              season: "冬", verse_type: :chouku },                    # 57
   { word: "こけの袂も",    bui: ["光物","衣裳"],              season: "秋", verse_type: :tanku,  tsuki: true },       # 58 ★月
   { word: "心あるかぎり",  bui: ["釈教","述懐"],              season: "雑", verse_type: :chouku },                    # 59
   { word: "をさまる波に",  bui: ["水辺"],                    season: "雑", verse_type: :tanku  },                    # 60
   { word: "朝なぎの",      bui: ["時分","聳物"],              season: "雑", verse_type: :chouku },                    # 61
   { word: "雪にさやけき",  bui: ["降物","山類"],              season: "冬", verse_type: :tanku  },                    # 62
-  { word: "嶺の庵",        bui: ["山類","居所","植物"],       season: "冬", verse_type: :chouku },                    # 63
-  { word: "さびしさならふ",bui: ["植物"],                    season: "雑", verse_type: :tanku  },                    # 64
+  { word: "嶺の庵",        bui: ["山類","居所","植物"],       season: "冬", verse_type: :chouku, plant_type: :tree   },  # 63 木の葉
+  { word: "さびしさならふ",bui: ["植物"],                    season: "雑", verse_type: :tanku,  plant_type: :tree   },  # 64 松風
   # ── 三折裏 65-78 ──
   { word: "誰かこの",      bui: ["時分","恋"],               season: "雑", verse_type: :chouku },                    # 65
   { word: "月はしるやの",  bui: ["光物","旅"],               season: "秋", verse_type: :tanku,  tsuki: true },       # 66 ★月
   { word: "露ふかみ",      bui: ["降物","衣裳"],              season: "秋", verse_type: :chouku },                    # 67
-  { word: "うす花すゝき",  bui: ["植物"],                    season: "秋", verse_type: :tanku  },                    # 68
+  { word: "うす花すゝき",  bui: ["植物"],                    season: "秋", verse_type: :tanku,  plant_type: :grass  },  # 68 薄
   { word: "うづらなく",    bui: ["動物","山類","時分"],       season: "秋", verse_type: :chouku },                    # 69
   { word: "野となる里も",  bui: ["居所","述懐"],              season: "雑", verse_type: :tanku  },                    # 70
   { word: "かへりこば",    bui: ["恋"],                      season: "恋", verse_type: :chouku },                    # 71
@@ -513,29 +513,29 @@ minase_full = [
   { word: "むかしより",    bui: ["恋"],                      season: "恋", verse_type: :chouku },                    # 73
   { word: "わすられがたき",bui: ["恋"],                      season: "恋", verse_type: :tanku  },                    # 74
   { word: "山がつに",      bui: ["山類","人倫"],              season: "雑", verse_type: :chouku },                    # 75
-  { word: "植ゑぬ草葉の",  bui: ["植物","居所"],              season: "雑", verse_type: :tanku  },                    # 76
-  { word: "かたはらに",    bui: ["居所","植物"],              season: "春", verse_type: :chouku },                    # 77
+  { word: "植ゑぬ草葉の",  bui: ["植物","居所"],              season: "雑", verse_type: :tanku,  plant_type: :grass  },  # 76 草葉
+  { word: "かたはらに",    bui: ["居所","植物"],              season: "春", verse_type: :chouku, plant_type: :grass  },  # 77 荒田返し
   { word: "行く人かすむ",  bui: ["聳物","降物","時分"],       season: "春", verse_type: :tanku  },                    # 78
   # ── 名残表 79-92 ──
   { word: "やどりせん",    bui: ["動物"],                    season: "春", verse_type: :chouku },                    # 79
-  { word: "さ夜もしづかに",bui: ["光物","植物","時分"],       season: "春", verse_type: :tanku,  tsuki: true, hana: true }, # 80 ★月★花(桜)
-  { word: "とぼし火を",    bui: ["植物","時分"],              season: "春", verse_type: :chouku, hana: true },        # 81 ★花
+  { word: "さ夜もしづかに",bui: ["光物","植物","時分"],       season: "春", verse_type: :tanku,  tsuki: true, hana: true, plant_type: :flower }, # 80 ★月★花(桜)
+  { word: "とぼし火を",    bui: ["植物","時分"],              season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 81 ★花
   { word: "誰が手枕に",    bui: ["恋"],                      season: "恋", verse_type: :tanku  },                    # 82
   { word: "契りはや",      bui: ["恋"],                      season: "恋", verse_type: :chouku },                    # 83
   { word: "今はのよはひ",  bui: ["山類","述懐"],              season: "雑", verse_type: :tanku  },                    # 84
   { word: "かくす身を",    bui: ["述懐"],                    season: "雑", verse_type: :chouku },                    # 85
   { word: "さてもうき世に",bui: ["述懐"],                    season: "雑", verse_type: :tanku  },                    # 86
-  { word: "松の葉を",      bui: ["植物","時分"],              season: "雑", verse_type: :chouku },                    # 87
+  { word: "松の葉を",      bui: ["植物","時分"],              season: "雑", verse_type: :chouku, plant_type: :tree   },  # 87 松
   { word: "浦曲のさとよ",  bui: ["水辺","居所"],              season: "雑", verse_type: :tanku  },                    # 88
   { word: "秋風の",        bui: ["水辺","旅"],                season: "秋", verse_type: :chouku },                    # 89
   { word: "鴈なく山の",    bui: ["動物","山類","光物"],       season: "秋", verse_type: :tanku,  tsuki: true },       # 90 ★月
-  { word: "小萩はら",      bui: ["植物","降物"],              season: "秋", verse_type: :chouku },                    # 91
+  { word: "小萩はら",      bui: ["植物","降物"],              season: "秋", verse_type: :chouku, plant_type: :grass  },  # 91 萩
   { word: "あだの大野を",  bui: ["人倫"],                    season: "雑", verse_type: :tanku  },                    # 92
   # ── 名残裏 93-100 ──
   { word: "忘るなよ",      bui: ["述懐"],                    season: "雑", verse_type: :chouku },                    # 93
   { word: "おもへばいつを",bui: ["述懐"],                    season: "雑", verse_type: :tanku  },                    # 94
   { word: "佛たちかくれては",bui: ["釈教"],                   season: "雑", verse_type: :chouku },                    # 95
-  { word: "かれし林も",    bui: ["植物"],                    season: "春", verse_type: :tanku  },                    # 96
+  { word: "かれし林も",    bui: ["植物"],                    season: "春", verse_type: :tanku,  plant_type: :tree   },  # 96 枯れ林
   { word: "山はけさ",      bui: ["山類","降物","聳物"],       season: "春", verse_type: :chouku },                    # 97
   { word: "けぶり長閑に",  bui: ["聳物","居所"],              season: "春", verse_type: :tanku  },                    # 98
   { word: "いやしきも",    bui: ["人倫"],                    season: "雑", verse_type: :chouku },                    # 99
@@ -569,15 +569,13 @@ puts "  [chotan]"
 chotan7.each { |viol| puts "    -> #{ShikimokuChecker.describe(viol)}" }
 puts "    none" if chotan7.empty?
 
-# bui_dict（体用辞書）は水辺の偽陽性を除去するが、植物・衣裳・動物などの
-# 五句去違反は除去しない。以下7件は実際の百韻で観察される既知の境界事例:
-#   pos7  植物(pos3から間3句)  pos35 衣裳(pos31から間3句)
-#   pos51 動物(pos47から間3句) pos57 山類(pos54から間2句)
-#   pos68 植物(pos64から間3句) pos80 植物(pos77から間2句)
-#   pos91 植物(pos87から間3句)
-# ── 植物は体言/用言・単一語/複合語で細分化すれば多くが消える見込み ──
-res7a = check("全100句 kuzari 既知7件（植物体用未分化等の境界事例）",
-              kuzari7.size, 7)
+# 植物を花/草/木に細分化したことで4件が解消し、残存3件は別部立:
+#   pos35 衣裳(pos31から間3句)  pos51 動物(pos47から間3句)  pos57 山類(pos54から間2句)
+# 解消された植物4件（異種クロス・三句去で合法化）:
+#   pos7  木(pos3柳)→草(pos7草かれ) 間3  pos68 木(pos64松)→草(pos68薄) 間3
+#   pos80 草(pos77荒田返し)→花(pos80桜) 間2  pos91 木(pos87松)→草(pos91萩) 間3
+res7a = check("全100句 kuzari 残存3件（衣裳/動物/山類・植物は細分化で解消済み）",
+              kuzari7.size, 3)
 p7, f7 = r7(res7a, p7, f7)
 
 # 長短交互: 全100句で違反0
