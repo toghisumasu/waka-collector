@@ -74,8 +74,10 @@ class RengaGenerator
         raw         = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: temperature)
         Rails.logger.info "[RengaGenerator] attempt: #{Time.now - gen_start}s"
         ku          = raw.to_s.strip.lines.map(&:strip).reject(&:empty?).first.to_s
+        Rails.logger.info "[RengaGenerator] raw_ku=#{ku.inspect}"
         ku_ms       = morphemes_of(ku, nm)
         mora        = ku_ms.sum { |m| m[:mora] }
+        Rails.logger.info "[RengaGenerator] mora=#{mora} target=#{target_mora}"
         is_echo     = ECHO_AFTERS.include?(ku)
         is_rep      = (ku == seed[:yomi])
         is_rep      = (ku == seed[:yomi])

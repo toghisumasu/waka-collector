@@ -78,12 +78,11 @@ class RengaGenerator
         mora        = ku_ms.sum { |m| m[:mora] }
         is_echo     = ECHO_AFTERS.include?(ku)
         is_rep      = (ku == seed[:yomi])
-        is_rep      = (ku == seed[:yomi])
         all_attempts << ku
         is_sticky       = used_afters.count(ku) >= 2 || all_attempts.count(ku) >= 3
         is_maeku_repeat = maeku_stems.any? { |w| w.include?(ku) || ku.include?(w) }
 
-        if (mora - target_mora).abs <= 1 && !is_echo && !is_rep && !is_sticky
+        if mora == target_mora && !is_echo && !is_rep && !is_sticky
           result_ku = ku
           used_afters << ku
           break
@@ -261,6 +260,7 @@ class RengaGenerator
       連想：#{seed[:surface]}
       季節：#{season_label}
       #{kinshi}#{target_desc}を一行だけ出力せよ。説明不要。
+      #{feedback_line}例：#{example[:after]}
       続き：
     PROMPT
   end
