@@ -97,3 +97,63 @@
   primary_bui: 聳物
   season: 春
   taiyo: 体
+
+# ── 人間界：旅 ──
+旅:
+  primary_bui: 旅
+  season: null
+  taiyo: 体
+旅衣:
+  primary_bui: 旅
+  season: null
+  taiyo: 体
+草枕:
+  primary_bui: 旅
+  season: null
+  taiyo: 体
+旅路:
+  primary_bui: 旅
+  season: null
+  taiyo: 体
+旅人:
+  primary_bui: 旅
+  season: null
+  taiyo: 体
+# ── 人間界：釈教 ──
+仏:
+  primary_bui: 釈教
+  season: null
+  taiyo: 体
+菩提:
+  primary_bui: 釈教
+  season: null
+  taiyo: 体
+無常:
+  primary_bui: 釈教
+  season: null
+  taiyo: 体
+涅槃:
+  primary_bui: 釈教
+  season: null
+  taiyo: 体
+念仏:
+  primary_bui: 釈教
+  season: null
+  taiyo: 体
+# ── 人間界：神祇 ──
+社:
+  primary_bui: 神祇
+  season: null
+  taiyo: 体
+祓:
+  primary_bui: 神祇
+  season: null
+  taiyo: 体
+榊:
+  primary_bui: 神祇
+  season: null
+  taiyo: 体
+神代:
+  primary_bui: 神祇
+  season: null
+  taiyo: 体

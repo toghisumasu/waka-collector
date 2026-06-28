@@ -263,6 +263,16 @@ class RengaGenerator
   end
 
   def filter_pool(pool)
+    forbidden_bui = @constraints[:forbidden_bui] || []
+
+    # bui フィルタ：部立が判明しており禁止リストに含まれるシードを除外
+    # bui: nil は「部立なし」として通過させる
+    if forbidden_bui.any?
+      filtered = pool.reject { |s| s[:bui] && forbidden_bui.include?(s[:bui]) }
+      pool = filtered.any? ? filtered : pool
+    end
+
+    # 以下は既存ロジックそのまま
     hint = @constraints[:season_hint]
 
     if hint && hint[:must_switch]
