@@ -39,3 +39,4 @@
 db/wakas_backup.sql
 app/controllers/*.swp
 .DS_Store
+Create_*.py
