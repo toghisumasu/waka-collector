@@ -35,6 +35,43 @@ class RengaGenerator
   FUKA_GETSU = %w[花 鳥 風 月 雪 霞 波 雲 雨 山 川 海 野 里 露 松 竹 草 水 煙 霧].freeze
   SEASON_JP  = { spring: "春", summer: "夏", autumn: "秋", winter: "冬" }.freeze
 
+  KIGO_BUI = {
+    "霞" => "聳物", "かすみ" => "聳物", "霧" => "聳物", "きり" => "聳物",
+    "月" => "光物", "朧" => "光物",
+    "梅" => "花", "桜" => "花", "菜の花" => "花", "山吹" => "花", "菊" => "花",
+    "柳" => "木", "騨" => "木", "もみじ" => "木", "もみち" => "木",
+    "若草" => "草", "わらび" => "草", "よもぎ" => "草",
+    "萩" => "草", "おみなえし" => "草", "ききょう" => "草", "かれの" => "草",
+    "蛍" => "虫", "蝶" => "虫", "蛙" => "虫",
+    "郭公" => "鳥", "ほととぎす" => "鳥", "鶯" => "鳥", "うぐいす" => "鳥",
+    "雁" => "鳥", "千鳥" => "鳥", "鷺" => "鳥",
+    "鹿" => "獣",
+    "露" => "降物", "五月雨" => "降物", "時雨" => "降物", "しぐれ" => "降物",
+    "雪" => "降物", "霜" => "降物", "しも" => "降物", "みぞれ" => "降物",
+  }.freeze
+
+  BUI_EXAMPLE_WORDS = {
+    "降物" => "雨・雪・露・霜・時雨・霰",
+    "聳物" => "霞・霧・雲・煙",
+    "光物" => "月・日・星",
+    "花" => "梅・桜・菊・山吹",
+    "草" => "萩・薄・若草",
+    "木" => "柳・松・冬木立",
+    "植物" => "草木・花全般",
+    "鳥" => "鶯・雁・鴨・千鳥",
+    "虫" => "蛍・蟋蟀・蝶",
+    "獣" => "鹿・狐",
+    "動物" => "鳥・虫・獣全般",
+    "水辺" => "川・海・池・渚",
+    "山類" => "山・峰・嶺・谷",
+    "時分" => "夜・朝・夕・暮れ",
+    "居所" => "宿・庵・垣根",
+    "衣裳" => "袖・衣・砧",
+    "恋" => "恋・涙・逢う",
+    "旅" => "旅・旅人・行く",
+  }.freeze
+
+
   def initialize(maeku, honka_candidates = [], verse_type = :tanku, constraints: {})
     @maeku            = maeku
     @honka_candidates = honka_candidates
@@ -251,17 +288,42 @@ class RengaGenerator
   end
 
   def build_full_prompt(seed, example, feedback, season_label, forbidden_label)
-    kinshi        = forbidden_label ? "禁：「#{forbidden_label}」の語は避けること。\n" : ""
     feedback_line = feedback ? "前回「#{feedback[:ku]}」は#{feedback[:issue]}。#{feedback[:message]}\n" : ""
     target_desc   = (@verse_type == :chouku) ? "五七五（17音）" : "七七（14音）"
+    forbidden_bui = @constraints[:forbidden_bui] || []
+    kinshi = if forbidden_bui.any?
+      desc = forbidden_bui.map { |b| BUI_EXAMPLE_WORDS[b] || b }.join("・")
+      "禁：#{desc}の語は避けること。\n"
+    else
+      ""
+    end
+    kigo_words = kigo_hint(season_label)
+    kigo_line  = if kigo_words.any?
+      "季語「#{kigo_words.join('・')}」のいずれかを必ず詠み込むこと。\n"
+    elsif season_label != "雑"
+      "#{season_label}の情趣を詠むこと。\n"
+    else
+      ""
+    end
 
     <<~PROMPT
       前の句と合わせて短歌一首になるような続きを作れ。
       前句：#{@maeku}
       連想：#{seed[:surface]}
       季節：#{season_label}
-      #{kinshi}#{target_desc}を一行だけ出力せよ。説明不要。
+      #{kigo_line}#{kinshi}#{feedback_line}#{target_desc}を一行だけ出力せよ。説明不要。
       続き：
     PROMPT
+  end
+
+  def kigo_hint(season_label)
+    season_key = SEASON_JP.invert[season_label]
+    return [] unless season_key
+    forbidden_bui = @constraints[:forbidden_bui] || []
+    candidates = SEASON_WORDS[season_key].reject do |w|
+      bui = KIGO_BUI[w]
+      bui && forbidden_bui.include?(bui)
+    end
+    candidates.reject { |w| @maeku.include?(w) }.shuffle.first(2)
   end
 end
