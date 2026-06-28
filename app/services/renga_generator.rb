@@ -77,12 +77,13 @@ class RengaGenerator
     @honka_candidates = honka_candidates
     @verse_type       = constraints[:verse_type] || verse_type
     @constraints      = constraints
+    @bui_dict         = BuiDictionary.new
   end
 
   def generate_tsugeku
     start_time = Time.now
     nm   = build_mecab
-    pool = Rails.cache.fetch("seed_pool_v1", expires_in: 1.hour) { build_seed_pool(nm) }
+    pool = Rails.cache.fetch("seed_pool_v2", expires_in: 1.hour) { build_seed_pool(nm) }
     pool = filter_pool(pool)
 
     used_afters = []
@@ -200,7 +201,8 @@ class RengaGenerator
         return {
           surface:    phrase.map { |x| x[:surface] }.join,
           yomi:       phrase.map { |x| x[:yomi].tr("ァ-ヴー", "ぁ-ゔー") }.join,
-          last_morph: phrase.last
+          last_morph: phrase.last,
+          morphemes:  phrase
         }
       end
       return nil if acc > take_mora
@@ -238,17 +240,26 @@ class RengaGenerator
       lower_total = lower_ms.sum { |m| m[:mora] }
       if upper_total == 17
         seg = extract_mora_segment(upper_ms, 5, 7)
-        seeds << base.merge(surface: seg[:surface], yomi: seg[:yomi], position: "二句") if seg && open_phrase?(seg[:last_morph])
+        seeds << base.merge(surface: seg[:surface], yomi: seg[:yomi], position: "二句", bui: detect_bui(seg)) if seg && open_phrase?(seg[:last_morph])
       end
       if lower_total == 14
         seg = extract_mora_segment(lower_ms, 0, 7)
-        seeds << base.merge(surface: seg[:surface], yomi: seg[:yomi], position: "四句") if seg && open_phrase?(seg[:last_morph])
+        seeds << base.merge(surface: seg[:surface], yomi: seg[:yomi], position: "四句", bui: detect_bui(seg)) if seg && open_phrase?(seg[:last_morph])
         seg = extract_mora_segment(lower_ms, 7, 7)
-        seeds << base.merge(surface: seg[:surface], yomi: seg[:yomi], position: "結句") if seg && open_phrase?(seg[:last_morph])
+        seeds << base.merge(surface: seg[:surface], yomi: seg[:yomi], position: "結句", bui: detect_bui(seg)) if seg && open_phrase?(seg[:last_morph])
       end
     end
     Rails.logger.info "[RengaGenerator] seed pool built: #{seeds.size}件"
     seeds
+  end
+
+  def detect_bui(seg)
+    seg[:morphemes].each do |m|
+      bui = @bui_dict.primary_bui(m[:surface])
+      return bui if bui
+    end
+    KIGO_BUI.each { |word, bui| return bui if seg[:surface].include?(word) }
+    nil
   end
 
   def filter_pool(pool)
