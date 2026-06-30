@@ -35,14 +35,24 @@ class ShikimokuChecker
       File.expand_path("../data/kukazo_rules.yml", __dir__)
     end
 
-  attr_reader :rules, :kukazo_rules
+  DEFAULT_ICHIZA_PATH =
+    if defined?(Rails)
+      Rails.root.join("app/data/ichiza_ichiku_words.yml").to_s
+    else
+      File.expand_path("../data/ichiza_ichiku_words.yml", __dir__)
+    end
 
-  # rules / kukazo_rules はテスト時に直接注入できる（ファイル不要）。
-  def initialize(rules: nil, kukazo_rules: nil,
+  attr_reader :rules, :kukazo_rules, :ichiza_words
+
+  # rules / kukazo_rules / ichiza_words はテスト時に直接注入できる（ファイル不要）。
+  def initialize(rules: nil, kukazo_rules: nil, ichiza_words: nil,
                  rules_path: DEFAULT_KUZARI_PATH,
-                 kukazo_path: DEFAULT_KUKAZO_PATH)
+                 kukazo_path: DEFAULT_KUKAZO_PATH,
+                 ichiza_path: DEFAULT_ICHIZA_PATH)
     @rules        = rules        || YAML.load_file(rules_path)
     @kukazo_rules = kukazo_rules || YAML.load_file(kukazo_path)
+    raw_ichiza    = ichiza_words || (File.exist?(ichiza_path.to_s) ? YAML.load_file(ichiza_path) : {})
+    @ichiza_words = raw_ichiza.is_a?(Hash) ? raw_ichiza.keys : Array(raw_ichiza)
   end
 
   # ══════════════════════════════════════════════════════
@@ -307,12 +317,45 @@ class ShikimokuChecker
   end
 
   # ══════════════════════════════════════════════════════
+  #  一座一句物チェック
+  # ══════════════════════════════════════════════════════
+
+  # chain        : Array<Hash>    verse Hash の配列（全句）
+  # ichiza_words : Array<String>  一座一句物語のリスト（省略時は初期化時のリストを使用）
+  # 返り値: Array<Hash> { type: :ichiza_duplicate, word:, first_pos:, pos: }
+  #
+  # 照合は verse[:word].to_s への部分文字列マッチで行う。
+  # 花（一座四句物）は本リストに含めず、teiza_hana_violations で管理する。
+  def ichiza_violations(chain, ichiza_words = @ichiza_words)
+    seen       = {}
+    violations = []
+    chain.each_with_index do |verse, i|
+      text = verse.is_a?(Hash) ? verse[:word].to_s : verse.to_s
+      Array(ichiza_words).each do |iw|
+        next unless text.include?(iw)
+        if seen.key?(iw)
+          violations << { type: :ichiza_duplicate, word: iw, first_pos: seen[iw], pos: i + 1 }
+        else
+          seen[iw] = i + 1
+        end
+      end
+    end
+    violations
+  end
+
+  def ichiza_ok?(chain, ichiza_words = @ichiza_words)
+    ichiza_violations(chain, ichiza_words).empty?
+  end
+
+  # ══════════════════════════════════════════════════════
   #  違反の人間可読表示
   # ══════════════════════════════════════════════════════
 
   def self.describe(violation)
     pos_str = violation[:pos] ? "#{violation[:pos]}句目：" : ""
     case violation[:type]
+    when :ichiza_duplicate
+      "#{pos_str}一座一句物「#{violation[:word]}」が#{violation[:first_pos]}句目に続き再出（一座一句・二度目不可）"
     when :teiza_tsuki
       "#{pos_str}面「#{violation[:fold]}」（#{violation[:range]}句）に月なし"
     when :teiza_hana

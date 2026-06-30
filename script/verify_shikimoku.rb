@@ -717,6 +717,67 @@ puts "試陸91：#{p9} pass / #{f9} fail"
 total_pass += p9; total_fail += f9
 total_pass += p9; total_fail += f9
 
+# ─────────────────────────────────────────────────────────────
+#  試験10：一座一句物チェック（ichiza_violations）
+# ─────────────────────────────────────────────────────────────
+puts "═" * 56
+puts "試験10：一座一句物チェック（ichiza_violations）"
+puts "─" * 56
+
+p10 = 0; f10 = 0
+def r10(r, p, f) = r ? [p+1, f] : [p, f+1]
+
+# (10a) 鶯が2回出現 → ichiza_duplicate 検出
+chain_ich1 = [
+  { word: "鶯なく春",   bui: ["動物"], season: "春" },
+  { word: "春の野かな", bui: [],       season: "春" },
+  { word: "鶯の声に",   bui: ["動物"], season: "春" },
+]
+v_ich1 = checker.ichiza_violations(chain_ich1, ["鶯"])
+res10a = check("鶯が2回出現 → ichiza_duplicate 検出（pos3・初出pos1）",
+               v_ich1.map { |h| [h[:type], h[:word], h[:first_pos], h[:pos]] },
+               [[:ichiza_duplicate, "鶯", 1, 3]])
+p10, f10 = r10(res10a, p10, f10)
+
+# (10b) 鶯が1回のみ → 違反なし
+chain_ich2 = [
+  { word: "鶯なく春",  bui: ["動物"], season: "春" },
+  { word: "梅の香り",  bui: ["植物"], season: "春" },
+]
+res10b = check("鶯が1回のみ → 違反なし",
+               checker.ichiza_violations(chain_ich2, ["鶯"]), [])
+p10, f10 = r10(res10b, p10, f10)
+
+# (10c) 異なる一座一句物が各1回ずつ → 違反なし
+chain_ich3 = [
+  { word: "鶯なく",    bui: ["動物"], season: "春" },
+  { word: "蛍飛ぶ夜",  bui: ["動物"], season: "夏" },
+  { word: "砧の音か",  bui: ["衣裳"], season: "秋" },
+]
+res10c = check("異なる一座一句物が各1回 → 違反なし",
+               checker.ichiza_violations(chain_ich3, ["鶯", "蛍", "砧"]), [])
+p10, f10 = r10(res10c, p10, f10)
+
+# (10d) デフォルト ichiza_words（YAML 読み込み）で水無瀬三吟 全100句を検査 → 0件
+viols_minase_ich = checker.ichiza_violations(minase_full)
+res10d = check("水無瀬三吟全100句 ichiza_violations=0（一座一句物は未使用）",
+               viols_minase_ich.size, 0)
+p10, f10 = r10(res10d, p10, f10)
+
+# (10e) ichiza_ok? ヘルパ: 重複あり → false
+res10e = check("ichiza_ok? 重複あり → false",
+               checker.ichiza_ok?(chain_ich1, ["鶯"]), false)
+p10, f10 = r10(res10e, p10, f10)
+
+# (10f) ichiza_ok? ヘルパ: 重複なし → true
+res10f = check("ichiza_ok? 重複なし → true",
+               checker.ichiza_ok?(chain_ich2, ["鶯"]), true)
+p10, f10 = r10(res10f, p10, f10)
+
+puts "試験10：#{p10} pass / #{f10} fail"
+total_pass += p10; total_fail += f10
+puts
+
 puts "═" * 56
 puts "総合：#{total_pass} pass / #{total_fail} fail"
 exit(total_fail.zero? ? 0 : 1)

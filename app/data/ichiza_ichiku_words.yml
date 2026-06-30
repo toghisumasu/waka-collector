@@ -1,0 +1,69 @@
+---
+# 一座一句物 — 百韻中に一度しか使えない語（連歌新式）
+#
+# 花は一座四句物のため本リストに含めない
+#   → 花の出現管理は teiza_hana_violations（定座チェック）で行う
+# 体用フラグ考慮：verse[:word] が bui_dictionary の「用」語である場合は
+#   一座カウントから除外することを将来検討する（仕様1 延長）
+#
+# 形式: word: { season:, bui:, yomi:, note: }
+
+若菜:
+  season: 春
+  bui: 植物
+  yomi: わかな
+  note: 春の若草。摘み草の代表的一座一句物
+
+欵冬:
+  season: 春
+  bui: 植物
+  yomi: ふきのとう
+  note: 蕗の薹。春一番の山菜
+
+躑躅:
+  season: 春
+  bui: 植物
+  yomi: つつじ
+  note: 春の木花
+
+鶯:
+  season: 春
+  bui: 動物
+  yomi: うぐいす
+  note: 春告鳥。春の代表的一座一句物
+
+郭公:
+  season: 夏
+  bui: 動物
+  yomi: ほととぎす
+  note: 夏の鳥。初音は特に珍重される
+
+蛍:
+  season: 夏
+  bui: 動物
+  yomi: ほたる
+  note: 夏の夜の虫。一座に一度しか詠めない
+
+砧:
+  season: 秋
+  bui: 衣裳
+  yomi: きぬた
+  note: 秋夜の衣打ち。聴覚的景物の一座一句物
+
+嵐:
+  season: ~
+  bui: 降物
+  yomi: あらし
+  note: 季節によらず一座一句物に数える説あり
+
+木枯:
+  season: 冬
+  bui: 降物
+  yomi: こがらし
+  note: 冬の風。木を枯らす激しい季語
+
+閨:
+  season: ~
+  bui: 居所
+  yomi: ねや
+  note: 寝室。恋の文脈で多用される居所の一座一句物
