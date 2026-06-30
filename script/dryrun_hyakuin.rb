@@ -322,18 +322,23 @@ log_line(logfile, 1, HAKKU, [])
       next
     end
 
-    violations = checker.all_violations(history, candidate, bui_dict: bui_dict)
+    violations   = checker.all_violations(history, candidate, bui_dict: bui_dict)
+    ichiza_viols = checker.ichiza_violations(history + [candidate])
+    all_viols    = violations + ichiza_viols
 
     best_candidate  = candidate
-    best_violations = violations
+    best_violations = all_viols
 
-    if violations.empty?
+    if all_viols.empty?
       feedback = nil
       break
+    elsif ichiza_viols.any?
+      used    = ichiza_viols.map { |v| "「#{v[:word]}」(#{v[:first_pos]}句目既出)" }.join("・")
+      feedback = { ku: candidate[:word], issue: "一座一句物違反",
+                   message: "以下は一座一句物につき再使用不可: #{used}。別の語で詠め" }
     else
       desc    = violations.map { |v| ShikimokuChecker.describe(v) }.join("; ")
-      message = "式目違反を避けよ: #{desc}"
-      feedback = { ku: candidate[:word], issue: "式目違反", message: message }
+      feedback = { ku: candidate[:word], issue: "式目違反", message: "式目違反を避けよ: #{desc}" }
     end
   end
 
