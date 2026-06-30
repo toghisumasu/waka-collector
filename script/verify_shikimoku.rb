@@ -727,52 +727,58 @@ puts "─" * 56
 p10 = 0; f10 = 0
 def r10(r, p, f) = r ? [p+1, f] : [p, f+1]
 
-# (10a) 鶯が2回出現 → ichiza_duplicate 検出
-chain_ich1 = [
-  { word: "鶯なく春",   bui: ["動物"], season: "春" },
-  { word: "春の野かな", bui: [],       season: "春" },
-  { word: "鶯の声に",   bui: ["動物"], season: "春" },
-]
-v_ich1 = checker.ichiza_violations(chain_ich1, ["鶯"])
-res10a = check("鶯が2回出現 → ichiza_duplicate 検出（pos3・初出pos1）",
+# テスト用句
+ich_uguis_hist  = { word: "鶯なく春",   bui: ["動物"], season: "春" }
+ich_uguis_cand  = { word: "鶯の声に",   bui: ["動物"], season: "春" }
+ich_ume_cand    = { word: "梅の香り",   bui: ["植物"], season: "春" }
+ich_hotaru_hist = { word: "蛍の光に",   bui: ["動物"], season: "夏" }
+ich_hotaru_dup  = { word: "蛍が夜を",   bui: ["動物"], season: "夏" }
+ich_kinuta_cand = { word: "砧の音か",   bui: ["衣裳"], season: "秋" }
+ich_tsuru_cand  = { word: "鶴が空を舞う", bui: ["動物"], season: "春" }
+
+# (10a) 候補が history の鶯と重複 → ichiza_duplicate 検出
+v_ich1 = checker.ichiza_violations([ich_uguis_hist, { word: "春の野かな", bui: [], season: "春" }],
+                                   ich_uguis_cand, ["鶯"])
+res10a = check("鶯が history に既出の候補 → ichiza_duplicate 検出（初出pos1・候補pos3）",
                v_ich1.map { |h| [h[:type], h[:word], h[:first_pos], h[:pos]] },
                [[:ichiza_duplicate, "鶯", 1, 3]])
 p10, f10 = r10(res10a, p10, f10)
 
-# (10b) 鶯が1回のみ → 違反なし
-chain_ich2 = [
-  { word: "鶯なく春",  bui: ["動物"], season: "春" },
-  { word: "梅の香り",  bui: ["植物"], season: "春" },
-]
-res10b = check("鶯が1回のみ → 違反なし",
-               checker.ichiza_violations(chain_ich2, ["鶯"]), [])
+# (10b) 候補が初出（history に鶯なし）→ 違反なし
+res10b = check("鶯が history に未出の候補（初出）→ 違反なし",
+               checker.ichiza_violations([], ich_uguis_hist, ["鶯"]), [])
 p10, f10 = r10(res10b, p10, f10)
 
-# (10c) 異なる一座一句物が各1回ずつ → 違反なし
-chain_ich3 = [
-  { word: "鶯なく",    bui: ["動物"], season: "春" },
-  { word: "蛍飛ぶ夜",  bui: ["動物"], season: "夏" },
-  { word: "砧の音か",  bui: ["衣裳"], season: "秋" },
-]
-res10c = check("異なる一座一句物が各1回 → 違反なし",
-               checker.ichiza_violations(chain_ich3, ["鶯", "蛍", "砧"]), [])
+# (10c) 各一座語が候補では初出 → 違反なし
+history_c = [ich_uguis_hist, ich_hotaru_hist]
+res10c = check("候補の砧は history に未出（各一座語は初出のみ）→ 違反なし",
+               checker.ichiza_violations(history_c, ich_kinuta_cand, ["鶯", "蛍", "砧"]), [])
 p10, f10 = r10(res10c, p10, f10)
 
-# (10d) デフォルト ichiza_words（YAML 読み込み）で水無瀬三吟 全100句を検査 → 0件
-viols_minase_ich = checker.ichiza_violations(minase_full)
+# (10d) 水無瀬三吟全100句をchain走査 → 一座一句物違反0件
+viols_minase_ich = minase_full.each_with_index.flat_map do |verse, i|
+  checker.ichiza_violations(minase_full[0...i], verse)
+end
 res10d = check("水無瀬三吟全100句 ichiza_violations=0（一座一句物は未使用）",
                viols_minase_ich.size, 0)
 p10, f10 = r10(res10d, p10, f10)
 
-# (10e) ichiza_ok? ヘルパ: 重複あり → false
-res10e = check("ichiza_ok? 重複あり → false",
-               checker.ichiza_ok?(chain_ich1, ["鶯"]), false)
+# (10e) ichiza_ok? 重複あり → false
+res10e = check("ichiza_ok? 候補が history の鶯と重複 → false",
+               checker.ichiza_ok?([ich_uguis_hist], ich_uguis_cand, ["鶯"]), false)
 p10, f10 = r10(res10e, p10, f10)
 
-# (10f) ichiza_ok? ヘルパ: 重複なし → true
-res10f = check("ichiza_ok? 重複なし → true",
-               checker.ichiza_ok?(chain_ich2, ["鶯"]), true)
+# (10f) ichiza_ok? 候補が初出 → true
+res10f = check("ichiza_ok? 候補が初出 → true",
+               checker.ichiza_ok?([], ich_uguis_hist, ["鶯"]), true)
 p10, f10 = r10(res10f, p10, f10)
+
+# (10g) バグ再現テスト: history内にichiza重複が既存でも無関係候補は誤検出しない
+#   （17句目誤FORCED問題の再現: history[蛍初出 + 蛍FORCED済み重複]、候補=鶴）
+history_dup = [ich_hotaru_hist, { word: "夜の野かな", bui: [], season: "夏" }, ich_hotaru_dup]
+res10g = check("history内ichiza重複済みでも無関係候補（鶴）は誤検出しない",
+               checker.ichiza_violations(history_dup, ich_tsuru_cand, ["蛍"]), [])
+p10, f10 = r10(res10g, p10, f10)
 
 puts "試験10：#{p10} pass / #{f10} fail"
 total_pass += p10; total_fail += f10

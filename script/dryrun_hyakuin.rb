@@ -323,7 +323,7 @@ log_line(logfile, 1, HAKKU, [])
     end
 
     violations   = checker.all_violations(history, candidate, bui_dict: bui_dict)
-    ichiza_viols = checker.ichiza_violations(history + [candidate])
+    ichiza_viols = checker.ichiza_violations(history, candidate)
     all_viols    = violations + ichiza_viols
 
     best_candidate  = candidate

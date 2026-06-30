@@ -320,31 +320,35 @@ class ShikimokuChecker
   #  一座一句物チェック
   # ══════════════════════════════════════════════════════
 
-  # chain        : Array<Hash>    verse Hash の配列（全句）
+  # history      : Array<Hash>    確定済みの句列（候補を含まない）
+  # candidate    : Hash           今付けようとする句
   # ichiza_words : Array<String>  一座一句物語のリスト（省略時は初期化時のリストを使用）
   # 返り値: Array<Hash> { type: :ichiza_duplicate, word:, first_pos:, pos: }
   #
+  # 候補句が history 内に既出の一座一句物語を含む場合のみ違反を返す。
+  # history 内部同士の重複は検査しない（確定済み履歴の再検査は行わない）。
   # 照合は verse[:word].to_s への部分文字列マッチで行う。
   # 花（一座四句物）は本リストに含めず、teiza_hana_violations で管理する。
-  def ichiza_violations(chain, ichiza_words = @ichiza_words)
-    seen       = {}
-    violations = []
-    chain.each_with_index do |verse, i|
+  def ichiza_violations(history, candidate, ichiza_words = @ichiza_words)
+    cand_text = candidate.is_a?(Hash) ? candidate[:word].to_s : candidate.to_s
+    hist_seen = {}
+    history.each_with_index do |verse, i|
       text = verse.is_a?(Hash) ? verse[:word].to_s : verse.to_s
       Array(ichiza_words).each do |iw|
-        next unless text.include?(iw)
-        if seen.key?(iw)
-          violations << { type: :ichiza_duplicate, word: iw, first_pos: seen[iw], pos: i + 1 }
-        else
-          seen[iw] = i + 1
-        end
+        hist_seen[iw] ||= i + 1 if text.include?(iw)
+      end
+    end
+    violations = []
+    Array(ichiza_words).each do |iw|
+      if cand_text.include?(iw) && hist_seen.key?(iw)
+        violations << { type: :ichiza_duplicate, word: iw, first_pos: hist_seen[iw], pos: history.size + 1 }
       end
     end
     violations
   end
 
-  def ichiza_ok?(chain, ichiza_words = @ichiza_words)
-    ichiza_violations(chain, ichiza_words).empty?
+  def ichiza_ok?(history, candidate, ichiza_words = @ichiza_words)
+    ichiza_violations(history, candidate, ichiza_words).empty?
   end
 
   # ══════════════════════════════════════════════════════
