@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>独吟百韻　水無瀬の風</title>
+<style>
+/* ── リセット ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #ede8df;
+  font-family: "Hiragino Mincho ProN", "游明朝", "Yu Mincho", "ＭＳ 明朝", serif;
+  color: #2a1f14;
+  padding: 40px 20px;
+}
+
+/* ── タイトル ── */
+.title-block {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  margin: 0 auto 50px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+.title-main {
+  font-size: 2.2rem;
+  letter-spacing: 0.25em;
+  color: #3d2b1a;
+  border-right: 3px double #9a7a5a;
+  padding-right: 16px;
+}
+.title-date {
+  font-size: 0.95rem;
+  color: #7a6a5a;
+  letter-spacing: 0.15em;
+}
+.title-subtitle {
+  font-size: 1.1rem;
+  color: #5a4a3a;
+  letter-spacing: 0.2em;
+}
+
+/* ── 凡例 ── */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 40px;
+  font-size: 0.8rem;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend-swatch {
+  width: 16px;
+  height: 16px;
+  border: 1px solid #b0a090;
+  border-radius: 2px;
+}
+
+/* ── 折コンテナ ── */
+.fold-section {
+  margin-bottom: 48px;
+}
+.fold-header {
+  writing-mode: horizontal-tb;
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+  color: #7a5a3a;
+  border-bottom: 1px solid #b0946e;
+  padding-bottom: 6px;
+  margin-bottom: 20px;
+}
+.fold-count {
+  font-size: 0.75rem;
+  color: #9a8a7a;
+  margin-left: 12px;
+}
+
+/* ── 短冊列（右→左、縦書き） ── */
+.tanzaku-row {
+  display: flex;
+  flex-direction: row-reverse;   /* 右から左へ並ぶ */
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+
+/* ── 短冊 ── */
+.tanzaku {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 8px;
+  min-width: 52px;
+  min-height: 280px;
+  border-radius: 3px;
+  position: relative;
+  flex-shrink: 0;
+  box-shadow: 1px 1px 4px rgba(0,0,0,0.08);
+  cursor: default;
+  transition: box-shadow 0.15s;
+}
+.tanzaku:hover {
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.18);
+}
+
+/* 句番号 */
+.verse-no {
+  font-size: 0.62rem;
+  color: #9a8270;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+/* 句本文 */
+.verse-text {
+  font-size: 1.0rem;
+  line-height: 1.9;
+  letter-spacing: 0.12em;
+  color: #1e130a;
+  flex: 1;
+}
+
+/* 季・長短 */
+.verse-meta {
+  font-size: 0.62rem;
+  color: #8a7060;
+  margin-top: 4px;
+  letter-spacing: 0.05em;
+}
+
+/* FORCED マーク */
+.forced-mark {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 0.65rem;
+  color: #c05050;
+  writing-mode: horizontal-tb;
+  line-height: 1;
+}
+
+/* ── フッター ── */
+.footer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #9a8a7a;
+  margin-top: 48px;
+  padding-top: 16px;
+  border-top: 1px solid #c0b0a0;
+  letter-spacing: 0.1em;
+}
+
+/* ── 統計バー ── */
+.stats {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+  font-size: 0.8rem;
+  color: #6a5a4a;
+}
+.stat-item { letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+
+<div style="text-align:center; margin-bottom: 40px;">
+  <div class="title-block">
+    <div class="title-main">独吟百韻</div>
+    <div class="title-subtitle">水無瀬の風</div>
+    <div class="title-date">令和八年六月三十日</div>
+  </div>
+</div>
+
+<div class="stats">
+  <span class="stat-item">全100句</span>
+  <span class="stat-item">FORCED 13句</span>
+  <span class="stat-item">春35句</span>
+  <span class="stat-item">秋35句</span>
+  <span class="stat-item">夏15句</span>
+  <span class="stat-item">冬15句</span>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch" style="background:#fdf2f5"></div>春</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f0f7ec"></div>夏</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#fbf0e4"></div>秋</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#eef5f8"></div>冬</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f5f5f0"></div>雑</div>
+  <div class="legend-item"><span style="color:#c05050;font-size:0.85rem">※</span> FORCED句</div>
+</div>
+
+<div class="fold-section">
+  <div class="fold-header">初折表<span class="fold-count">（1〜8句）</span></div>
+  <div class="tanzaku-row">
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">001</span>
+      <span class="verse-text">東風ふかば匂いおこせよ梅の花</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">002</span>
+      <span class="verse-text">霞の向こう鶯の声聞こゆるかな</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">003</span>
+      <span class="verse-text">春風にそよぐ柳の影に揺れる</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">004</span>
+      <span class="verse-text">霞の向こうに浮かぶ遠山の紅き色</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">005</span>
+      <span class="verse-text">鶴の舞う空に染まる朝焼けの光</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">006</span>
+      <span class="verse-text">鷹の翔く雲に揺れる夕暮れの影</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">007</span>
+      <span class="verse-text">紅葉の梢に揺れる風の音</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">008</span>
+      <span class="verse-text">もみじの色に染まる秋の心</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+  </div>
+</div>
+
+<div class="fold-section">
+  <div class="fold-header">初折裏<span class="fold-count">（9〜22句）</span></div>
+  <div class="tanzaku-row">
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">009</span>
+      <span class="verse-text">月の光に揺れる紅葉の夢</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">010</span>
+      <span class="verse-text">風の音に混じる雁の囀り</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">011</span>
+      <span class="verse-text">竜の息吹き込む海の底に灯る炎</span>
+      <span class="verse-meta">夏・長</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">012</span>
+      <span class="verse-text">蛍の光る波間に揺れる幽かな夢</span>
+      <span class="verse-meta">夏・短</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1.5px solid #e8a0a0;" title="部立「水辺」が4句連続（上限3句）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">013</span>
+      <span class="verse-text">蛙の声に混じる夜の闇に散る星屑</span>
+      <span class="verse-meta">夏・長</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1.5px solid #e8a0a0;" title="部立「水辺」が5句連続（上限3句）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">014</span>
+      <span class="verse-text">風の音に混じる冬の闇に舞う氷の華</span>
+      <span class="verse-meta">冬・短</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">015</span>
+      <span class="verse-text">霜の結晶に揺れる静けさに心が凍える</span>
+      <span class="verse-meta">冬・長</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1.5px solid #e8a0a0;" title="部立「水辺」が14句目から間1句で再出（5句去・不足4）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">016</span>
+      <span class="verse-text">氷の裂け目から漏れる光が胸を刺す</span>
+      <span class="verse-meta">冬・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">017</span>
+      <span class="verse-text">霞の奥に潜む声が心を揺すぶる</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">018</span>
+      <span class="verse-text">梅の香りが空を染め春の夢を呼び起こす</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">019</span>
+      <span class="verse-text">鶴が舞う空に春風が夢をそっと包む</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">020</span>
+      <span class="verse-text">梅の香りが風に乗せて舞う夢を呼び覚ます</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">021</span>
+      <span class="verse-text">桜の影が水面に揺れて心を揺さぶる</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">022</span>
+      <span class="verse-text">風の音が木々の梢に揺れて夜を深くする</span>
+      <span class="verse-meta">夏・短</span>
+    </div>
+  </div>
+</div>
+
+<div class="fold-section">
+  <div class="fold-header">二の折表<span class="fold-count">（23〜36句）</span></div>
+  <div class="tanzaku-row">
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">023</span>
+      <span class="verse-text">蛍の光が闇の底に揺れて心を照らす</span>
+      <span class="verse-meta">夏・長</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">024</span>
+      <span class="verse-text">虫の音が夜風に混じり心地よい眠りを誘う</span>
+      <span class="verse-meta">夏・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">025</span>
+      <span class="verse-text">紅葉が舞う木の陰で静かな時を過ごす</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">026</span>
+      <span class="verse-text">月の光に揺れる露が静かに夜を包む</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">027</span>
+      <span class="verse-text">紅葉の梢に揺れる雁が遠くを飛ぶ</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">028</span>
+      <span class="verse-text">露の光に揺れる月の影は遠くへ</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">029</span>
+      <span class="verse-text">紅葉の梢に揺れる雁の声は遠くへ</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">030</span>
+      <span class="verse-text">霞の向こうに潜む旅人の足音も聞こえ</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">031</span>
+      <span class="verse-text">鶴の声が水面に揺れるかなと願う心</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1.5px solid #e8a0a0;" title="部立「降物」が30句目から間1句で再出（3句去・不足2） / 部立「植物」が29句目から間2句で再出（5句去・不足3）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">032</span>
+      <span class="verse-text">霞の向こうに梅の香りがささやく</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">033</span>
+      <span class="verse-text">鶴の声に春の夢が揺れる</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">034</span>
+      <span class="verse-text">風の音に心の波が満つ</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">035</span>
+      <span class="verse-text">夜の静けさに夢の影が揺れる</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">036</span>
+      <span class="verse-text">紅葉の梢に風の音がさざなき</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+  </div>
+</div>
+
+<div class="fold-section">
+  <div class="fold-header">二の折裏<span class="fold-count">（37〜50句）</span></div>
+  <div class="tanzaku-row">
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">037</span>
+      <span class="verse-text">秋の空に漂う紅葉の香りが遠く</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">038</span>
+      <span class="verse-text">風に揺れる梢の夢をただ追う</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">039</span>
+      <span class="verse-text">紅葉に染まる空をただ見つめる</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">040</span>
+      <span class="verse-text">霞がゆるやかに山の間を裂く</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">041</span>
+      <span class="verse-text">鶴が空を舞う音が聞こゆる</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">042</span>
+      <span class="verse-text">梅の香りが風に乗り散りゆく</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">043</span>
+      <span class="verse-text">鶯のさえずりに心を揺さぶらす</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">044</span>
+      <span class="verse-text">桜の影に揺れる風の音</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">045</span>
+      <span class="verse-text">波の音に混じる遠くの鐘</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">046</span>
+      <span class="verse-text">紅葉の梢に揺れる月の光</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">047</span>
+      <span class="verse-text">露の光に揺れる雁の影</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">048</span>
+      <span class="verse-text">風の音に混じる鶴の声</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">049</span>
+      <span class="verse-text">月の光に揺れる紅葉の影</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">050</span>
+      <span class="verse-text">風の音に揺れる夜の夢の跡</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+  </div>
+</div>
+
+<div class="fold-section">
+  <div class="fold-header">三の折表<span class="fold-count">（51〜64句）</span></div>
+  <div class="tanzaku-row">
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">051</span>
+      <span class="verse-text">梅の香りに混じる春の夢の跡</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1.5px solid #e8a0a0;" title="部立「降物」が50句目から間1句で再出（3句去・不足2）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">052</span>
+      <span class="verse-text">霞の静けさに揺れる鶯の声</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">053</span>
+      <span class="verse-text">静けさに揺れる鶯の声</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1.5px solid #e8a0a0;" title="部立「降物」が52句目から間1句で再出（3句去・不足2） / 部立「植物」が51句目から間2句で再出（5句去・不足3）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">054</span>
+      <span class="verse-text">幽かな風に散る梅の香</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">055</span>
+      <span class="verse-text">古き火の灯りに揺れる影</span>
+      <span class="verse-meta">冬・長</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1.5px solid #e8a0a0;" title="部立「降物」が54句目から間1句で再出（3句去・不足2）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">056</span>
+      <span class="verse-text">霜の結ぶ窓に浮かぶ夢</span>
+      <span class="verse-meta">冬・短</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1.5px solid #e8a0a0;" title="部立「水辺」が55句目から間1句で再出（5句去・不足4）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">057</span>
+      <span class="verse-text">氷の裂ける音に散る声</span>
+      <span class="verse-meta">冬・長</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">058</span>
+      <span class="verse-text">蝉の声に混じりて消える夢</span>
+      <span class="verse-meta">夏・短</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">059</span>
+      <span class="verse-text">蛍の光に揺れて散る想い</span>
+      <span class="verse-meta">夏・長</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">060</span>
+      <span class="verse-text">火のついた灯に飲み込まれる夜</span>
+      <span class="verse-meta">夏・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">061</span>
+      <span class="verse-text">風の音に揺れる古びた襖</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">062</span>
+      <span class="verse-text">紅葉の下に静かに揺れる木漏れ日</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">063</span>
+      <span class="verse-text">露の光に揺れる秋の風の音</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1.5px solid #e8a0a0;" title="部立「光物」が62句目から間1句で再出（3句去・不足2）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">064</span>
+      <span class="verse-text">紅葉の葉に揺れるかな秋の音</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+  </div>
+</div>
+
+<div class="fold-section">
+  <div class="fold-header">三の折裏<span class="fold-count">（65〜78句）</span></div>
+  <div class="tanzaku-row">
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">065</span>
+      <span class="verse-text">風の音に揺れるかな秋の夢</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">066</span>
+      <span class="verse-text">夜の静けさに心を寄せた夢</span>
+      <span class="verse-meta">冬・短</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1.5px solid #e8a0a0;" title="部立「水辺」が63句目から間3句で再出（5句去・不足2）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">067</span>
+      <span class="verse-text">氷の光に心をさらわれる夜</span>
+      <span class="verse-meta">冬・長</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">068</span>
+      <span class="verse-text">枯枝に佇む影がゆらめく</span>
+      <span class="verse-meta">冬・短</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">069</span>
+      <span class="verse-text">夕暮れの空に舞う蝶の影</span>
+      <span class="verse-meta">夏・長</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">070</span>
+      <span class="verse-text">蛍の光に揺れる夢の調べ</span>
+      <span class="verse-meta">夏・短</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">071</span>
+      <span class="verse-text">夢の調べに響く蝉の声</span>
+      <span class="verse-meta">夏・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1.5px solid #e8a0a0;" title="部立「光物」が70句目から間1句で再出（3句去・不足2）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">072</span>
+      <span class="verse-text">古き夢に残る幽かな香り</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">073</span>
+      <span class="verse-text">梅の香りをただ心に留めて</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">074</span>
+      <span class="verse-text">鶴の声に心をさらわれし</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">075</span>
+      <span class="verse-text">霞の向こうに春風そよぐ</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">076</span>
+      <span class="verse-text">鶴の声に春の夢醒める</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">077</span>
+      <span class="verse-text">蛙の声に夏の夢醒める</span>
+      <span class="verse-meta">夏・長</span>
+    </div>
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">078</span>
+      <span class="verse-text">蛍の光に夜の静けさ</span>
+      <span class="verse-meta">夏・短</span>
+    </div>
+  </div>
+</div>
+
+<div class="fold-section">
+  <div class="fold-header">名残表<span class="fold-count">（79〜92句）</span></div>
+  <div class="tanzaku-row">
+    <div class="tanzaku" style="background:#f0f7ec;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">079</span>
+      <span class="verse-text">蛙の声に水の音もなし</span>
+      <span class="verse-meta">夏・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">080</span>
+      <span class="verse-text">風の音に木の香りもなし</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">081</span>
+      <span class="verse-text">梅の香りに心地よき春</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">082</span>
+      <span class="verse-text">桜の咲く道を歩く人々</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">083</span>
+      <span class="verse-text">鶯の声に心奪われし</span>
+      <span class="verse-meta">春・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fdf2f5;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">084</span>
+      <span class="verse-text">桜の下で歩く音も消え</span>
+      <span class="verse-meta">春・短</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">085</span>
+      <span class="verse-text">雪の音も静かに消えて</span>
+      <span class="verse-meta">冬・長</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">086</span>
+      <span class="verse-text">枯れ枝に風の音も届かず</span>
+      <span class="verse-meta">冬・短</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">087</span>
+      <span class="verse-text">凍りたる岩に苔の色もなし</span>
+      <span class="verse-meta">冬・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">088</span>
+      <span class="verse-text">月の光に照らされて秋の夢</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">089</span>
+      <span class="verse-text">露の重さに揺れる秋の夢</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1.5px solid #e8a0a0;" title="部立「植物」が87句目から間2句で再出（5句去・不足3） / 部立「光物」が88句目から間1句で再出（3句去・不足2）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">090</span>
+      <span class="verse-text">紅葉の色に染まる秋の空</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">091</span>
+      <span class="verse-text">風の音に揺れる古き木の実</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">092</span>
+      <span class="verse-text">紅葉の下に潜む虫の息吹</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+  </div>
+</div>
+
+<div class="fold-section">
+  <div class="fold-header">名残裏<span class="fold-count">（93〜100句）</span></div>
+  <div class="tanzaku-row">
+    <div class="tanzaku" style="background:#eef5f8;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">093</span>
+      <span class="verse-text">霜のついた石にかすかな音</span>
+      <span class="verse-meta">冬・長</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">094</span>
+      <span class="verse-text">石の陰に蛇が潜むように</span>
+      <span class="verse-meta">冬・短</span>
+    </div>
+    <div class="tanzaku" style="background:#eef5f8;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">095</span>
+      <span class="verse-text">氷の上に蛙が跳ぶように</span>
+      <span class="verse-meta">冬・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">096</span>
+      <span class="verse-text">月の下で蝶が舞うように</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">097</span>
+      <span class="verse-text">紅葉の下に虫が囀るごとく</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1.5px solid #e8a0a0;" title="部立「光物」が96句目から間1句で再出（3句去・不足2）">
+      <span class="forced-mark">※</span>
+      <span class="verse-no">098</span>
+      <span class="verse-text">露の重さに揺れるもみじの葉</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">099</span>
+      <span class="verse-text">風の音に揺れる紅葉の梢</span>
+      <span class="verse-meta">秋・長</span>
+    </div>
+    <div class="tanzaku" style="background:#fbf0e4;border: 1px solid #c8b89a;">
+      
+      <span class="verse-no">100</span>
+      <span class="verse-text">鈴の音に混じる秋の夢の香</span>
+      <span class="verse-meta">秋・短</span>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  独吟百韻「水無瀬の風」&ensp;|&ensp;生成: qwen3:8b via Ollama&ensp;|&ensp;検証: ShikimokuChecker
+</div>
+
+</body>
+</html>
