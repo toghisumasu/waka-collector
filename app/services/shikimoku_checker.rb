@@ -376,6 +376,9 @@ class ShikimokuChecker
       end
     when :kukazo_under
       "#{pos_str}季「#{violation[:season]}」が#{violation[:streak]}句で転換（最低#{violation[:min]}句必要）"
+    when :generation_failed
+      reason = violation[:reason] ? "（理由: #{violation[:reason]}）" : ""
+      "#{pos_str}句生成に失敗しました#{reason}"
     else
       # :type キーなし → 句去違反（後方互換）
       v = violation

@@ -784,6 +784,46 @@ puts "試験10：#{p10} pass / #{f10} fail"
 total_pass += p10; total_fail += f10
 puts
 
+# ─────────────────────────────────────────────────────────────
+#  試験11：describe(:generation_failed) 回帰テスト
+#   （bui/last_pos/required/actual が無い violation で
+#    句去フォーマットにフォールバックし nil - nil でクラッシュしていたバグ）
+# ─────────────────────────────────────────────────────────────
+puts "═" * 56
+puts "試験11：describe(:generation_failed) 回帰テスト"
+puts "─" * 56
+
+p11 = 0; f11 = 0
+def r11(r, p, f) = r ? [p+1, f] : [p, f+1]
+
+# (11a) reason なし → クラッシュせず専用メッセージを返す
+res11a = check("generation_failed（reasonなし）→ クラッシュせず専用メッセージ",
+               ShikimokuChecker.describe({ type: :generation_failed }),
+               "句生成に失敗しました")
+p11, f11 = r11(res11a, p11, f11)
+
+# (11b) pos あり → pos_str 付き
+res11b = check("generation_failed（pos付き）→ pos_str付きメッセージ",
+               ShikimokuChecker.describe({ type: :generation_failed, pos: 28 }),
+               "28句目：句生成に失敗しました")
+p11, f11 = r11(res11b, p11, f11)
+
+# (11c) reason あり → 理由を含む
+res11c = check("generation_failed（reason付き）→ 理由を表示に含む",
+               ShikimokuChecker.describe({ type: :generation_failed, reason: "JSON解析エラー" }),
+               "句生成に失敗しました（理由: JSON解析エラー）")
+p11, f11 = r11(res11c, p11, f11)
+
+# (11d) :type キーなし（後方互換の句去違反）は従来どおり描画される
+res11d = check("type キーなし → 従来の句去フォーマット（後方互換維持）",
+               ShikimokuChecker.describe({ bui: "降物", last_pos: 12, required: 3, actual: 1 }),
+               "部立「降物」が12句目から間1句で再出（3句去・不足2）")
+p11, f11 = r11(res11d, p11, f11)
+
+puts "試験11：#{p11} pass / #{f11} fail"
+total_pass += p11; total_fail += f11
+puts
+
 puts "═" * 56
 puts "総合：#{total_pass} pass / #{total_fail} fail"
 exit(total_fail.zero? ? 0 : 1)
