@@ -824,6 +824,41 @@ puts "試験11：#{p11} pass / #{f11} fail"
 total_pass += p11; total_fail += f11
 puts
 
+# ─────────────────────────────────────────────────────────────
+#  試験12：describe(:mora_error) 回帰テスト
+#   （generation_failed と同型の欠落。bui/last_pos/required/actual
+#    が無い violation で句去フォーマットにフォールバックし
+#    nil - nil でクラッシュする余地が残っていたバグ）
+# ─────────────────────────────────────────────────────────────
+puts "═" * 56
+puts "試験12：describe(:mora_error) 回帰テスト"
+puts "─" * 56
+
+p12 = 0; f12 = 0
+def r12(r, p, f) = r ? [p+1, f] : [p, f+1]
+
+# (12a) desc あり → クラッシュせず desc をそのまま返す
+res12a = check("mora_error（desc付き）→ クラッシュせずdescを表示",
+               ShikimokuChecker.describe({ type: :mora_error, desc: "字余り(19音)" }),
+               "字余り(19音)")
+p12, f12 = r12(res12a, p12, f12)
+
+# (12b) desc なし → クラッシュせずデフォルト文言
+res12b = check("mora_error（descなし）→ クラッシュせずデフォルト文言",
+               ShikimokuChecker.describe({ type: :mora_error }),
+               "音数不一致")
+p12, f12 = r12(res12b, p12, f12)
+
+# (12c) pos あり → pos_str 付き
+res12c = check("mora_error（pos付き）→ pos_str付きメッセージ",
+               ShikimokuChecker.describe({ type: :mora_error, desc: "字足らず(9音)", pos: 15 }),
+               "15句目：字足らず(9音)")
+p12, f12 = r12(res12c, p12, f12)
+
+puts "試験12：#{p12} pass / #{f12} fail"
+total_pass += p12; total_fail += f12
+puts
+
 puts "═" * 56
 puts "総合：#{total_pass} pass / #{total_fail} fail"
 exit(total_fail.zero? ? 0 : 1)

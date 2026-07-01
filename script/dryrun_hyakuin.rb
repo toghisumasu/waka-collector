@@ -212,6 +212,24 @@ end
 #  ログ
 # ─────────────────────────────────────────────────────────────
 
+def log_attempt(logfile, verse_no:, attempt:, history_size:, reason:, candidate: nil, violation_types: [])
+  entry = {
+    ts:              timestamp,
+    verse_no:        verse_no,
+    attempt:         attempt,
+    history_size:    history_size,
+    reason:          reason,
+    violation_types: violation_types,
+    candidate:       candidate && {
+      word:    candidate[:word],
+      bui:     candidate[:bui],
+      season:  candidate[:season],
+      seed_id: nil # このスクリプトにはseed_pool概念がない（RengaGenerator固有）
+    }
+  }
+  File.open(logfile, "a") { |f| f.puts(entry.to_json) }
+end
+
 def log_line(logfile, verse_no, candidate, violations, forced: false)
   no_str  = format("%03d", verse_no)
   bui_str = candidate[:bui].join(",")
@@ -254,6 +272,7 @@ check_ollama_model
 log_dir  = File.expand_path("../log", __dir__)
 Dir.mkdir(log_dir) unless Dir.exist?(log_dir)
 logfile  = File.join(log_dir, "dryrun_hyakuin_#{Time.now.strftime('%Y%m%d')}.log")
+attempts_logfile = File.join(log_dir, "generation_attempts.log")
 checker  = ShikimokuChecker.new
 bui_dict = BuiDictionary.new
 
@@ -285,18 +304,24 @@ log_line(logfile, 1, HAKKU, [])
                                      temperature: temperature)
     rescue => e
       puts "  [#{verse_no}句目 attempt#{attempt + 1}] Ollama接続エラー: #{e.message}"
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "ollama_error")
       next
     end
 
     candidate = parse_candidate(raw)
     if candidate.nil?
       feedback = { ku: "(解析失敗)", issue: "JSON解析エラー", message: "正しいJSON形式で出力せよ" }
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "json_parse_error")
       next
     end
 
     # 重複句リジェクト（historyに同一wordが存在する場合は即却下）
     if history.any? { |v| v[:word] == candidate[:word] }
       feedback = { ku: candidate[:word], issue: "重複句", message: "全く異なる句を作れ（同じ句は使用不可）" }
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "duplicate_verse", candidate: candidate)
       next
     end
 
@@ -304,6 +329,8 @@ log_line(logfile, 1, HAKKU, [])
     if pool_params[:forbidden_seasons].include?(candidate[:season])
       feedback = { ku: candidate[:word], issue: "禁止季（#{candidate[:season]}）",
                    message: "#{pool_params[:forbidden_seasons].join('・')}以外の季にすること" }
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "forbidden_season", candidate: candidate)
       next
     end
 
@@ -319,6 +346,8 @@ log_line(logfile, 1, HAKKU, [])
       feedback = { ku: candidate[:word], issue: issue, message: message }
       best_candidate  ||= candidate
       best_violations ||= [{ type: :mora_error, desc: "#{issue}" }]
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "mora_error", candidate: candidate)
       next
     end
 
@@ -331,14 +360,23 @@ log_line(logfile, 1, HAKKU, [])
 
     if all_viols.empty?
       feedback = nil
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "ok", candidate: candidate)
       break
     elsif ichiza_viols.any?
       used    = ichiza_viols.map { |v| "「#{v[:word]}」(#{v[:first_pos]}句目既出)" }.join("・")
       feedback = { ku: candidate[:word], issue: "一座一句物違反",
                    message: "以下は一座一句物につき再使用不可: #{used}。別の語で詠め" }
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "ichiza_duplicate", candidate: candidate,
+                  violation_types: all_viols.map { |v| v[:type] }.uniq)
     else
       desc    = violations.map { |v| ShikimokuChecker.describe(v) }.join("; ")
       feedback = { ku: candidate[:word], issue: "式目違反", message: "式目違反を避けよ: #{desc}" }
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: violations.first[:type] || "kuzari_violation",
+                  candidate: candidate,
+                  violation_types: all_viols.map { |v| v[:type] || "kuzari_violation" }.uniq)
     end
   end
 
