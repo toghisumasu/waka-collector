@@ -291,9 +291,11 @@ log_line(logfile, 1, HAKKU, [])
   target_vt    = constraints[:verse_type]
   target_mora  = target_vt == :chouku ? 17 : 14
 
-  best_candidate  = nil
-  best_violations = nil
-  feedback        = nil
+  best_candidate    = nil
+  best_violations   = nil
+  feedback          = nil
+  banned_words      = []
+  duplicate_streak  = 0
 
   MAX_RETRY.times do |attempt|
     temperature = attempt >= 3 ? 0.8 : nil
@@ -319,7 +321,23 @@ log_line(logfile, 1, HAKKU, [])
 
     # 重複句リジェクト（historyに同一wordが存在する場合は即却下）
     if history.any? { |v| v[:word] == candidate[:word] }
-      feedback = { ku: candidate[:word], issue: "重複句", message: "全く異なる句を作れ（同じ句は使用不可）" }
+      banned_words << candidate[:word] unless banned_words.include?(candidate[:word])
+      duplicate_streak += 1
+
+      banned_list = banned_words.map { |w| "「#{w}」" }.join("・")
+      message = "以下は出力禁止（既出につき再使用不可）: #{banned_list}。全く別の語・情景で新たに詠め"
+
+      # duplicate_verse固着（同一文言の連続再出力）に対する機械的救済：
+      # 季語ヒントを強制的に変えるのではなく、「季から離れて雑（無季）で詠み直す」
+      # という連歌本来の技法をfeedbackで指示する（季を強制しない＝季語ヒントの上書きは行わない）
+      if duplicate_streak >= 2
+        puts "  [#{verse_no}句目 attempt#{attempt + 1}] duplicate_verse固着検知 → 雑（無季）への詠み直しを指示"
+        message           = "#{message}。季語にとらわれず、無季（雑）の句として、季節を離れた情景・心情・人事を詠んでください"
+        duplicate_streak  = 0
+      end
+
+      feedback = { ku: candidate[:word], issue: "重複句", message: message }
+
       log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
                   history_size: history.size, reason: "duplicate_verse", candidate: candidate)
       next
