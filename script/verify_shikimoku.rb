@@ -859,6 +859,56 @@ puts "試験12：#{p12} pass / #{f12} fail"
 total_pass += p12; total_fail += f12
 puts
 
+# ─────────────────────────────────────────────────────────────
+#  試験13：BuiDictionary#normalize_bui 回帰テスト（其の二十八）
+#   季語所属ng調査で判明した①②対策。プロンプトが許可する下位区分
+#   （虫・鳥・獣→動物、花・木・草→植物）と、辞書登録語の非正規化
+#   （紅葉・桜・柳等→植物）を、正規カテゴリへ変換できることを確認する。
+#   ③（真に未知＝辞書に無い語）はそのまま返す（無視される仕様を維持）。
+# ─────────────────────────────────────────────────────────────
+puts "═" * 56
+puts "試験13：BuiDictionary#normalize_bui 回帰テスト（其の二十八）"
+puts "─" * 56
+
+p13 = 0; f13 = 0
+def r13(r, p, f) = r ? [p+1, f] : [p, f+1]
+
+valid_categories = (checker.rules.keys + %w[時分 人倫]).uniq
+
+# (13a) ①プロンプト指示済み下位区分 → 動物/植物へ正規化
+{ "虫" => "動物", "鳥" => "動物", "獣" => "動物",
+  "花" => "植物", "木" => "植物", "草" => "植物" }.each do |tag, expected|
+  res = check("①下位区分「#{tag}」→「#{expected}」に正規化",
+              bui_dict.normalize_bui(tag, valid_categories), expected)
+  p13, f13 = r13(res, p13, f13)
+end
+
+# (13b) ②辞書登録語の非正規化 → primary_bui へ正規化
+{ "紅葉" => "植物", "桜" => "植物", "柳" => "植物",
+  "梅" => "植物", "仏" => "釈教", "旅人" => "旅" }.each do |tag, expected|
+  res = check("②辞書登録語「#{tag}」→「#{expected}」に正規化",
+              bui_dict.normalize_bui(tag, valid_categories), expected)
+  p13, f13 = r13(res, p13, f13)
+end
+
+# (13c) ③真に未知（辞書に無い語）→ 変換せずそのまま返す
+%w[風 音 夢 春].each do |tag|
+  res = check("③真に未知「#{tag}」→ 無変換のまま返す",
+              bui_dict.normalize_bui(tag, valid_categories), tag)
+  p13, f13 = r13(res, p13, f13)
+end
+
+# (13d) 既に正規カテゴリ → そのまま返す（無変換）
+%w[植物 動物 光物].each do |tag|
+  res = check("正規カテゴリ「#{tag}」→ そのまま",
+              bui_dict.normalize_bui(tag, valid_categories), tag)
+  p13, f13 = r13(res, p13, f13)
+end
+
+puts "試験13：#{p13} pass / #{f13} fail"
+total_pass += p13; total_fail += f13
+puts
+
 puts "═" * 56
 puts "総合：#{total_pass} pass / #{total_fail} fail"
 exit(total_fail.zero? ? 0 : 1)

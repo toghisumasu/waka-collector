@@ -223,6 +223,7 @@ def log_attempt(logfile, verse_no:, attempt:, history_size:, reason:, candidate:
     candidate:       candidate && {
       word:    candidate[:word],
       bui:     candidate[:bui],
+      raw_bui: candidate[:raw_bui], # 正規化前の自己申告そのまま（其の二十八）
       season:  candidate[:season],
       seed_id: nil # このスクリプトにはseed_pool概念がない（RengaGenerator固有）
     }
@@ -276,12 +277,24 @@ attempts_logfile = File.join(log_dir, "generation_attempts.log")
 checker  = ShikimokuChecker.new
 bui_dict = BuiDictionary.new
 
+# 其の二十八の季語所属ng調査で判明した①②対策：
+# ShikimokuChecker が認識する正規カテゴリ（kuzari_rules.yml + 時分/人倫）に
+# 一致しないbui自己申告を、bui_dictionary.yml の primary_bui で正規化する。
+# ShikimokuChecker自体は無変更（純粋関数性を維持）、呼び出し側で正規化する。
+valid_bui_categories = (checker.rules.keys + %w[時分 人倫]).uniq
+
+normalize_candidate_bui = lambda do |tags|
+  Array(tags).map { |t| bui_dict.normalize_bui(t, valid_bui_categories) }
+end
+
 puts "=" * 60
 puts "独吟百韻ドライラン開始"
 puts "ログ: #{logfile}"
 puts "=" * 60
 
-history = [HAKKU.dup]
+initial_verse = HAKKU.dup
+initial_verse[:bui] = normalize_candidate_bui.call(initial_verse[:bui])
+history = [initial_verse]
 log_line(logfile, 1, HAKKU, [])
 
 (2..TOTAL_VERSES).each do |verse_no|
@@ -318,6 +331,12 @@ log_line(logfile, 1, HAKKU, [])
                   history_size: history.size, reason: "json_parse_error")
       next
     end
+
+    # bui自己申告の正規化（ログには正規化前のraw_buiも残し、以降の判定・historyには
+    # 正規化後のbuiを使う。generation_attempts.log の raw_bui は将来の
+    # analyze_kigo_membership.rb 再実行で③（真に未知）の推移を監視するために残す）
+    candidate[:raw_bui] = candidate[:bui].dup
+    candidate[:bui]      = normalize_candidate_bui.call(candidate[:bui])
 
     # 重複句リジェクト（historyに同一wordが存在する場合は即却下）
     if history.any? { |v| v[:word] == candidate[:word] }

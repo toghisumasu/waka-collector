@@ -157,3 +157,18 @@
   primary_bui: 神祇
   season: null
   taiyo: 体
+
+# ── 動物の下位区分（其の二十八: プロンプトが明示的に許可しているが
+#    辞書に未登録だったため、bui自己申告の正規化が効かなかった語）──
+虫:
+  primary_bui: 動物
+  season: null
+  taiyo: 体
+鳥:
+  primary_bui: 動物
+  season: null
+  taiyo: 体
+獣:
+  primary_bui: 動物
+  season: null
+  taiyo: 体
