@@ -1,11 +1,3 @@
-<h1>連歌成立</h1>
-
-<p><strong>前句：</strong><%= @renga.maeku %>
-   <small>（<%= @renga.maeku_author %>）</small></p>
-<p><strong>付け句：</strong><%= @renga.tsugeku %>
-   <small>（<%= @renga.tsugeku_author %>）</small></p>
-
-<h3>字数判定（KuValidator）</h3>
 <%
   maeku_mora    = KuValidator.new(@renga.maeku).count_mora
   maeku_type    = KuValidator.nearest_verse_type(maeku_mora)
@@ -13,7 +5,39 @@
 
   tsugeku_type  = (maeku_type == :chouku) ? :tanku : :chouku
   tsugeku_check = KuValidator.new(@renga.tsugeku, type: tsugeku_type).validate
+
+  mora_results  = [maeku_check[:result], tsugeku_check[:result]]
+  mora_status   = if mora_results.include?("ng")
+                    :ng
+                  elsif mora_results.include?("warning")
+                    :warning
+                  else
+                    :ok
+                  end
+
+  shikimoku_result = @renga.style_check_result["result"]
+  shikimoku_ok     = shikimoku_result == "ok"
+
+  heading = if mora_status == :ng
+              "字数不備"
+            elsif shikimoku_result == "ng"
+              "連歌不成立"
+            elsif mora_status == :warning
+              "連歌成立（字余り・字足らずあり）"
+            elsif shikimoku_ok
+              "連歌成立"
+            else
+              "連歌成立（式目チェック未確定）"
+            end
 %>
+<h1><%= heading %></h1>
+
+<p><strong>前句：</strong><%= @renga.maeku %>
+   <small>（<%= @renga.maeku_author %>）</small></p>
+<p><strong>付け句：</strong><%= @renga.tsugeku %>
+   <small>（<%= @renga.tsugeku_author %>）</small></p>
+
+<h3>字数判定（KuValidator）</h3>
 <ul>
   <li>
     前句（<%= maeku_type == :chouku ? "長句・17音" : "短句・14音" %>）：
