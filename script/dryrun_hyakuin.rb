@@ -212,6 +212,27 @@ rescue JSON::ParserError
   nil
 end
 
+# 其の三十 Step B-2: yomi文字列をtarget_mora番目のモーラ境界で裁ち切る。
+# KuValidator#count_mora は「ゃゅょ」のみを非カウント文字として除外し
+# 長さを数えている（ぁぃぅぇぉ等は除外しない）ため、actual_mora（mora_check[:mora]）
+# と矛盾しないよう、ここでも同じ規則（ゃゅょのみ非カウント）に合わせる。
+SMALL_YOON = %w[ゃ ゅ ょ].freeze
+
+def truncate_yomi(yomi, target_mora)
+  count  = 0
+  result = +""
+  yomi.each_char do |ch|
+    if SMALL_YOON.include?(ch)
+      result << ch
+      next
+    end
+    break if count >= target_mora
+    count += 1
+    result << ch
+  end
+  result
+end
+
 # ─────────────────────────────────────────────────────────────
 #  ログ
 # ─────────────────────────────────────────────────────────────
@@ -310,6 +331,7 @@ log_line(logfile, 1, HAKKU, [])
 
   best_candidate    = nil
   best_violations   = nil
+  best_mora_diff    = nil
   feedback          = nil
   banned_words      = []
   duplicate_streak  = 0
@@ -380,11 +402,34 @@ log_line(logfile, 1, HAKKU, [])
     mora_check = KuValidator.new(candidate[:word], type: target_vt).validate
 
     if mora_check[:result] == "ng"
-      issue   = mora_check[:mora] > target_mora ? "字余り(#{mora_check[:mora]}音)" : "字足らず(#{mora_check[:mora]}音)"
-      message = mora_check[:mora] > target_mora ? "もっと短く" : "もっと長く"
+      actual_mora = mora_check[:mora]
+      issue = actual_mora > target_mora ? "字余り(#{actual_mora}音)" : "字足らず(#{actual_mora}音)"
+
+      if actual_mora > target_mora
+        # 其の三十 Step B-2: 字余りの場合、「もっと短く」という曖昧な方向指示ではなく、
+        # KuValidatorが既に取得しているyomi（読み仮名）をtarget_mora番目の位置で
+        # 裁ち切り、「この長さに合わせよ」という具体的な指示に変える
+        yomi    = KuValidator.new(candidate[:word], type: target_vt).yomi_string
+        slice   = truncate_yomi(yomi, target_mora)
+        message = "読みは「#{yomi}」（#{actual_mora}音）です。#{target_mora}音目の位置は「#{slice}」です。この長さに合わせて詠み直してください。"
+      else
+        # 字足らずはStep B-1のフィードバック（目標モーラ数の明示）を維持（今回対象外）
+        message = "#{target_mora}音になるよう、もっと長くしてください"
+      end
+
       feedback = { ku: candidate[:word], issue: issue, message: message }
-      best_candidate  ||= candidate
-      best_violations ||= [{ type: :mora_error, desc: mora_check[:message] }]
+      # 其の三十 Step B-1補足修正: mora_errorが複数回連続した際、best_candidateが
+      # 1投目のまま固定され、後続attemptでモーラ数が目標に近づいても
+      # FORCED採用結果に反映されない不具合を修正。目標モーラ数との差が
+      # それまでのmora_errorフォールバックより縮まった場合のみ更新する
+      # （mora検査を通過した候補が既にbest_candidateになっている場合は上書きしない）
+      diff = (actual_mora - target_mora).abs
+      if best_violations.nil? ||
+         (best_violations.first && best_violations.first[:type] == :mora_error && diff < best_mora_diff)
+        best_candidate  = candidate
+        best_violations = [{ type: :mora_error, desc: mora_check[:message] }]
+        best_mora_diff  = diff
+      end
       log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
                   history_size: history.size, reason: "mora_error", candidate: candidate)
       next
