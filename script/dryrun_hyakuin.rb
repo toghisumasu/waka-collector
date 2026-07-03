@@ -14,6 +14,18 @@ require_relative "../app/services/shikimoku_checker"
 require_relative "../app/services/bui_dictionary"
 require_relative "../app/services/ollama_client"
 
+# KuValidator は Rails.root に依存するため、フルRails環境を起動しないこの
+# スタンドアロンスクリプトでは軽量スタブを用意してから読み込む（其の三十 Step A）。
+unless defined?(Rails)
+  require "pathname"
+  module Rails
+    def self.root
+      Pathname.new(File.expand_path("..", __dir__))
+    end
+  end
+end
+require_relative "../app/services/ku_validator"
+
 # ─────────────────────────────────────────────────────────────
 #  定数
 # ─────────────────────────────────────────────────────────────
@@ -66,14 +78,6 @@ SEASON_KIGO = {
 # ─────────────────────────────────────────────────────────────
 #  ユーティリティ
 # ─────────────────────────────────────────────────────────────
-
-# MeCabなし簡易モーラカウント（拗音を除外）
-def count_mora(text)
-  text.gsub(/\s+/, "")
-      .chars
-      .reject { |c| "ゃゅょぁぃぅぇぉャュョァィゥェォ".include?(c) }
-      .size
-end
 
 def verse_type_ja(vt)
   vt == :chouku ? "長句(5-7-5)" : "短句(7-7)"
@@ -373,19 +377,20 @@ log_line(logfile, 1, HAKKU, [])
 
     candidate[:verse_type] = target_vt
 
-    mora_diff = (candidate[:mora] - target_mora).abs
-    actual_mora = count_mora(candidate[:word])
-    mora_ok = [mora_diff, (actual_mora - target_mora).abs].min <= 1
+    mora_check = KuValidator.new(candidate[:word], type: target_vt).validate
 
-    unless mora_ok
-      issue   = actual_mora > target_mora ? "字余り(#{actual_mora}音)" : "字足らず(#{actual_mora}音)"
-      message = actual_mora > target_mora ? "もっと短く" : "もっと長く"
+    if mora_check[:result] == "ng"
+      issue   = mora_check[:mora] > target_mora ? "字余り(#{mora_check[:mora]}音)" : "字足らず(#{mora_check[:mora]}音)"
+      message = mora_check[:mora] > target_mora ? "もっと短く" : "もっと長く"
       feedback = { ku: candidate[:word], issue: issue, message: message }
       best_candidate  ||= candidate
-      best_violations ||= [{ type: :mora_error, desc: "#{issue}" }]
+      best_violations ||= [{ type: :mora_error, desc: mora_check[:message] }]
       log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
                   history_size: history.size, reason: "mora_error", candidate: candidate)
       next
+    elsif mora_check[:result] == "warning"
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "mora_warning", candidate: candidate)
     end
 
     violations   = checker.all_violations(history, candidate, bui_dict: bui_dict)
