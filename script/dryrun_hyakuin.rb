@@ -68,6 +68,22 @@ BUI_EXAMPLE = {
   "人倫" => "人・君・誰"
 }.freeze
 
+# 其の三十一 Step C-2: mora_error固着救済（雑への詠み直し指示）で、
+# 「雑（ぞう）」という概念自体をメンタムさんが知らない可能性を考慮し、
+# 具体例を提示して概念を補強する。季語・神祇語・恋語を含まない句を選定し、
+# KuValidatorで実測のうえtarget_moraと一致することを確認済み（長句17音・短句14音）。
+ZOTANKA_CHOUKU_EXAMPLES = [
+  "山里の夜は静かに更けにけり",
+  "旅人の袖に風吹く夕暮れに",
+  "古里の軒端に人の声すなり",
+].freeze
+
+ZOTANKA_TANKU_EXAMPLES = [
+  "古里の垣根に人ぞ住む",
+  "山里の暮らしは静かなり",
+  "旅人の宿の灯の影",
+].freeze
+
 SEASON_KIGO = {
   "春" => %w[霞 梅 桜 鶯 柳 蛙 燕 朧 若草 菜の花 山吹 すみれ よもぎ わらび],
   "夏" => %w[郭公 ほととぎす 蛍 五月雨 蓮 卯の花 青葉 緑 さみだれ あやめ しょうぶ],
@@ -394,8 +410,13 @@ log_line(logfile, 1, HAKKU, [])
       # 其の三十一の5回ドライランで約23%確認された。duplicate_verse固着対策
       # （其の二十七）と同型の機械的救済として、季語を手放し雑（無季）の句として
       # 全く新しい語で詠み直すよう指示を切り替える。
+      # Step C-2: 「雑（ぞう）」という概念自体が伝わっていない可能性を考慮し、
+      # target_moraと同音数の実例を添えて概念を補強する。
       message = if mora_error_streak >= 2
-        "前回までの候補は字数が合いませんでした。季語を使わない雑（ぞう）の句として、" \
+        examples = target_vt == :chouku ? ZOTANKA_CHOUKU_EXAMPLES : ZOTANKA_TANKU_EXAMPLES
+        example  = examples.sample
+        "前回までの候補は字数が合いませんでした。季語を含まない句（雑・ぞう）を詠んでください。" \
+        "例：「#{example}」（季語なし・#{target_mora}音）。" \
         "全く新しい言葉で#{target_mora}音の句を詠んでください。" \
         "これまでの候補：#{past_mora_error_words.join('、')}"
       else
