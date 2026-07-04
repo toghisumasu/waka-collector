@@ -308,12 +308,14 @@ log_line(logfile, 1, HAKKU, [])
   target_vt    = constraints[:verse_type]
   target_mora  = target_vt == :chouku ? 17 : 14
 
-  best_candidate    = nil
-  best_violations   = nil
-  best_mora_diff    = nil
-  feedback          = nil
-  banned_words      = []
-  duplicate_streak  = 0
+  best_candidate        = nil
+  best_violations       = nil
+  best_mora_diff        = nil
+  feedback              = nil
+  banned_words          = []
+  duplicate_streak      = 0
+  mora_error_streak     = 0
+  past_mora_error_words = []
 
   MAX_RETRY.times do |attempt|
     temperature = attempt >= 3 ? 0.8 : nil
@@ -382,9 +384,25 @@ log_line(logfile, 1, HAKKU, [])
 
     if mora_check[:result] == "ng"
       issue   = mora_check[:mora] > target_mora ? "字余り(#{mora_check[:mora]}音)" : "字足らず(#{mora_check[:mora]}音)"
-      # 其の三十 Step B-1: 「もっと短く/長く」という曖昧な方向指示だけでなく、
-      # 目標モーラ数を明示することでLLMが具体的な調整量を把握できるようにする
-      message = mora_check[:mora] > target_mora ? "#{target_mora}音になるよう、もっと短くしてください" : "#{target_mora}音になるよう、もっと長くしてください"
+
+      mora_error_streak += 1
+      past_mora_error_words << candidate[:word]
+      past_mora_error_words.shift while past_mora_error_words.size > 3
+
+      # 其の三十一 Step C: mora_errorが2回以上連続した場合、モーラ数の微調整を
+      # 促す従来フィードバックでは固着（同一文言の再送）が解消しないケースが
+      # 其の三十一の5回ドライランで約23%確認された。duplicate_verse固着対策
+      # （其の二十七）と同型の機械的救済として、季語を手放し雑（無季）の句として
+      # 全く新しい語で詠み直すよう指示を切り替える。
+      message = if mora_error_streak >= 2
+        "前回までの候補は字数が合いませんでした。季語を使わない雑（ぞう）の句として、" \
+        "全く新しい言葉で#{target_mora}音の句を詠んでください。" \
+        "これまでの候補：#{past_mora_error_words.join('、')}"
+      else
+        # 其の三十 Step B-1: 「もっと短く/長く」という曖昧な方向指示だけでなく、
+        # 目標モーラ数を明示することでLLMが具体的な調整量を把握できるようにする
+        mora_check[:mora] > target_mora ? "#{target_mora}音になるよう、もっと短くしてください" : "#{target_mora}音になるよう、もっと長くしてください"
+      end
       feedback = { ku: candidate[:word], issue: issue, message: message }
       # 其の三十 Step B-1補足修正: mora_errorが複数回連続した際、best_candidateが
       # 1投目のまま固定され、後続attemptでモーラ数が目標に近づいても
@@ -401,9 +419,14 @@ log_line(logfile, 1, HAKKU, [])
       log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
                   history_size: history.size, reason: "mora_error", candidate: candidate)
       next
-    elsif mora_check[:result] == "warning"
-      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
-                  history_size: history.size, reason: "mora_warning", candidate: candidate)
+    else
+      # mora_error以外（ok/warning）で解消したため、duplicate_streakと同様
+      # 独立したカウンタとしてリセットする
+      mora_error_streak = 0
+      if mora_check[:result] == "warning"
+        log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                    history_size: history.size, reason: "mora_warning", candidate: candidate)
+      end
     end
 
     violations   = checker.all_violations(history, candidate, bui_dict: bui_dict)
