@@ -316,14 +316,48 @@ log_line(logfile, 1, HAKKU, [])
   duplicate_streak      = 0
   mora_error_streak     = 0
   past_mora_error_words = []
+  last_mora_count       = nil
 
   MAX_RETRY.times do |attempt|
     temperature = attempt >= 3 ? 0.8 : nil
 
     begin
-      prompt = build_prompt(history.last[:word], pool_params, verse_no, feedback: feedback)
-      raw    = OllamaClient.generate(prompt, think: false, timeout: 300,
-                                     temperature: temperature)
+      if mora_error_streak >= 2
+        # 其の三十一 Step C-3: 単発のフィードバック文言では「行き詰まっている」
+        # 認識・「雑」概念の理解をLLM自身に段階的に確認させられない。
+        # tools不要の複数ターン会話（chat）に切り替え、自己認識→概念確認→
+        # 実際の詠み直し、の3段階を踏ませることで局面打開を狙う。
+        awareness_messages = [
+          { role: "user", content: "あなたはいま、同じような句を繰り返しています。" \
+                                    "直前の候補「#{past_mora_error_words.last}」は" \
+                                    "#{last_mora_count}音で、目標の#{target_mora}音に" \
+                                    "合っていません。行き詰まっていることを認識してください。" },
+          { role: "assistant", content: "はい、行き詰まっています。同じような句を繰り返しており、" \
+                                         "字数が合っていません。局面を打開する必要があります。" },
+          { role: "user", content: "連歌では、季語（春・夏・秋・冬の語）を使う句と、" \
+                                    "季語を使わない「雑（ぞう）」の句があります。" \
+                                    "雑の句は季節に縛られず自由に詠めます。" \
+                                    "局面打開には雑の句が有効なことがあります。" \
+                                    "理解できましたか？" },
+          { role: "assistant", content: "はい、理解しました。雑の句とは季語を含まない句で、" \
+                                         "季節に縛られず詠むことができます。" },
+          { role: "user", content: "では局面打開のため、雑の句として全く新しい言葉で" \
+                                    "#{target_mora}音の付け句を詠んでください。\n" \
+                                    "前句：#{history.last[:word]}\n" \
+                                    "これまでの候補（再使用禁止）：" \
+                                    "#{past_mora_error_words.join('、')}\n" \
+                                    "JSON形式で出力してください：" \
+                                    "{\"ku\":\"詠んだ句をここに\",\"bui\":[\"該当する部立をここに\"]," \
+                                    "\"season\":\"雑\",\"mora\":#{target_mora}}\n" \
+                                    "buiには句の内容に応じた部立（降物・植物・水辺・山類・居所・旅・恋など）を" \
+                                    "実際に入れてください。季語がない場合でも風景・情景の部立は入ります。" }
+        ]
+        raw = OllamaClient.chat(awareness_messages, think: false, timeout: 300)
+      else
+        prompt = build_prompt(history.last[:word], pool_params, verse_no, feedback: feedback)
+        raw    = OllamaClient.generate(prompt, think: false, timeout: 300,
+                                       temperature: temperature)
+      end
     rescue => e
       puts "  [#{verse_no}句目 attempt#{attempt + 1}] Ollama接続エラー: #{e.message}"
       log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
@@ -388,6 +422,7 @@ log_line(logfile, 1, HAKKU, [])
       mora_error_streak += 1
       past_mora_error_words << candidate[:word]
       past_mora_error_words.shift while past_mora_error_words.size > 3
+      last_mora_count = mora_check[:mora]
 
       # 其の三十一 Step C: mora_errorが2回以上連続した場合、モーラ数の微調整を
       # 促す従来フィードバックでは固着（同一文言の再送）が解消しないケースが

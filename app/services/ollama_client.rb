@@ -30,6 +30,28 @@ class OllamaClient
   end
 
   # messages: [{ role:, content: }, ...]
+  # tools不要の複数ターン会話用（其の三十一 Step C-3）
+  def self.chat(messages, timeout: 300, think: false)
+    uri  = URI(API_URL_CHAT)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.read_timeout = timeout
+    req = Net::HTTP::Post.new(uri.path)
+    req["Content-Type"] = "application/json"
+    req.body = {
+      model: MODEL,
+      messages: messages,
+      stream: false,
+      think: think
+    }.to_json
+    res = JSON.parse(http.request(req).body)
+    res.dig("message", "content")
+  rescue Net::ReadTimeout
+    raise "メンタムさんへの接続がタイムアウトしました（#{timeout}秒）"
+  rescue => e
+    raise "Ollama接続エラー: #{e.message}"
+  end
+
+  # messages: [{ role:, content: }, ...]
   # tools:    Ollama形式のツール定義配列
   # ブロックに |tool_name, arguments_hash| が渡される。
   # ブロックの戻り値（Hash）がツール実行結果としてメンタムさんに返される。
