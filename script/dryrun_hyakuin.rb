@@ -75,6 +75,15 @@ SEASON_KIGO = {
   "冬" => %w[雪 霜 氷 枯 千鳥 鷺 みぞれ かれの]
 }.freeze
 
+# 其の三十二 Step B-3: 字足らず時、不足モーラ数に応じて句末に足す
+# 連歌的文末表現の候補（LLMへの具体的な調整手段の提示に使う）
+ENDING_BY_MORA = {
+  1 => ["や", "か", "ぬ", "に"],
+  2 => ["かな", "けり", "らむ", "なり"],
+  3 => ["ぞかし", "ぬかな", "にけり"],
+  4 => ["にけらし", "ぬるかな", "たるかな"]
+}.freeze
+
 # ─────────────────────────────────────────────────────────────
 #  ユーティリティ
 # ─────────────────────────────────────────────────────────────
@@ -327,31 +336,66 @@ log_line(logfile, 1, HAKKU, [])
         # 認識・「雑」概念の理解をLLM自身に段階的に確認させられない。
         # tools不要の複数ターン会話（chat）に切り替え、自己認識→概念確認→
         # 実際の詠み直し、の3段階を踏ませることで局面打開を狙う。
-        awareness_messages = [
-          { role: "user", content: "あなたはいま、同じような句を繰り返しています。" \
-                                    "直前の候補「#{past_mora_error_words.last}」は" \
-                                    "#{last_mora_count}音で、目標の#{target_mora}音に" \
-                                    "合っていません。行き詰まっていることを認識してください。" },
-          { role: "assistant", content: "はい、行き詰まっています。同じような句を繰り返しており、" \
-                                         "字数が合っていません。局面を打開する必要があります。" },
-          { role: "user", content: "連歌では、季語（春・夏・秋・冬の語）を使う句と、" \
-                                    "季語を使わない「雑（ぞう）」の句があります。" \
-                                    "雑の句は季節に縛られず自由に詠めます。" \
-                                    "局面打開には雑の句が有効なことがあります。" \
-                                    "理解できましたか？" },
-          { role: "assistant", content: "はい、理解しました。雑の句とは季語を含まない句で、" \
-                                         "季節に縛られず詠むことができます。" },
-          { role: "user", content: "では局面打開のため、雑の句として全く新しい言葉で" \
-                                    "#{target_mora}音の付け句を詠んでください。\n" \
-                                    "前句：#{history.last[:word]}\n" \
-                                    "これまでの候補（再使用禁止）：" \
-                                    "#{past_mora_error_words.join('、')}\n" \
-                                    "JSON形式で出力してください：" \
-                                    "{\"ku\":\"詠んだ句をここに\",\"bui\":[\"該当する部立をここに\"]," \
-                                    "\"season\":\"雑\",\"mora\":#{target_mora}}\n" \
-                                    "buiには句の内容に応じた部立（降物・植物・水辺・山類・居所・旅・恋など）を" \
-                                    "実際に入れてください。季語がない場合でも風景・情景の部立は入ります。" }
-        ]
+        #
+        # 其の三十二 Step B-3: 上記は字余り固着（雑へ逃がして季を手放す）を
+        # 想定した内容で、字足らず方向には「長くする」誘導が欠けていた。
+        # mora方向（last_mora_countとtarget_moraの大小）で分岐し、字足らずは
+        # 文末表現の追加を促す専用シーケンスとする（雑へは逃がさない）。
+        if last_mora_count > target_mora
+          awareness_messages = [
+            { role: "user", content: "あなたはいま、同じような句を繰り返しています。" \
+                                      "直前の候補「#{past_mora_error_words.last}」は" \
+                                      "#{last_mora_count}音で、目標の#{target_mora}音に" \
+                                      "合っていません。行き詰まっていることを認識してください。" },
+            { role: "assistant", content: "はい、行き詰まっています。同じような句を繰り返しており、" \
+                                           "字数が合っていません。局面を打開する必要があります。" },
+            { role: "user", content: "連歌では、季語（春・夏・秋・冬の語）を使う句と、" \
+                                      "季語を使わない「雑（ぞう）」の句があります。" \
+                                      "雑の句は季節に縛られず自由に詠めます。" \
+                                      "局面打開には雑の句が有効なことがあります。" \
+                                      "理解できましたか？" },
+            { role: "assistant", content: "はい、理解しました。雑の句とは季語を含まない句で、" \
+                                           "季節に縛られず詠むことができます。" },
+            { role: "user", content: "では局面打開のため、雑の句として全く新しい言葉で" \
+                                      "#{target_mora}音の付け句を詠んでください。\n" \
+                                      "前句：#{history.last[:word]}\n" \
+                                      "これまでの候補（再使用禁止）：" \
+                                      "#{past_mora_error_words.join('、')}\n" \
+                                      "JSON形式で出力してください：" \
+                                      "{\"ku\":\"詠んだ句をここに\",\"bui\":[\"該当する部立をここに\"]," \
+                                      "\"season\":\"雑\",\"mora\":#{target_mora}}\n" \
+                                      "buiには句の内容に応じた部立（降物・植物・水辺・山類・居所・旅・恋など）を" \
+                                      "実際に入れてください。季語がない場合でも風景・情景の部立は入ります。" }
+          ]
+        else
+          deficit    = target_mora - last_mora_count
+          candidates = ENDING_BY_MORA[deficit] || []
+          ending_hint = candidates.any? ?
+            "句末に#{candidates.map { |c| "「#{c}」" }.join("、")}などを足すと自然です。" :
+            "句末に文末表現を加えて長くしてください。"
+
+          awareness_messages = [
+            { role: "user", content: "あなたはいま、同じような句を繰り返しています。" \
+                                      "直前の候補「#{past_mora_error_words.last}」は" \
+                                      "#{last_mora_count}音で、目標の#{target_mora}音より" \
+                                      "#{deficit}音足りません。行き詰まっていることを認識してください。" },
+            { role: "assistant", content: "はい、行き詰まっています。#{deficit}音足りず、" \
+                                           "同じような句を繰り返しています。局面を打開する必要があります。" },
+            { role: "user", content: "連歌では句の末尾に文末表現を加えて音数を整えます。" \
+                                      "#{deficit}音足りない場合、#{ending_hint}" \
+                                      "理解できましたか？" },
+            { role: "assistant", content: "はい、理解しました。句末に文末表現を加えて" \
+                                           "#{target_mora}音に整えます。" },
+            { role: "user", content: "では句末に文末表現を加えて、全く新しい言葉で" \
+                                      "#{target_mora}音の付け句を詠んでください。\n" \
+                                      "前句：#{history.last[:word]}\n" \
+                                      "これまでの候補（再使用禁止）：" \
+                                      "#{past_mora_error_words.join('、')}\n" \
+                                      "JSON形式で出力してください：" \
+                                      "{\"ku\":\"詠んだ句をここに\",\"bui\":[\"該当する部立をここに\"]," \
+                                      "\"season\":\"季節を入れてください\",\"mora\":#{target_mora}}" }
+          ]
+        end
         raw = OllamaClient.chat(awareness_messages, think: false, timeout: 300)
       else
         prompt = build_prompt(history.last[:word], pool_params, verse_no, feedback: feedback)
@@ -433,10 +477,22 @@ log_line(logfile, 1, HAKKU, [])
         "前回までの候補は字数が合いませんでした。季語を使わない雑（ぞう）の句として、" \
         "全く新しい言葉で#{target_mora}音の句を詠んでください。" \
         "これまでの候補：#{past_mora_error_words.join('、')}"
-      else
-        # 其の三十 Step B-1: 「もっと短く/長く」という曖昧な方向指示だけでなく、
+      elsif mora_check[:mora] > target_mora
+        # 其の三十 Step B-1: 「もっと短く」という曖昧な方向指示だけでなく、
         # 目標モーラ数を明示することでLLMが具体的な調整量を把握できるようにする
-        mora_check[:mora] > target_mora ? "#{target_mora}音になるよう、もっと短くしてください" : "#{target_mora}音になるよう、もっと長くしてください"
+        "#{target_mora}音になるよう、もっと短くしてください"
+      else
+        # 其の三十二 Step B-3: 字足らずは不足モーラ数に応じた文末表現の
+        # 具体例を提示し、方向だけでなく具体的な調整手段を把握できるようにする
+        deficit    = target_mora - mora_check[:mora]
+        candidates = ENDING_BY_MORA[deficit] || []
+        if candidates.any?
+          "#{mora_check[:mora]}音で#{deficit}音足りません。" \
+          "句末に#{candidates.map { |c| "「#{c}」" }.join("、")}などを" \
+          "足すと#{target_mora}音になります。"
+        else
+          "#{target_mora}音になるよう、もっと長くしてください"
+        end
       end
       feedback = { ku: candidate[:word], issue: issue, message: message }
       # 其の三十 Step B-1補足修正: mora_errorが複数回連続した際、best_candidateが
