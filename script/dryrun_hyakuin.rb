@@ -147,7 +147,7 @@ end
 #  C層: プロンプト構築とOllama生成
 # ─────────────────────────────────────────────────────────────
 
-def build_prompt(maeku_word, pool_params, verse_no, feedback: nil)
+def build_prompt(maeku_word, pool_params, verse_no, valid_bui_categories:, feedback: nil)
   vt               = pool_params[:verse_type]
   mora_desc        = vt == :chouku ? "17音（五七五）" : "14音（七七）"
   forbidden_seasons = pool_params[:forbidden_seasons] || []
@@ -196,8 +196,8 @@ def build_prompt(maeku_word, pool_params, verse_no, feedback: nil)
     以下のJSONのみを出力せよ。前後の説明文・コードブロック不要。
     {"ku":"付句の本文","mora":音数,"season":"春か夏か秋か冬か雑","bui":["部立1","部立2"],"tsuki":false,"hana":false}
 
-    bui に指定できる部立（複数可）:
-    降物・聳物・光物・花・草・木・植物・鳥・虫・獣・動物・水辺・山類・時分・居所・衣裳・恋・旅・名所・神祇・釈教・述懐・人倫
+    bui には必ず以下の正規カテゴリ名（複数可）をそのまま入れよ。これ以外の語（例：花・草・木・鳥・虫・獣など個別の題材名）は不可。
+    #{valid_bui_categories.join('・')}
     tsuki は月を詠み込んだとき true、hana は桜の花を詠み込んだとき true
 
     JSON:
@@ -404,7 +404,7 @@ log_line(logfile, 1, HAKKU, [])
         end
         raw = OllamaClient.chat(awareness_messages, think: false, timeout: 300)
       else
-        prompt = build_prompt(history.last[:word], pool_params, verse_no, feedback: feedback)
+        prompt = build_prompt(history.last[:word], pool_params, verse_no, valid_bui_categories: valid_bui_categories, feedback: feedback)
         raw    = OllamaClient.generate(prompt, think: false, timeout: 300,
                                        temperature: temperature)
       end
