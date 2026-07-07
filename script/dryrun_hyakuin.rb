@@ -331,7 +331,7 @@ log_line(logfile, 1, HAKKU, [])
     temperature = attempt >= 3 ? 0.8 : nil
 
     begin
-      if mora_error_streak >= 2
+      if mora_error_streak >= 2 && (last_mora_count > target_mora || mora_error_streak >= 3)
         # 其の三十一 Step C-3: 単発のフィードバック文言では「行き詰まっている」
         # 認識・「雑」概念の理解をLLM自身に段階的に確認させられない。
         # tools不要の複数ターン会話（chat）に切り替え、自己認識→概念確認→
@@ -341,6 +341,12 @@ log_line(logfile, 1, HAKKU, [])
         # 想定した内容で、字足らず方向には「長くする」誘導が欠けていた。
         # mora方向（last_mora_countとtarget_moraの大小）で分岐し、字足らずは
         # 文末表現の追加を促す専用シーケンスとする（雑へは逃がさない）。
+        #
+        # 其の三十二 Step B-3改: 5回ドライランでstreak≥2到達句数がStep C-3比
+        # 33.4句→52.2句に増加したため、字足らず方向のchatモード発動閾値のみ
+        # streak≥3に引き上げる（字余り方向はstreak≥2のまま変更なし）。
+        # streak==2の字足らずは、下のelseブロック（通常のENDING_BY_MORAフィード
+        # バック経由のbuild_prompt生成）にそのまま委ねる。
         if last_mora_count > target_mora
           awareness_messages = [
             { role: "user", content: "あなたはいま、同じような句を繰り返しています。" \
@@ -473,7 +479,12 @@ log_line(logfile, 1, HAKKU, [])
       # 其の三十一の5回ドライランで約23%確認された。duplicate_verse固着対策
       # （其の二十七）と同型の機械的救済として、季語を手放し雑（無季）の句として
       # 全く新しい語で詠み直すよう指示を切り替える。
-      message = if mora_error_streak >= 2
+      #
+      # 其の三十二 Step B-3改: 字足らず方向はstreak≥3まで雑固定メッセージを
+      # 保留し、上の閾値変更（chatモード発動条件）と揃える。streak==2の
+      # 字足らずはここでENDING_BY_MORAメッセージを維持し、次attemptの
+      # build_prompt経由フィードバックとして使われる。
+      message = if mora_error_streak >= 2 && (mora_check[:mora] > target_mora || mora_error_streak >= 3)
         "前回までの候補は字数が合いませんでした。季語を使わない雑（ぞう）の句として、" \
         "全く新しい言葉で#{target_mora}音の句を詠んでください。" \
         "これまでの候補：#{past_mora_error_words.join('、')}"
