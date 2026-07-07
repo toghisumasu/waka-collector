@@ -196,7 +196,7 @@ def build_prompt(maeku_word, pool_params, verse_no, valid_bui_categories:, feedb
     以下のJSONのみを出力せよ。前後の説明文・コードブロック不要。
     {"ku":"付句の本文","mora":音数,"season":"春か夏か秋か冬か雑","bui":["部立1","部立2"],"tsuki":false,"hana":false}
 
-    bui には必ず以下の正規カテゴリ名（複数可）をそのまま入れよ。これ以外の語（例：花・草・木・鳥・虫・獣など個別の題材名）は不可。
+    bui（部立・複数可）は必ず次から選べ：
     #{valid_bui_categories.join('・')}
     tsuki は月を詠み込んだとき true、hana は桜の花を詠み込んだとき true
 
