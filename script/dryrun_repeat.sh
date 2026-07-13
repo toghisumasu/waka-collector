@@ -52,8 +52,8 @@ if [ "$START_RUN" -gt 1 ] && [ -f "$SUMMARY_MD" ]; then
     echo ""
     echo "## 再開: $(date '+%Y-%m-%d %H:%M')（${START_RUN}〜${END_RUN}回目）"
     echo ""
-    echo "| 回 | 開始 | 終了 | 完走 | 最終句 | FORCED数 | ichiza違反 | 句去違反 | generation_failed | 救済発動(雑転換) | Rails | 47句通過 | 70句通過 |"
-    echo "|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|"
+    echo "| 回 | 開始 | 終了 | 完走 | 最終句 | FORCED数 | FORCED字数ng | FORCED式目違反 | ichiza違反 | 句去違反 | generation_failed | 救済発動(雑転換) | Rails | 47句通過 | 70句通過 |"
+    echo "|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|"
   } >> "$SUMMARY_MD"
 else
   {
@@ -61,8 +61,8 @@ else
     echo ""
     echo "実行日時: $(date '+%Y-%m-%d %H:%M')（${START_RUN}〜${END_RUN}回目）"
     echo ""
-    echo "| 回 | 開始 | 終了 | 完走 | 最終句 | FORCED数 | ichiza違反 | 句去違反 | generation_failed | 救済発動(雑転換) | Rails | 47句通過 | 70句通過 |"
-    echo "|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|"
+    echo "| 回 | 開始 | 終了 | 完走 | 最終句 | FORCED数 | FORCED字数ng | FORCED式目違反 | ichiza違反 | 句去違反 | generation_failed | 救済発動(雑転換) | Rails | 47句通過 | 70句通過 |"
+    echo "|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|"
   } > "$SUMMARY_MD"
 fi
 
@@ -116,6 +116,8 @@ for N in $(seq $START_RUN $END_RUN); do
   COMPLETED="否"
   LAST_VERSE="0"
   FORCED_COUNT="0"
+  FORCED_MORA_NG="0"
+  FORCED_SHIKIMOKU="0"
   ICHIZA_COUNT="0"
   KUZARI_COUNT="0"
   GEN_FAILED_COUNT="0"
@@ -137,8 +139,25 @@ for N in $(seq $START_RUN $END_RUN); do
                  | sed 's/^0*//')
     LAST_VERSE="${RAW_LAST:-0}"
 
-    # FORCED 句数
+    # FORCED 句数（字数ng＋式目違反の合算値。其の三十三で判明した通り
+    # 基準値との単純比較には使えないため、以下の内訳と併せて参照する）
     FORCED_COUNT=$(grep -c "FORCED" "$STDOUT_LOG" || echo "0")
+
+    # FORCED内訳：字数ng（ShikimokuChecker.describeの:mora_error文言に
+    # 一意に含まれる「に合致しません」で判別。式目違反側の文言には
+    # 出現しないことを確認済み）
+    FORCED_LINES_TMP=$(grep "FORCED" "$STDOUT_LOG")
+    if [ -z "$FORCED_LINES_TMP" ]; then
+      # FORCED行が0件のとき、echoが空行を1行生成してしまい後続grep -vの
+      # 反転一致で式目違反側が誤って1になるため、ここで明示的に0を確定する
+      FORCED_MORA_NG="0"
+      FORCED_SHIKIMOKU="0"
+    else
+      FORCED_MORA_NG=$(echo "$FORCED_LINES_TMP" | grep -c "に合致しません")
+      # FORCED内訳：式目違反（字数ng以外。generation_failed行は既存の
+      # GEN_FAILED_COUNTで別途カウント済みのため二重計上を避けて除外）
+      FORCED_SHIKIMOKU=$(echo "$FORCED_LINES_TMP" | grep -v "に合致しません" | grep -vc "句生成に失敗しました")
+    fi
 
     # ichiza 違反数（一座一句物検出）
     ICHIZA_COUNT=$(grep -c "一座一句物" "$STDOUT_LOG" || echo "0")
@@ -157,10 +176,10 @@ for N in $(seq $START_RUN $END_RUN); do
     grep -qE '\] 070 \|' "$STDOUT_LOG" && PASS_70="通過" || true
   fi
 
-  echo "  => 完走:${COMPLETED} / 最終句:${LAST_VERSE}句 / FORCED:${FORCED_COUNT} / ichiza:${ICHIZA_COUNT} / 句去:${KUZARI_COUNT} / gen_failed:${GEN_FAILED_COUNT} / 救済発動:${RESCUE_COUNT} / 47句:${PASS_47} / 70句:${PASS_70}"
+  echo "  => 完走:${COMPLETED} / 最終句:${LAST_VERSE}句 / FORCED:${FORCED_COUNT}句（字数ng:${FORCED_MORA_NG} / 式目違反:${FORCED_SHIKIMOKU}） / ichiza:${ICHIZA_COUNT} / 句去:${KUZARI_COUNT} / gen_failed:${GEN_FAILED_COUNT} / 救済発動:${RESCUE_COUNT} / 47句:${PASS_47} / 70句:${PASS_70}"
 
   # サマリー表に1行追記
-  echo "| ${N} | ${START_TIME} | ${END_TIME} | ${COMPLETED} | ${LAST_VERSE}句 | ${FORCED_COUNT} | ${ICHIZA_COUNT} | ${KUZARI_COUNT} | ${GEN_FAILED_COUNT} | ${RESCUE_COUNT} | ${RAILS_STATUS} | ${PASS_47} | ${PASS_70} |" \
+  echo "| ${N} | ${START_TIME} | ${END_TIME} | ${COMPLETED} | ${LAST_VERSE}句 | ${FORCED_COUNT} | ${FORCED_MORA_NG} | ${FORCED_SHIKIMOKU} | ${ICHIZA_COUNT} | ${KUZARI_COUNT} | ${GEN_FAILED_COUNT} | ${RESCUE_COUNT} | ${RAILS_STATUS} | ${PASS_47} | ${PASS_70} |" \
     >> "$SUMMARY_MD"
 done
 
