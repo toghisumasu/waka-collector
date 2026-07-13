@@ -17,6 +17,15 @@ class RengaGenerator
 
   ECHO_AFTERS = EXAMPLES.map { |e| e[:after] }.freeze
 
+  # 其の三十二 Step B-3: 字足らず時、不足モーラ数に応じて句末に足す
+  # 連歌的文末表現の候補（LLMへの具体的な調整手段の提示に使う）
+  ENDING_BY_MORA = {
+    1 => ["や", "か", "ぬ", "に"],
+    2 => ["かな", "けり", "らむ", "なり"],
+    3 => ["ぞかし", "ぬかな", "にけり"],
+    4 => ["にけらし", "ぬるかな", "たるかな"]
+  }.freeze
+
   DECORATION_POOL = YAML.load_file(
     Rails.root.join("app/data/decoration_pool.yml")
   ).freeze
@@ -99,6 +108,15 @@ class RengaGenerator
     forbidden_bui   = @constraints[:forbidden_bui] || []
     forbidden_label = forbidden_bui.any? ? forbidden_bui.join("・") : nil
 
+    # 其の三十一 Step C-3・其の三十二 Step B-3改: mora不一致が連続すると
+    # 通常のfeedback文言では固着（同一文言の再送）が解消しないケースがあり、
+    # tools不要の複数ターン会話（chat）に切り替え、自己認識→概念確認→
+    # 実際の詠み直し、の3段階を踏ませることで局面打開を狙う。streakは
+    # generate_tsugeku呼び出し全体（seed再抽選をまたいで）で維持する。
+    mora_error_streak     = 0
+    past_mora_error_words = []
+    last_mora_count       = nil
+
     5.times do
       seed         = pool.sample
       feedback     = nil
@@ -107,21 +125,51 @@ class RengaGenerator
       5.times do |attempt|
         example     = EXAMPLES[attempt % EXAMPLES.size]
         temperature = wrong_streak >= 2 ? 0.8 : 0.5
-        prompt      = build_full_prompt(seed, example, feedback, season_label, forbidden_label)
-        gen_start = Time.now
-        raw         = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: temperature)
-        Rails.logger.info "[RengaGenerator] attempt: #{Time.now - gen_start}s"
-        ku          = raw.to_s.strip.lines.map(&:strip).reject(&:empty?).first.to_s
-        ku_ms       = morphemes_of(ku, nm)
-        mora        = ku_ms.sum { |m| m[:mora] }
+
+        # 字余り方向はstreak>=2、字足らず方向はstreak>=3で発動
+        # （其の三十二 Step B-3改：字足らず側は閾値を1段引き上げている）
+        if mora_error_streak >= 2 && (last_mora_count > target_mora || mora_error_streak >= 3)
+          raw = OllamaClient.chat(
+            socratic_mora_messages(last_mora_count, target_mora, past_mora_error_words),
+            think: false, timeout: 300
+          )
+        else
+          prompt    = build_full_prompt(seed, example, feedback, season_label, forbidden_label)
+          gen_start = Time.now
+          raw       = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: temperature)
+          Rails.logger.info "[RengaGenerator] attempt: #{Time.now - gen_start}s"
+        end
+
+        ku    = raw.to_s.strip.lines.map(&:strip).reject(&:empty?).first.to_s
+        ku_ms = morphemes_of(ku, nm)
+        mora  = ku_ms.sum { |m| m[:mora] }
+
+        if (mora - target_mora).abs > 1
+          mora_error_streak += 1
+          past_mora_error_words << ku
+          past_mora_error_words.shift while past_mora_error_words.size > 3
+          last_mora_count = mora
+
+          wrong_streak += 1
+          if wrong_streak >= 3
+            seed         = pool.sample
+            wrong_streak = 0
+            feedback     = nil
+          else
+            feedback = { ku: ku, issue: "#{mora}音", message: mora_feedback_message(mora, target_mora) }
+          end
+          next
+        end
+
+        mora_error_streak = 0
+
         is_echo     = ECHO_AFTERS.include?(ku)
-        is_rep      = (ku == seed[:yomi])
         is_rep      = (ku == seed[:yomi])
         all_attempts << ku
         is_sticky       = used_afters.count(ku) >= 2 || all_attempts.count(ku) >= 3
         is_maeku_repeat = maeku_stems.any? { |w| w.include?(ku) || ku.include?(w) }
 
-        if (mora - target_mora).abs <= 1 && !is_echo && !is_rep && !is_sticky
+        if !is_echo && !is_rep && !is_sticky
           result_ku = ku
           used_afters << ku
           break
@@ -133,9 +181,8 @@ class RengaGenerator
           wrong_streak = 0
           feedback     = nil
         else
-          issue   = is_echo ? "echo" : is_rep ? "鸚鵡返し" : is_sticky ? "固着" : "#{mora}音"
-          message = mora > target_mora ? "もっと短く" : mora < target_mora ? "もっと長く" : "別の言葉で"
-          feedback = { ku: ku, issue: issue, message: message }
+          issue    = is_echo ? "echo" : is_rep ? "鸚鵡返し" : "固着"
+          feedback = { ku: ku, issue: issue, message: "別の言葉で" }
         end
       end
 
@@ -346,5 +393,78 @@ class RengaGenerator
       bui && forbidden_bui.include?(bui)
     end
     candidates.reject { |w| @maeku.include?(w) }.shuffle.first(2)
+  end
+
+  # 通常経路（build_full_prompt）でのmora不一致feedback文言。
+  # 其の三十二 Step B-3: 字足らずは不足モーラ数に応じた文末表現の
+  # 具体例を提示し、方向だけでなく具体的な調整手段を把握できるようにする。
+  def mora_feedback_message(mora, target_mora)
+    if mora > target_mora
+      "#{target_mora}音になるよう、もっと短くしてください"
+    else
+      deficit    = target_mora - mora
+      candidates = ENDING_BY_MORA[deficit] || []
+      if candidates.any?
+        "#{mora}音で#{deficit}音足りません。" \
+        "句末に#{candidates.map { |c| "「#{c}」" }.join("、")}などを" \
+        "足すと#{target_mora}音になります。"
+      else
+        "#{target_mora}音になるよう、もっと長くしてください"
+      end
+    end
+  end
+
+  # 其の三十一 Step C-3・其の三十二 Step B-3改: mora_error_streakが
+  # 閾値に達したときのSocratic三段階対話（自己認識→概念確認→詠み直し）。
+  # 字余り方向は「雑（無季）への転換」、字足らず方向は「文末表現の追加」で
+  # 局面打開を促す（季を強制するのは字余り方向のみ）。
+  def socratic_mora_messages(last_mora_count, target_mora, past_words)
+    if last_mora_count > target_mora
+      [
+        { role: "user", content: "あなたはいま、同じような句を繰り返しています。" \
+                                  "直前の候補「#{past_words.last}」は" \
+                                  "#{last_mora_count}音で、目標の#{target_mora}音に" \
+                                  "合っていません。行き詰まっていることを認識してください。" },
+        { role: "assistant", content: "はい、行き詰まっています。同じような句を繰り返しており、" \
+                                       "字数が合っていません。局面を打開する必要があります。" },
+        { role: "user", content: "連歌では、季語（春・夏・秋・冬の語）を使う句と、" \
+                                  "季語を使わない「雑（ぞう）」の句があります。" \
+                                  "雑の句は季節に縛られず自由に詠めます。" \
+                                  "局面打開には雑の句が有効なことがあります。" \
+                                  "理解できましたか？" },
+        { role: "assistant", content: "はい、理解しました。雑の句とは季語を含まない句で、" \
+                                       "季節に縛られず詠むことができます。" },
+        { role: "user", content: "では局面打開のため、雑の句として全く新しい言葉で" \
+                                  "#{target_mora}音の付け句を詠んでください。\n" \
+                                  "前句：#{@maeku}\n" \
+                                  "これまでの候補（再使用禁止）：#{past_words.join('、')}\n" \
+                                  "#{target_mora}音を一行だけ出力してください。説明不要。" }
+      ]
+    else
+      deficit     = target_mora - last_mora_count
+      candidates  = ENDING_BY_MORA[deficit] || []
+      ending_hint = candidates.any? ?
+        "句末に#{candidates.map { |c| "「#{c}」" }.join("、")}などを足すと自然です。" :
+        "句末に文末表現を加えて長くしてください。"
+
+      [
+        { role: "user", content: "あなたはいま、同じような句を繰り返しています。" \
+                                  "直前の候補「#{past_words.last}」は" \
+                                  "#{last_mora_count}音で、目標の#{target_mora}音より" \
+                                  "#{deficit}音足りません。行き詰まっていることを認識してください。" },
+        { role: "assistant", content: "はい、行き詰まっています。#{deficit}音足りず、" \
+                                       "同じような句を繰り返しています。局面を打開する必要があります。" },
+        { role: "user", content: "連歌では句の末尾に文末表現を加えて音数を整えます。" \
+                                  "#{deficit}音足りない場合、#{ending_hint}" \
+                                  "理解できましたか？" },
+        { role: "assistant", content: "はい、理解しました。句末に文末表現を加えて" \
+                                       "#{target_mora}音に整えます。" },
+        { role: "user", content: "では句末に文末表現を加えて、全く新しい言葉で" \
+                                  "#{target_mora}音の付け句を詠んでください。\n" \
+                                  "前句：#{@maeku}\n" \
+                                  "これまでの候補（再使用禁止）：#{past_words.join('、')}\n" \
+                                  "#{target_mora}音を一行だけ出力してください。説明不要。" }
+      ]
+    end
   end
 end
