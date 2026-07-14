@@ -45,7 +45,10 @@ class RengasController < ApplicationController
     honka_ids = Array(renga_params[:honka_ids]).reject(&:blank?).map(&:to_i)
     honkas    = honka_ids.any? ? Waka.where(id: honka_ids) : []
 
-    tsugeku = RengaGenerator.new(maeku, honkas, next_verse_type).generate_tsugeku
+    tsugeku = RengaGenerator.new(
+      maeku, honkas, next_verse_type,
+      constraints: { verse_history: fetch_verse_history(previous_renga_id) }
+    ).generate_tsugeku
     result  = RengaChecker.new([maeku, tsugeku]).check
 
     @renga = Renga.create!(
@@ -72,6 +75,30 @@ class RengasController < ApplicationController
   end
 
   private
+
+  # 其の三十六 案C: build_verse_history（式目チェーン用、chain.size < 9固定）
+  # とは独立した専用最小経路。逆戻り検知に使うtsugeku本文のみを、履歴の深さを
+  # 制限せず1クエリ（再帰CTE）で取得する。N+1対策として、previous_renga_idを
+  # 1句ずつRenga.find_byで辿る実装を避けている。
+  # 戻り値：tsugeku本文の配列（古い句が先頭、直近の句が末尾）
+  def fetch_verse_history(previous_renga_id)
+    return [] if previous_renga_id.blank?
+
+    sql = Renga.sanitize_sql_array([<<~SQL, previous_renga_id])
+      WITH RECURSIVE verse_chain AS (
+        SELECT id, tsugeku, previous_renga_id, 0 AS depth
+        FROM rengas
+        WHERE id = ?
+        UNION ALL
+        SELECT r.id, r.tsugeku, r.previous_renga_id, verse_chain.depth + 1
+        FROM rengas r
+        INNER JOIN verse_chain ON r.id = verse_chain.previous_renga_id
+      )
+      SELECT tsugeku FROM verse_chain ORDER BY depth DESC
+    SQL
+
+    Renga.connection.select_values(sql)
+  end
 
   def build_verse_history(previous_renga_id, maeku, maeku_type)
     chain = []

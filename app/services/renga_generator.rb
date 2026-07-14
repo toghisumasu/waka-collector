@@ -87,6 +87,7 @@ class RengaGenerator
     @verse_type       = constraints[:verse_type] || verse_type
     @constraints      = constraints
     @bui_dict         = BuiDictionary.new
+    @verse_history    = constraints[:verse_history] || []
   end
 
   def generate_tsugeku
@@ -117,6 +118,11 @@ class RengaGenerator
     past_mora_error_words = []
     last_mora_count       = nil
 
+    # 其の三十六: 一巻の履歴（verse_history）との完全一致・類似が連続した際、
+    # mora_error_streakと同じ構造でSocratic対話にエスカレーションする。
+    repeat_streak     = 0
+    past_repeat_words = []
+
     5.times do
       seed         = pool.sample
       feedback     = nil
@@ -131,6 +137,11 @@ class RengaGenerator
         if mora_error_streak >= 2 && (last_mora_count > target_mora || mora_error_streak >= 3)
           raw = OllamaClient.chat(
             socratic_mora_messages(last_mora_count, target_mora, past_mora_error_words),
+            think: false, timeout: 300
+          )
+        elsif repeat_streak >= 2
+          raw = OllamaClient.chat(
+            socratic_repeat_messages(past_repeat_words, target_mora),
             think: false, timeout: 300
           )
         else
@@ -169,7 +180,16 @@ class RengaGenerator
         is_sticky       = used_afters.count(ku) >= 2 || all_attempts.count(ku) >= 3
         is_maeku_repeat = maeku_stems.any? { |w| w.include?(ku) || ku.include?(w) }
 
-        if !is_echo && !is_rep && !is_sticky
+        is_history_repeat = history_repeat?(ku)
+        if is_history_repeat
+          repeat_streak += 1
+          past_repeat_words << ku
+          past_repeat_words.shift while past_repeat_words.size > 3
+        else
+          repeat_streak = 0
+        end
+
+        if !is_echo && !is_rep && !is_sticky && !is_history_repeat
           result_ku = ku
           used_afters << ku
           break
@@ -180,9 +200,11 @@ class RengaGenerator
           seed         = pool.sample
           wrong_streak = 0
           feedback     = nil
-        else
+        elsif is_echo || is_rep || is_sticky
           issue    = is_echo ? "echo" : is_rep ? "鸚鵡返し" : "固着"
           feedback = { ku: ku, issue: issue, message: "別の言葉で" }
+        else
+          feedback = { ku: ku, issue: "既出", message: "別の表現で" }
         end
       end
 
@@ -414,6 +436,44 @@ class RengaGenerator
     end
   end
 
+  # 其の三十六: 一巻の履歴（verse_history、tsugeku本文の配列）との
+  # 完全一致・類似検知。distance 0 = 完全一致、
+  # distance <= max(文字数×0.3, 3) = 類似（一語違い相当）。
+  # script/dryrun_hyakuin.rbで検証済みの実装をそのまま移植している。
+  def levenshtein(a, b)
+    return b.length if a.empty?
+    return a.length if b.empty?
+
+    costs = Array(0..b.length)
+    a.each_char.with_index do |ca, i|
+      costs[0] = i + 1
+      nw = i
+      b.each_char.with_index do |cb, j|
+        cur = costs[j + 1]
+        costs[j + 1] = ca == cb ? nw : ([costs[j], costs[j + 1], nw].min + 1)
+        nw = cur
+      end
+    end
+    costs[b.length]
+  end
+
+  def history_repeat?(word)
+    return false if @verse_history.empty?
+    return false if word.nil? || word.strip.empty?
+
+    best_dist = nil
+    @verse_history.each do |past|
+      next if past.nil? || past.strip.empty?
+      d = levenshtein(word, past)
+      best_dist = d if best_dist.nil? || d < best_dist
+      break if best_dist.zero?
+    end
+    return false if best_dist.nil?
+
+    threshold = [(word.length * 0.3).ceil, 3].max
+    best_dist <= threshold
+  end
+
   # 其の三十一 Step C-3・其の三十二 Step B-3改: mora_error_streakが
   # 閾値に達したときのSocratic三段階対話（自己認識→概念確認→詠み直し）。
   # 字余り方向は「雑（無季）への転換」、字足らず方向は「文末表現の追加」で
@@ -466,5 +526,28 @@ class RengaGenerator
                                   "#{target_mora}音を一行だけ出力してください。説明不要。" }
       ]
     end
+  end
+
+  # 其の三十六: 履歴（一巻全体）との一致・類似がverse_no内で連続した際の
+  # Socratic三段階対話。socratic_mora_messagesの字余り方向と同じ構造を流用し、
+  # 内容を「雑（無季）へ」から「既出表現を避けよ」に差し替えている。
+  def socratic_repeat_messages(past_words, target_mora)
+    [
+      { role: "user", content: "あなたはいま、この百韻の中で既に詠まれた句と同じか、" \
+                                "非常によく似た句を繰り返しています。" \
+                                "直前の候補「#{past_words.last}」がそれです。" \
+                                "行き詰まっていることを認識してください。" },
+      { role: "assistant", content: "はい、行き詰まっています。既に詠まれた句と同じか似た句を" \
+                                     "繰り返しており、局面を打開する必要があります。" },
+      { role: "user", content: "連歌では、一巻の中で既出の語句を繰り返すことは避けるべきとされています。" \
+                                "既出の語から離れ、全く異なる語彙・言い回しを選ぶことが" \
+                                "局面打開に有効です。理解できましたか？" },
+      { role: "assistant", content: "はい、理解しました。既出の語句を避け、全く新しい語彙で詠みます。" },
+      { role: "user", content: "では既出の表現を避け、全く新しい言葉で" \
+                                "#{target_mora}音の付け句を詠んでください。\n" \
+                                "前句：#{@maeku}\n" \
+                                "これまでの候補（再使用禁止）：#{past_words.join('、')}\n" \
+                                "#{target_mora}音を一行だけ出力してください。説明不要。" }
+    ]
   end
 end
