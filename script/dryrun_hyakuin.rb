@@ -244,7 +244,7 @@ def log_attempt(logfile, verse_no:, attempt:, history_size:, reason:, candidate:
   File.open(logfile, "a") { |f| f.puts(entry.to_json) }
 end
 
-def log_line(logfile, verse_no, candidate, violations, forced: false)
+def log_line(logfile, verse_no, candidate, violations, forced: false, dup_note: nil)
   no_str  = format("%03d", verse_no)
   bui_str = candidate[:bui].join(",")
   vt_str  = candidate[:verse_type] == :chouku ? "長" : "短"
@@ -256,9 +256,62 @@ def log_line(logfile, verse_no, candidate, violations, forced: false)
   end
 
   line = "[#{timestamp}] #{no_str} | #{candidate[:word]} | #{vt_str} | #{candidate[:season] || '雑'} | #{bui_str} | #{vi_str}"
+  line += " | #{dup_note}" if dup_note
   puts line
   $stdout.flush
   File.open(logfile, "a") { |f| f.puts(line) }
+end
+
+# ─────────────────────────────────────────────────────────────
+#  其の三十六 Phase 0-2 観測レベルA: 採用句の連鎖内での逆戻り検知
+#  （本番RengaGeneratorには存在しない、ハーネス独自の観測機能）
+# ─────────────────────────────────────────────────────────────
+
+def levenshtein(a, b)
+  return b.length if a.empty?
+  return a.length if b.empty?
+
+  costs = Array(0..b.length)
+  a.each_char.with_index do |ca, i|
+    costs[0] = i + 1
+    nw = i
+    b.each_char.with_index do |cb, j|
+      cur = costs[j + 1]
+      costs[j + 1] = ca == cb ? nw : ([costs[j], costs[j + 1], nw].min + 1)
+      nw = cur
+    end
+  end
+  costs[b.length]
+end
+
+# 採用済み履歴 history（現句を含まない）の中から、現句と最も近い句を探し、
+# 「完全一致」か「類似（一語違い相当）」かをおおまかに判別する。
+# 相手の句番号は history の並び順＝句番号（1始まり）と一致する。
+def similarity_dup_note(word, history)
+  return [nil, nil] if word.nil? || word.strip.empty? || word == "(生成失敗)"
+
+  best_idx  = nil
+  best_dist = nil
+  history.each_with_index do |v, i|
+    next if v[:word].nil? || v[:word].strip.empty? || v[:word] == "(生成失敗)"
+
+    d = levenshtein(word, v[:word])
+    if best_dist.nil? || d < best_dist
+      best_dist = d
+      best_idx  = i + 1 # history[0] == 発句(verse_no 1)
+    end
+    break if best_dist.zero?
+  end
+  return [nil, nil] if best_idx.nil?
+
+  threshold = [(word.length * 0.3).ceil, 3].max
+  if best_dist.zero?
+    ["⚠DUP([#{best_idx}]句目と一致・完全)", best_idx]
+  elsif best_dist <= threshold
+    ["⚠DUP([#{best_idx}]句目と類似・一語違い)", best_idx]
+  else
+    [nil, nil]
+  end
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -309,6 +362,9 @@ initial_verse = HAKKU.dup
 initial_verse[:bui] = normalize_candidate_bui.call(initial_verse[:bui])
 history = [initial_verse]
 log_line(logfile, 1, HAKKU, [])
+
+# 其の三十六 観測レベルA: DUP検知した句番号と一致相手を記録（連鎖崩壊追跡用）
+dup_flags = []
 
 (2..TOTAL_VERSES).each do |verse_no|
   constraints  = checker.next_constraints(history)
@@ -571,8 +627,50 @@ log_line(logfile, 1, HAKKU, [])
   end
 
   forced = !(best_violations&.empty?)
-  log_line(logfile, verse_no, best_candidate, best_violations || [], forced: forced)
+  dup_note, matched_idx = similarity_dup_note(best_candidate[:word], history)
+  dup_flags << { verse_no: verse_no, matched_verse_no: matched_idx, note: dup_note } if dup_note
+  log_line(logfile, verse_no, best_candidate, best_violations || [], forced: forced, dup_note: dup_note)
   history << best_candidate
+end
+
+# ─────────────────────────────────────────────────────────────
+#  其の三十六 観測レベルA: 連鎖崩壊の追跡
+#  DUP検知した句の直後（最大3句）が通常進行／振動／生成失敗／季節急変の
+#  いずれかを機械的に判別し、生ログの末尾にまとめて出力する（統計化はしない）。
+# ─────────────────────────────────────────────────────────────
+
+if dup_flags.any?
+  banner = "=" * 60
+  puts banner
+  puts "【其の三十六 観測レベルA】DUP検知句の連鎖崩壊追跡（#{dup_flags.size}件）"
+  puts banner
+  File.open(logfile, "a") { |f| f.puts(banner); f.puts("【其の三十六 観測レベルA】DUP検知句の連鎖崩壊追跡（#{dup_flags.size}件）"); f.puts(banner) }
+
+  dup_flags.each do |flag|
+    v          = flag[:verse_no]
+    base_idx   = v - 1 # history配列内でのこの句のindex（0始まり）
+    follow_ups = (1..3).filter_map do |offset|
+      idx = base_idx + offset
+      next nil if idx >= history.size
+
+      nxt          = history[idx]
+      next_verse_no = idx + 1
+      status = if nxt[:word] == "(生成失敗)"
+        "❌生成失敗"
+      elsif nxt[:word] == history[flag[:matched_verse_no] - 1][:word]
+        "🔁振動（[#{flag[:matched_verse_no]}]句目と同一語が再出現）"
+      elsif idx.positive? && history[idx - 1][:season] && nxt[:season] && history[idx - 1][:season] != nxt[:season]
+        "⚠️季転換（#{history[idx - 1][:season]}→#{nxt[:season]}、異常かは要目視）"
+      else
+        "✅通常進行"
+      end
+      "  [#{next_verse_no}] #{nxt[:word]} — #{status}"
+    end
+
+    block = ["[#{v}]句目 #{flag[:note]}"] + (follow_ups.any? ? follow_ups : ["  （追跡対象なし：dryrun末尾に到達）"])
+    block.each { |l| puts l }
+    File.open(logfile, "a") { |f| block.each { |l| f.puts(l) } }
+  end
 end
 
 puts "=" * 60
