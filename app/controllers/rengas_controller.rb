@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "natto"
+
 class RengasController < ApplicationController
   def new
     @renga  = Renga.new
@@ -49,7 +51,39 @@ class RengasController < ApplicationController
       maeku, honkas, next_verse_type,
       constraints: { verse_history: fetch_verse_history(previous_renga_id) }
     ).generate_tsugeku
-    result  = RengaChecker.new([maeku, tsugeku]).check
+
+    # 其の三十八 D-38-1: RengaChecker（LLM式目チェック）からShikimokuChecker
+    # （Ruby決定論的チェック）へ置換。bui情報源はBuiDictionary確定値に限定（D-36-1）。
+    nm       = build_mecab
+    bui_dict = BuiDictionary.new
+    candidate = {
+      bui:        bui_dict.detect_all(tsugeku, nm),
+      season:     season_from_text(tsugeku),
+      verse_type: next_verse_type
+    }
+    history = build_verse_history(previous_renga_id, maeku, maeku_type, nm: nm, bui_dict: bui_dict)
+
+    checker    = ShikimokuChecker.new
+    violations = checker.all_violations(history, candidate)
+    violations += checker.ichiza_violations(history, candidate)
+    violations += checker.chotan_violations(history, candidate)
+
+    style_result = {
+      "result"    => violations.empty? ? "ok" : "ng",
+      "issues"    => violations.map { |v| ShikimokuChecker.describe(v) },
+      "breakdown" => []
+    }
+
+    # 其の三十八 D-38-2: ShikimokuCheckerがngの場合はKuValidatorのng分岐と
+    # 同じパターンで差し戻す（Renga.create!は実行しない）。
+    if style_result["result"] == "ng"
+      Rails.logger.warn "[RengasController] ShikimokuChecker ng: tsugeku=#{tsugeku.inspect} issues=#{style_result["issues"].inspect}"
+      @renga  = Renga.new(maeku: maeku, previous_renga_id: previous_renga_id)
+      @honkas = Waka.limit(5)
+      flash.now[:alert] = "式目違反のため再生成が必要です：#{style_result["issues"].join('、')}"
+      render :new, status: :unprocessable_entity
+      return
+    end
 
     @renga = Renga.create!(
       maeku:              maeku,
@@ -57,7 +91,7 @@ class RengasController < ApplicationController
       maeku_author:       "ユーザー",
       tsugeku_author:     "メンタムさん",
       generated_by_model: OllamaClient::MODEL,
-      style_check_result: result,
+      style_check_result: style_result,
       honka_reference:    honka_ids,
       previous_renga_id:  previous_renga_id
     )
@@ -109,15 +143,25 @@ class RengasController < ApplicationController
     fetch_verse_chain(previous_renga_id).map { |row| row["tsugeku"] }
   end
 
-  def build_verse_history(previous_renga_id, maeku, maeku_type)
+  def build_verse_history(previous_renga_id, maeku, maeku_type, nm: build_mecab, bui_dict: BuiDictionary.new)
     chain = fetch_verse_chain(previous_renga_id, limit: 9)
     history = chain.each_with_index.map do |r, i|
       offset = chain.size - i
       vtype  = offset.odd? ? maeku_type : (maeku_type == :chouku ? :tanku : :chouku)
-      { bui: [], season: season_from_text(r["tsugeku"]), verse_type: vtype }
+      text   = r["tsugeku"]
+      { bui: bui_dict.detect_all(text, nm), season: season_from_text(text), verse_type: vtype }
     end
-    history << { bui: [], season: season_from_text(maeku), verse_type: maeku_type }
+    history << { bui: bui_dict.detect_all(maeku, nm), season: season_from_text(maeku), verse_type: maeku_type }
     history
+  end
+
+  # RengaGenerator#build_mecabと同じユーザー辞書（USER_DIC）を再利用する。
+  # 定数定義の重複を避けるためRengaGenerator側を参照する。
+  def build_mecab
+    Natto::MeCab.new(userdic: RengaGenerator::USER_DIC)
+  rescue => e
+    Rails.logger.warn "ユーザー辞書なし: #{e.message}"
+    Natto::MeCab.new
   end
 
   def season_from_text(text)
