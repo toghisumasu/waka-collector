@@ -76,13 +76,16 @@ class RengasController < ApplicationController
 
   private
 
-  # 其の三十六 案C: build_verse_history（式目チェーン用、chain.size < 9固定）
-  # とは独立した専用最小経路。逆戻り検知に使うtsugeku本文のみを、履歴の深さを
-  # 制限せず1クエリ（再帰CTE）で取得する。N+1対策として、previous_renga_idを
-  # 1句ずつRenga.find_byで辿る実装を避けている。
-  # 戻り値：tsugeku本文の配列（古い句が先頭、直近の句が末尾）
-  def fetch_verse_history(previous_renga_id)
+  # 其の三十七: fetch_verse_history（逆戻り検知用、其の三十六）と
+  # build_verse_history（式目チェーン用、フェーズ8未接続）が、それぞれ独自に
+  # previous_renga_idチェーンを取得していた重複を解消する共通サブルーチン。
+  # 再帰CTEで1クエリ（N+1なし）、古い句が先頭・直近の句が末尾の順で
+  # id/tsugeku/previous_renga_idの行（Hash）を返す。
+  # limit指定時はbuild_verse_historyのchain.size<9相当（直近limit件のみ）に絞る。
+  def fetch_verse_chain(previous_renga_id, limit: nil)
     return [] if previous_renga_id.blank?
+
+    depth_guard = limit ? "WHERE verse_chain.depth + 1 < #{limit.to_i}" : ""
 
     sql = Renga.sanitize_sql_array([<<~SQL, previous_renga_id])
       WITH RECURSIVE verse_chain AS (
@@ -93,26 +96,25 @@ class RengasController < ApplicationController
         SELECT r.id, r.tsugeku, r.previous_renga_id, verse_chain.depth + 1
         FROM rengas r
         INNER JOIN verse_chain ON r.id = verse_chain.previous_renga_id
+        #{depth_guard}
       )
-      SELECT tsugeku FROM verse_chain ORDER BY depth DESC
+      SELECT id, tsugeku, previous_renga_id FROM verse_chain ORDER BY depth DESC
     SQL
 
-    Renga.connection.select_values(sql)
+    Renga.connection.select_all(sql).to_a
+  end
+
+  # 其の三十六 案C: 逆戻り検知に使うtsugeku本文のみ、履歴の深さを制限せず取得。
+  def fetch_verse_history(previous_renga_id)
+    fetch_verse_chain(previous_renga_id).map { |row| row["tsugeku"] }
   end
 
   def build_verse_history(previous_renga_id, maeku, maeku_type)
-    chain = []
-    if previous_renga_id.present?
-      renga = Renga.find_by(id: previous_renga_id)
-      while renga && chain.size < 9
-        chain.unshift(renga)
-        renga = renga.previous_renga_id.present? ? Renga.find_by(id: renga.previous_renga_id) : nil
-      end
-    end
+    chain = fetch_verse_chain(previous_renga_id, limit: 9)
     history = chain.each_with_index.map do |r, i|
       offset = chain.size - i
       vtype  = offset.odd? ? maeku_type : (maeku_type == :chouku ? :tanku : :chouku)
-      { bui: [], season: season_from_text(r.tsugeku), verse_type: vtype }
+      { bui: [], season: season_from_text(r["tsugeku"]), verse_type: vtype }
     end
     history << { bui: [], season: season_from_text(maeku), verse_type: maeku_type }
     history
