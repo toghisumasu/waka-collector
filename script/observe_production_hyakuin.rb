@@ -24,6 +24,11 @@
 # 追記2：当初はshikimoku ng連続回数のみをトリガーにしていたが、原因が
 # 試行ごとに変わる（例：4回shikimoku ng→5回目だけ生成失敗）とstreakが
 # 途切れて発火しないケースが判明したため、原因を問わない方式に修正した）。
+# 追記3：OllamaClient経由の接続タイムアウト（RuntimeError／Net::ReadTimeout）
+# もRetryExhaustedと同様にrescue対象へ追加し、forced_zatsu側の再試行でも
+# 同じ例外を捕捉する（単発の一時的タイムアウトで全体がクラッシュしないように
+# するため。Ollama自体が本当に落ちている場合はforced_zatsu側も全滅するので、
+# その時は無理に空句を保存せず人間に報告する）。
 #
 # 出力: log/observation_sono39_<タグ_><実行日>.jsonl（試行ごとのJSON Lines）＋標準出力サマリー
 
@@ -102,12 +107,22 @@ end
 
 # forced_zatsu候補をFORCED_ZATSU_MORA_RETRY回まで生成し、モーラngが解消した
 # 時点（または上限到達時）の結果までを配列で返す（ログ出力・保存は呼び出し側）。
+# OllamaClient由来の接続エラー（RuntimeError／Net::ReadTimeout）もここで
+# 捕捉し、テキスト空・result:ngの候補として扱う（次のsub_retryへ進むだけで
+# 例外を外へ漏らさない）。全sub_retryが接続エラーで尽きた場合は呼び出し側で
+# text.blank?を見て「forced_zatsuも含めて全滅」と判断する。
 def forced_zatsu_candidates(maeku, target_vt, trigger_labels, threshold, max_sub_retry)
   target_mora = (target_vt == :chouku) ? 17 : 14
   results = []
   max_sub_retry.times do
-    raw  = OllamaClient.chat(forced_zatsu_messages(maeku, target_mora, trigger_labels, threshold),
-                              think: false, timeout: 300)
+    begin
+      raw  = OllamaClient.chat(forced_zatsu_messages(maeku, target_mora, trigger_labels, threshold),
+                                think: false, timeout: 300)
+    rescue RuntimeError, Net::ReadTimeout => conn_err
+      results << { text: "", mora_check: { result: "ng", mora: 0, message: "接続エラー: #{conn_err.message}" },
+                    connection_error: true }
+      next
+    end
     text = raw.to_s.strip.lines.map(&:strip).reject(&:empty?).first.to_s
     mora_check = text.blank? ? { result: "ng", mora: 0, message: "句が生成されませんでした" } :
                                  KuValidator.new(text, type: target_vt).validate
@@ -192,10 +207,26 @@ catch(:attempt_cap_reached) do
         throw :attempt_cap_reached if total_attempts > TOTAL_ATTEMPT_CAP
 
         verse_history = controller.send(:fetch_verse_history, previous_renga_id)
-        tsugeku = RengaGenerator.new(
-          maeku, [], next_verse_type,
-          constraints: { verse_history: verse_history }
-        ).generate_tsugeku
+        begin
+          tsugeku = RengaGenerator.new(
+            maeku, [], next_verse_type,
+            constraints: { verse_history: verse_history }
+          ).generate_tsugeku
+        rescue RuntimeError, Net::ReadTimeout => conn_err
+          # RengasController#createと同じ例外クラス（OllamaClient側はNet::ReadTimeout
+          # を含め全てRuntimeErrorに正規化して再raiseする）。単発の一時的タイムアウト
+          # の可能性があるため、他の失敗種別と同様にMAX_RETRY内では単に再試行する。
+          total_ng += 1
+          label = "接続タイムアウト:#{conn_err.message}"
+          trigger_labels << label
+          action = (attempt_no == MAX_RETRY) ? "exhausted" : "retry"
+          log_line(log_file, {
+            verse_no: verse_no, attempt: attempt_no, text: "", mora_result: nil,
+            shikimoku_result: nil, violations: [label], action: action
+          })
+          raise RetryExhausted, "Ollama接続エラーが解消しませんでした（#{conn_err.message}）" if attempt_no == MAX_RETRY
+          next
+        end
 
         if tsugeku.blank?
           total_ng += 1
@@ -284,10 +315,13 @@ catch(:attempt_cap_reached) do
             "forced_zatsu_create"
           end
 
+        log_violations = trigger_labels.uniq
+        log_violations += [r[:mora_check][:message]] if r[:connection_error]
+
         log_line(log_file, {
           verse_no: verse_no, attempt: attempt_no, text: r[:text],
           mora_result: r[:mora_check][:result], shikimoku_result: "skipped",
-          violations: trigger_labels.uniq, action: fz_action
+          violations: log_violations, action: fz_action
         })
 
         next unless is_last
@@ -299,7 +333,14 @@ catch(:attempt_cap_reached) do
       end
     end
 
-    raise "verse_no=#{verse_no}: 想定外の状態（final_textが未設定）" if final_text.nil?
+    if final_text.blank?
+      # forced_zatsu側もOllama接続エラー等で全滅し、有効な句が一つも得られな
+      # かったケース。空句をRenga.create!するのは観測データを汚すだけなので、
+      # 無理に保存せずここで人間に報告する（Ollamaの実際の稼働状況を確認する
+      # 必要がある、真の障害の可能性）。
+      raise "verse_no=#{verse_no}: forced_zatsuを含め#{MAX_RETRY + FORCED_ZATSU_MORA_RETRY}回の試行すべてで" \
+            "有効な句を得られませんでした（直前の原因: #{trigger_labels.last}）"
+    end
 
     style_result =
       if final_action == "create"
