@@ -15,11 +15,15 @@
 #
 # 其の三十九・追記（forced_zatsu）:
 # ShikimokuCheckerは前句・付句の隣接ペアしか見ず連鎖全体の履歴を見ないため
-# （D-19-5の既知の設計限界）、同じ前句に対してshikimoku ngがSHIKIMOKU_STREAK_
-# THRESHOLD回連続すると通常の再試行では解消しないケースが実害として観測された。
-# この場合はRengaGenerator（本体・無改修）を諦め、観測スクリプト側から直接
-# OllamaClient.chatを呼んで雑（無季）句を強制生成するレスキュー経路に切り替え、
-# スクリプト自体は停止せず次句へ進む。
+# （D-19-5の既知の設計限界）、同じ前句に対する試行がMAX_RETRY回とも失敗する
+# （原因は生成失敗・モーラng・shikimoku ngのいずれでもよい）と通常の再試行では
+# 解消しないケースが実害として観測された。この場合はRengaGenerator（本体・
+# 無改修）への再試行を諦め、観測スクリプト側から直接OllamaClient.chatを呼んで
+# 雑（無季）句を強制生成するレスキュー経路に切り替え、スクリプト自体は停止せず
+# 次句へ進む（verse_no単位の試行ループ全体をrescue RetryExhaustedで包む方式。
+# 追記2：当初はshikimoku ng連続回数のみをトリガーにしていたが、原因が
+# 試行ごとに変わる（例：4回shikimoku ng→5回目だけ生成失敗）とstreakが
+# 途切れて発火しないケースが判明したため、原因を問わない方式に修正した）。
 #
 # 出力: log/observation_sono39_<タグ_><実行日>.jsonl（試行ごとのJSON Lines）＋標準出力サマリー
 
@@ -29,8 +33,7 @@ TOTAL_VERSES = (ARGV[0].presence || 100).to_i
 RUN_TAG      = ARGV[1].presence
 TAG_SUFFIX   = RUN_TAG ? "#{RUN_TAG}_" : ""
 
-MAX_RETRY                  = 5   # script/dryrun_hyakuin.rbのMAX_RETRYと同じ閾値
-SHIKIMOKU_STREAK_THRESHOLD = 5   # 同一verse_noでshikimoku ngが連続した場合にforced_zatsuへ切り替える閾値
+MAX_RETRY                  = 5   # script/dryrun_hyakuin.rbのMAX_RETRYと同じ閾値。この回数だけ試行してすべて失敗したらforced_zatsuへ切り替える
 FORCED_ZATSU_MORA_RETRY    = 3   # forced_zatsu候補のモーラ再試行上限（無限ループ防止の安全弁）
 TOTAL_ATTEMPT_CAP          = 500 # 総試行回数の安全弁（100句×平均5試行想定の余裕値、無限ループ防止）
 
@@ -80,11 +83,11 @@ end
 # 其の二十七救済文言と同じ構成（自己認識→概念確認→詠み直し）を、観測スクリプト
 # 側で独立に組み立てる（RengaGenerator本体は一切呼ばない＝無改修を維持するため）。
 def forced_zatsu_messages(maeku, target_mora, trigger_labels, threshold)
-  reasons = trigger_labels.any? ? trigger_labels.uniq.join("、") : "式目違反"
+  reasons = trigger_labels.any? ? trigger_labels.uniq.join("、") : "同じ問題の繰り返し"
   [
-    { role: "user", content: "あなたはいま、同じ前句に対して#{threshold}回連続で式目違反" \
-                              "（#{reasons}）となる句を詠んでいます。行き詰まっていることを認識してください。" },
-    { role: "assistant", content: "はい、行き詰まっています。同じ前句に対して式目違反を繰り返しており、" \
+    { role: "user", content: "あなたはいま、同じ前句に対して#{threshold}回試みても句が定まりません" \
+                              "（原因：#{reasons}）。行き詰まっていることを認識してください。" },
+    { role: "assistant", content: "はい、行き詰まっています。同じ前句に対して同じような問題を繰り返しており、" \
                                    "局面を打開する必要があります。" },
     { role: "user", content: "連歌では、季語（春・夏・秋・冬の語）を使う句と、季語を使わない" \
                               "「雑（ぞう）」の句があります。雑の句は季節に縛られず自由に詠めます。" \
@@ -177,122 +180,123 @@ catch(:attempt_cap_reached) do
       raise "verse_no=#{verse_no}: 前句「#{maeku}」がKuValidatorでngのため中断（連鎖破綻の可能性）"
     end
 
-    shikimoku_streak  = 0
-    trigger_labels    = []
-    attempt_no        = 0
-    final_text         = nil
-    final_action        = nil
+    trigger_labels = []
+    attempt_no      = 0
+    final_text       = nil
+    final_action      = nil
 
-    MAX_RETRY.times do |i|
-      attempt_no = i + 1
-      total_attempts += 1
-      throw :attempt_cap_reached if total_attempts > TOTAL_ATTEMPT_CAP
+    begin
+      MAX_RETRY.times do |i|
+        attempt_no = i + 1
+        total_attempts += 1
+        throw :attempt_cap_reached if total_attempts > TOTAL_ATTEMPT_CAP
 
-      verse_history = controller.send(:fetch_verse_history, previous_renga_id)
-      tsugeku = RengaGenerator.new(
-        maeku, [], next_verse_type,
-        constraints: { verse_history: verse_history }
-      ).generate_tsugeku
+        verse_history = controller.send(:fetch_verse_history, previous_renga_id)
+        tsugeku = RengaGenerator.new(
+          maeku, [], next_verse_type,
+          constraints: { verse_history: verse_history }
+        ).generate_tsugeku
 
-      if tsugeku.blank?
-        total_ng += 1
-        action = (attempt_no == MAX_RETRY) ? "abort" : "retry"
-        log_line(log_file, {
-          verse_no: verse_no, attempt: attempt_no, text: tsugeku.to_s, mora_result: "ng",
-          shikimoku_result: nil, violations: ["生成失敗"], action: action
-        })
-        raise RetryExhausted, "verse_no=#{verse_no}: #{MAX_RETRY}回試行しても句が生成できませんでした" if attempt_no == MAX_RETRY
-        next
-      end
-
-      mora_check = KuValidator.new(tsugeku, type: next_verse_type).validate
-      if mora_check[:result] == "ng"
-        total_ng += 1
-        action = (attempt_no == MAX_RETRY) ? "abort" : "retry"
-        log_line(log_file, {
-          verse_no: verse_no, attempt: attempt_no, text: tsugeku, mora_result: "ng",
-          shikimoku_result: nil, violations: [], action: action
-        })
-        raise RetryExhausted, "verse_no=#{verse_no}: #{MAX_RETRY}回試行してもモーラ判定ngが解消しませんでした" if attempt_no == MAX_RETRY
-        next
-      end
-
-      candidate = {
-        bui:        bui_dict.detect_all(tsugeku, nm),
-        season:     controller.send(:season_from_text, tsugeku),
-        verse_type: next_verse_type
-      }
-      history = controller.send(:build_verse_history, previous_renga_id, maeku, maeku_type, nm: nm, bui_dict: bui_dict)
-
-      checker    = ShikimokuChecker.new
-      violations = checker.all_violations(history, candidate)
-      violations += checker.ichiza_violations(history, candidate)
-      violations += checker.chotan_violations(history, candidate)
-
-      if violations.any?
-        total_ng += 1
-        labels = violations.map { |v| violation_label(v) }
-        violations.each { |v| violation_counts[violation_category(v)] += 1 }
-        trigger_labels.concat(labels)
-        shikimoku_streak += 1
-
-        log_line(log_file, {
-          verse_no: verse_no, attempt: attempt_no, text: tsugeku, mora_result: mora_check[:result],
-          shikimoku_result: "ng", violations: labels, action: "retry"
-        })
-
-        if shikimoku_streak >= SHIKIMOKU_STREAK_THRESHOLD
-          # D-19-5: ShikimokuCheckerは隣接ペアしか見ず連鎖全体の履歴を見ないため、
-          # 同じ前句に対して式目ngが閾値回数連続した場合は通常のリトライでは
-          # 解消しない（実害として観測済み）。RengaGeneratorへの再試行を諦め、
-          # 雑句強制生成（forced_zatsu）へ切り替える。
-          puts "  #{verse_no}句目: shikimoku_streak=#{shikimoku_streak} → forced_zatsuへエスカレーション"
-          fz_results = forced_zatsu_candidates(
-            maeku, next_verse_type, trigger_labels, SHIKIMOKU_STREAK_THRESHOLD, FORCED_ZATSU_MORA_RETRY
-          )
-          fz_results.each_with_index do |r, idx|
-            total_attempts += 1
-            attempt_no      += 1
-            throw :attempt_cap_reached if total_attempts > TOTAL_ATTEMPT_CAP
-
-            is_last = (idx == fz_results.size - 1)
-            total_ng += 1 if r[:mora_check][:result] == "ng"
-
-            fz_action =
-              if !is_last
-                "forced_zatsu"
-              elsif r[:mora_check][:result] == "ng"
-                "forced_zatsu_mora_ng"
-              else
-                "forced_zatsu_create"
-              end
-
-            log_line(log_file, {
-              verse_no: verse_no, attempt: attempt_no, text: r[:text],
-              mora_result: r[:mora_check][:result], shikimoku_result: "skipped",
-              violations: trigger_labels.uniq, action: fz_action
-            })
-
-            next unless is_last
-
-            final_text  = r[:text]
-            final_action = fz_action
-            forced_zatsu_creates    += 1 if fz_action == "forced_zatsu_create"
-            forced_zatsu_mora_ng_ct += 1 if fz_action == "forced_zatsu_mora_ng"
-          end
-          break
+        if tsugeku.blank?
+          total_ng += 1
+          trigger_labels << "生成失敗"
+          action = (attempt_no == MAX_RETRY) ? "exhausted" : "retry"
+          log_line(log_file, {
+            verse_no: verse_no, attempt: attempt_no, text: tsugeku.to_s, mora_result: "ng",
+            shikimoku_result: nil, violations: ["生成失敗"], action: action
+          })
+          raise RetryExhausted, "句が生成できませんでした" if attempt_no == MAX_RETRY
+          next
         end
 
-        next
-      end
+        mora_check = KuValidator.new(tsugeku, type: next_verse_type).validate
+        if mora_check[:result] == "ng"
+          total_ng += 1
+          label = "モーラng(#{mora_check[:mora]}音)"
+          trigger_labels << label
+          action = (attempt_no == MAX_RETRY) ? "exhausted" : "retry"
+          log_line(log_file, {
+            verse_no: verse_no, attempt: attempt_no, text: tsugeku, mora_result: "ng",
+            shikimoku_result: nil, violations: [label], action: action
+          })
+          raise RetryExhausted, "モーラ判定ngが解消しませんでした" if attempt_no == MAX_RETRY
+          next
+        end
 
-      final_text  = tsugeku
-      final_action = "create"
-      log_line(log_file, {
-        verse_no: verse_no, attempt: attempt_no, text: tsugeku, mora_result: mora_check[:result],
-        shikimoku_result: "ok", violations: [], action: "create"
-      })
-      break
+        candidate = {
+          bui:        bui_dict.detect_all(tsugeku, nm),
+          season:     controller.send(:season_from_text, tsugeku),
+          verse_type: next_verse_type
+        }
+        history = controller.send(:build_verse_history, previous_renga_id, maeku, maeku_type, nm: nm, bui_dict: bui_dict)
+
+        checker    = ShikimokuChecker.new
+        violations = checker.all_violations(history, candidate)
+        violations += checker.ichiza_violations(history, candidate)
+        violations += checker.chotan_violations(history, candidate)
+
+        if violations.any?
+          total_ng += 1
+          labels = violations.map { |v| violation_label(v) }
+          violations.each { |v| violation_counts[violation_category(v)] += 1 }
+          trigger_labels.concat(labels)
+          action = (attempt_no == MAX_RETRY) ? "exhausted" : "retry"
+          log_line(log_file, {
+            verse_no: verse_no, attempt: attempt_no, text: tsugeku, mora_result: mora_check[:result],
+            shikimoku_result: "ng", violations: labels, action: action
+          })
+          raise RetryExhausted, "式目ngが解消しませんでした" if attempt_no == MAX_RETRY
+          next
+        end
+
+        final_text  = tsugeku
+        final_action = "create"
+        log_line(log_file, {
+          verse_no: verse_no, attempt: attempt_no, text: tsugeku, mora_result: mora_check[:result],
+          shikimoku_result: "ok", violations: [], action: "create"
+        })
+        break
+      end
+    rescue RetryExhausted => e
+      # 其の三十九・追記2: MAX_RETRY回の試行がすべて失敗した場合、原因（生成失敗・
+      # モーラng・shikimoku ngのいずれか、または混在）を問わずforced_zatsuへ
+      # 切り替える。verse_no単位の試行ループ全体をrescueすることで、例えば
+      # 「4回shikimoku ng→5回目だけ生成失敗」のように原因が試行ごとに変わって
+      # 特定の失敗種別のstreakが閾値に届かないケースでも確実に発火する。
+      puts "  #{verse_no}句目: #{e.message}（#{MAX_RETRY}回試行）→ forced_zatsuへエスカレーション"
+      fz_results = forced_zatsu_candidates(
+        maeku, next_verse_type, trigger_labels, MAX_RETRY, FORCED_ZATSU_MORA_RETRY
+      )
+      fz_results.each_with_index do |r, idx|
+        total_attempts += 1
+        attempt_no      += 1
+        throw :attempt_cap_reached if total_attempts > TOTAL_ATTEMPT_CAP
+
+        is_last = (idx == fz_results.size - 1)
+        total_ng += 1 if r[:mora_check][:result] == "ng"
+
+        fz_action =
+          if !is_last
+            "forced_zatsu"
+          elsif r[:mora_check][:result] == "ng"
+            "forced_zatsu_mora_ng"
+          else
+            "forced_zatsu_create"
+          end
+
+        log_line(log_file, {
+          verse_no: verse_no, attempt: attempt_no, text: r[:text],
+          mora_result: r[:mora_check][:result], shikimoku_result: "skipped",
+          violations: trigger_labels.uniq, action: fz_action
+        })
+
+        next unless is_last
+
+        final_text  = r[:text]
+        final_action = fz_action
+        forced_zatsu_creates    += 1 if fz_action == "forced_zatsu_create"
+        forced_zatsu_mora_ng_ct += 1 if fz_action == "forced_zatsu_mora_ng"
+      end
     end
 
     raise "verse_no=#{verse_no}: 想定外の状態（final_textが未設定）" if final_text.nil?
