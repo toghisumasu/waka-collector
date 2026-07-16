@@ -31,6 +31,16 @@ RSpec.describe OllamaClient do
       allow(http).to receive(:request).and_return(error_response("500"))
       expect { described_class.generate("prompt") }.to raise_error(RuntimeError, /HTTP 500/)
     end
+
+    it "sends temperature in the request body when given (其の四十 T3)" do
+      sent_body = nil
+      allow(http).to receive(:request) do |req|
+        sent_body = JSON.parse(req.body)
+        success_response({ response: "ok" }.to_json)
+      end
+      described_class.generate("prompt", temperature: 0.8)
+      expect(sent_body["temperature"]).to eq(0.8)
+    end
   end
 
   describe ".chat" do

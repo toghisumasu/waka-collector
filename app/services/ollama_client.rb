@@ -19,12 +19,11 @@ class OllamaClient
     http.open_timeout = OPEN_TIMEOUT
     http.read_timeout = timeout
 
-    # think: true のとき /no_think トークンを先頭に付加
     req = Net::HTTP::Post.new(uri.path)
     req["Content-Type"] = "application/json"
     body = { model: MODEL, prompt: prompt, stream: false, think: think }
     body[:temperature] = temperature if temperature
-    req.body = { model: MODEL, prompt: prompt, stream: false, think: think }.to_json
+    req.body = body.to_json
 
     http_res = http.request(req)
     check_status!(http_res)
