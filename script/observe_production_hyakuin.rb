@@ -29,6 +29,12 @@
 # 同じ例外を捕捉する（単発の一時的タイムアウトで全体がクラッシュしないように
 # するため。Ollama自体が本当に落ちている場合はforced_zatsu側も全滅するので、
 # その時は無理に空句を保存せず人間に報告する）。
+# 追記4：forced_zatsu_mora_ng（モーラngのまま保存する安全弁）で保存された句が
+# 次verse_noの前句になると、KuValidatorの前句ngチェックに引っかかり中断していた。
+# forced_zatsuは「破綻していても止めずに続ける」ための機構なので、この中断は
+# 救済策自体が生む矛盾だった。前句ngは中断せず参考情報としてログに残すのみとし、
+# 通常通り次の生成に進む。これにより式目ng・モーラng・生成失敗・接続タイムアウト・
+# 前句ng連鎖のすべてがforced_zatsuで統一的に受け止められる形になった。
 #
 # 出力: log/observation_sono39_<タグ_><実行日>.jsonl（試行ごとのJSON Lines）＋標準出力サマリー
 
@@ -182,20 +188,24 @@ catch(:attempt_cap_reached) do
     maeku_type      = KuValidator.nearest_verse_type(maeku_mora)
     next_verse_type = (maeku_type == :chouku) ? :tanku : :chouku
 
-    # 本番同様、前句（maeku）自体のモーラチェック。生成した付句は
-    # RengaGenerator内部でmora差<=1のみ許容するため通常はok/warningになるが、
-    # 万一（全attempt失敗などで）ngな文字列が混入した場合は連鎖破綻として
-    # 即座に人間へ報告する。
+    # 本番同様、前句（maeku）自体のモーラチェック。生成した付句はRengaGenerator
+    # 内部でmora差<=1のみ許容するため通常はok/warningになるが、forced_zatsu_
+    # mora_ng（其の三十九・追記2で追加した安全弁）で保存された句が前句になった
+    # 場合はngになり得る。forced_zatsuは「式目・言語的に破綻していても止めずに
+    # 続ける」ための機構なので、ここで中断すると救済策自体が矛盾を生む
+    # （其の三十九・追記4）。中断はせず、参考情報としてログとtrigger_labelsに
+    # 残した上で通常通り次の生成に進む。
     maeku_check = KuValidator.new(maeku, type: maeku_type).validate
+    trigger_labels = []
     if maeku_check[:result] == "ng"
+      note = "前句forced_zatsu由来ng:#{maeku_check[:message]}"
+      trigger_labels << note
       log_line(log_file, {
         verse_no: verse_no, attempt: 0, text: maeku, mora_result: "ng",
-        shikimoku_result: nil, violations: [], action: "abort_maeku_ng"
+        shikimoku_result: nil, violations: [note], action: "maeku_ng_continue"
       })
-      raise "verse_no=#{verse_no}: 前句「#{maeku}」がKuValidatorでngのため中断（連鎖破綻の可能性）"
     end
 
-    trigger_labels = []
     attempt_no      = 0
     final_text       = nil
     final_action      = nil
