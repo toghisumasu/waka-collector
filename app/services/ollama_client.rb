@@ -9,9 +9,14 @@ class OllamaClient
   MODEL = "qwen3:8b"
   MAX_TOOL_LOOPS = 5
 
+  # localhostへの接続確立は通常ミリ秒単位で完了するため、Rubyデフォルトの
+  # 60秒より大幅に短く固定する（其の四十 D-40-1）。
+  OPEN_TIMEOUT = 5
+
   def self.generate(prompt, timeout: 300, think: true, temperature: nil)
     uri  = URI(API_URL)
     http = Net::HTTP.new(uri.host, uri.port)
+    http.open_timeout = OPEN_TIMEOUT
     http.read_timeout = timeout
 
     # think: true のとき /no_think トークンを先頭に付加
@@ -34,6 +39,7 @@ class OllamaClient
   def self.chat(messages, timeout: 300, think: false)
     uri  = URI(API_URL_CHAT)
     http = Net::HTTP.new(uri.host, uri.port)
+    http.open_timeout = OPEN_TIMEOUT
     http.read_timeout = timeout
     req = Net::HTTP::Post.new(uri.path)
     req["Content-Type"] = "application/json"
@@ -59,6 +65,7 @@ class OllamaClient
     messages = messages.dup
     uri  = URI(API_URL_CHAT)
     http = Net::HTTP.new(uri.host, uri.port)
+    http.open_timeout = OPEN_TIMEOUT
     http.read_timeout = timeout
 
   MAX_TOOL_LOOPS.times do |i|
