@@ -4,6 +4,74 @@
 引き継ぎ文書とは別に、設計判断が生まれるたびにここに追記する。  
 **更新:** 新しい判断は上に追記する（最新が先頭）。
 
+## 其の四十（2026-07-17）追記
+
+---
+
+### D-40-1　OllamaClientにopen_timeoutを明示設定する
+
+**判断：`OllamaClient`の`generate`/`chat`/`chat_with_tools`いずれも`Net::HTTP.new`直後に`http.open_timeout = 5`（秒）を設定する。**
+
+**背景：**
+其の三十九run5（`log/observation_sono39_run5_20260716.jsonl`、verse_no=72で沈黙停止）の調査（`docs/investigation_20260717_其の四十冒頭.md`・`docs/investigation_20260717_其の四十続報.md`）で、`OllamaClient`が`read_timeout`のみを明示設定し`open_timeout`には一切触れていないことが判明した。Rubyの`Net::HTTP`は`open_timeout`未設定時デフォルト60秒が適用されるため、Ollamaプロセスが接続確立段階で応答不能な状態に陥った場合でも、1回の呼び出しが60秒間ブロックされうる構造だった。
+
+**理由：**
+- OllamaはlocalhostのAPIサーバであり、TCP接続確立は通常ミリ秒単位で完了する。60秒という値はローカル通信の実態に対して過大。
+- `RengaGenerator#generate_tsugeku`は内部で最大25回（5×5）のOllama呼び出しループを持つため、接続確立段階の詰まりが1回でも起きるとループ全体が長時間膠着するリスクがある。
+- 5秒はローカル接続確立の通常所要時間（ミリ秒単位）に対して十分な余裕を持ちつつ、Ollamaプロセスが応答不能な場合に早期に失敗させられる値として妥当と判断した（10秒・3秒との比較検討の上で選定）。
+
+**結論：** `OllamaClient::OPEN_TIMEOUT = 5`を定数化し、3メソッドすべてで使用する。
+
+---
+
+### D-40-2　HTTPステータスコード検査の追加と、run5インシデントとの関連
+
+**判断：`OllamaClient`の全メソッドで、Ollamaからの応答が2xx以外の場合は明示的に例外化する（`check_status!`private class methodで一元化）。**
+
+**背景：**
+run5の調査で、verse73処理中に`OllamaClient.chat`がOllamaからHTTPステータス500を約1秒で受け取っていたことが確定した（`docs/investigation_20260717_其の四十冒頭.md` §1）。しかし従来の`OllamaClient`はステータスコードを一切検査しておらず、JSONボディに`message`/`response`キーが無ければ静かに`nil`を返すだけで、この500応答自体は例外にならなかった。
+
+**理由：**
+- ステータスコード無検査のまま`nil`が返ると、呼び出し元（`RengaGenerator`）はOllama側のエラーを「空の付句」として通常のリトライフローに乗せてしまい、実際に何が起きたかがログから追えなくなる。
+- run5沈黙停止の直接原因はプロセス終了（続報調査1-2、[[production_run5_complete]]参照）であり、この500応答自体が停止の直接原因ではないと特定されている。ただし、無検査という構造自体は「エラーが発生してもそれと分からない」という別の問題であり、今回のインシデントの有無に関わらず修正すべき不備と判断した。
+- `raise "HTTP #{res.code}"`は既存の`rescue => e`（`"Ollama接続エラー: #{e.message}"`）を素通りする形にし、最終的なメッセージが`"Ollama接続エラー: HTTP 500"`のように既存の文体と一貫するようにした。
+
+**結論：** `check_status!`はRuntimeErrorとしてraiseするため、`RengasController`・`script/observe_production_hyakuin.rb`いずれの既存`rescue RuntimeError`フローも変更せずに通る（両呼び出し元のコードは無変更）。
+
+---
+
+### D-40-3　temperatureパラメータ握り潰しバグの混入経緯と教訓
+
+**判断：`OllamaClient#generate`のリクエストボディ組み立てを1箇所（`body`変数）に統一し、`temperature`が実際にリクエストへ反映されるようにする。**
+
+**背景：**
+`generate`は`body`というローカル変数に`temperature`をセットしていたが、実際に`req.body`へ送信していたのは別に新規生成したハッシュリテラルであり、`temperature`は一度も反映されていなかった。`git log --follow -p`による全履歴調査（`docs/investigation_20260717_其の四十続報.md` §5）で、このバグは`chat_with_tools`追加・`think:`実装のraw text prepend→JSON APIパラメータ修正と**同一コミット**（`866b63c`, 2026-06-16）で混入したことが判明した。しかもこのコミットのメッセージは`verify_seed_completion.rb`向けの機能（動的ブラックリスト・シード入れ替え）のみを謳っており、`ollama_client.rb`側の変更には一切言及がなかった。
+
+**教訓：**
+- 無関係な題名のコミットに他ファイルの変更を紛れ込ませると、レビューの目が向きにくくなり、この種の見落としが混入しやすい。
+- 同一diffハンク内で複数の変更（think修正・temperature引数追加）を同時に行うと、片方の変更（bodyハッシュリテラルの書き直し）がもう片方（temperature代入）を無効化する、という相互作用に気づきにくい。
+- 機能追加時はコミットを機能単位で分離し、コミットメッセージに変更対象ファイル・変更内容を明記することが、この種のバグの早期発見につながる。
+
+**結論：** バグ自体は`body`変数を`req.body = body.to_json`として一元化することで解消。冗長な二重のハッシュ組み立てもあわせて解消した。
+
+---
+
+### D-40-4　OllamaClient（C層生成関門）への機能追加における運用上の注意
+
+**判断：`OllamaClient`に新しいメソッド・分岐を追加する際は、既存メソッド（`generate`/`chat`/`chat_with_tools`）のrescue粒度・タイムアウト設計をレビューせずそのまま複製しないこと。**
+
+**背景：**
+`git log --follow -p`による全履歴調査（`docs/investigation_20260717_其の四十続報.md` §5）で、`OllamaClient`の不備（`open_timeout`未設定・ステータスコード未検査）は最初のコミット（`6c2bbda`, 2026-06-07）から一貫して存在する設計当初からの見落としであり、以降`chat_with_tools`（`866b63c`）・`chat`（`6cf1c8c`、其の三十一 Step C-3）の追加時にも、既存の粗さがレビューされずそのまま複製されていたことが確認された。
+
+`docs/architecture_decisions.md`には`ShikimokuChecker`・`BuiDictionary`等の判定ロジックについてはD-19〜D-38で判断が手厚く記録されている一方、`OllamaClient`（C層の生成関門、全ての付句生成がここを通る）についてはtimeout方針・エラー処理方針に関する設計意図の記述がD-40以前には一切存在せず、コード現物のみが実質的な設計記録になっていた。
+
+**運用上の注意：**
+- `OllamaClient`に新しいメソッド・分岐を追加する際は、必ず既存メソッドの`open_timeout`・ステータス検査・rescue粒度を確認し、その時点の設計判断（D-40-1〜D-40-3参照）を踏襲するか、踏襲しない場合はその理由をこのファイルに記録すること。
+- 無関係な機能のコミットに`ollama_client.rb`の変更を紛れ込ませないこと（D-40-3の教訓）。
+- C層の生成関門という役割上、ここでの見落としは他の全生成経路（`generate_tsugeku`の`generate`/`chat`呼び出し双方）に影響するため、A層（`ShikimokuChecker`）と同等以上に設計意図の記録を残す価値がある。
+
+---
+
 ## 其の三十三（2026-07-10）追記
 
 ---
