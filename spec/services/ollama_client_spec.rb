@@ -63,4 +63,61 @@ RSpec.describe OllamaClient do
       end.to raise_error(RuntimeError, /HTTP 500/)
     end
   end
+
+  # 其の四十 T4: chat/chat_with_toolsのrescue => e（StandardError全体を捕捉し
+  # "Ollama接続エラー: <元メッセージ>" というRuntimeErrorへ正規化する挙動）を
+  # 変更前に固定するcharacterization test。T4はこの正規化の挙動自体は変えず、
+  # re-raise前に元の例外クラス・バックトレースをログへ残すことのみを追加する。
+  describe "rescue正規化のふるまい（T4着手前の固定・T4着手後も不変）" do
+    it "generate: StandardErrorはOllama接続エラーというRuntimeErrorに正規化される" do
+      allow(http).to receive(:request).and_raise(SocketError, "getaddrinfo failed")
+      expect { described_class.generate("prompt") }
+        .to raise_error(RuntimeError, "Ollama接続エラー: getaddrinfo failed")
+    end
+
+    it "chat: StandardErrorはOllama接続エラーというRuntimeErrorに正規化される" do
+      allow(http).to receive(:request).and_raise(SocketError, "getaddrinfo failed")
+      expect { described_class.chat([{ role: "user", content: "hi" }]) }
+        .to raise_error(RuntimeError, "Ollama接続エラー: getaddrinfo failed")
+    end
+
+    it "chat_with_tools: StandardErrorはOllama接続エラーというRuntimeErrorに正規化される" do
+      allow(http).to receive(:request).and_raise(SocketError, "getaddrinfo failed")
+      expect do
+        described_class.chat_with_tools([{ role: "user", content: "hi" }], tools: []) { |_n, _a| {} }
+      end.to raise_error(RuntimeError, "Ollama接続エラー: getaddrinfo failed")
+    end
+
+    it "generate: Net::ReadTimeoutは専用メッセージのRuntimeErrorに正規化される" do
+      allow(http).to receive(:request).and_raise(Net::ReadTimeout)
+      expect { described_class.generate("prompt", timeout: 42) }
+        .to raise_error(RuntimeError, "メンタムさんへの接続がタイムアウトしました（42秒）")
+    end
+  end
+
+  # 其の四十 T4: chat/chat_with_toolsはre-raise前に元の例外クラス・
+  # バックトレースをRails.loggerへ記録する（挙動＝例外クラス/メッセージは不変）
+  describe "T4: rescue時のログ記録" do
+    it "chatは元の例外クラス・メッセージをログに残してからRuntimeErrorをraiseする" do
+      allow(http).to receive(:request).and_raise(SocketError, "getaddrinfo failed")
+      expect(Rails.logger).to receive(:error).with(/SocketError: getaddrinfo failed/)
+      expect { described_class.chat([{ role: "user", content: "hi" }]) }
+        .to raise_error(RuntimeError, "Ollama接続エラー: getaddrinfo failed")
+    end
+
+    it "chat_with_toolsは元の例外クラス・メッセージをログに残してからRuntimeErrorをraiseする" do
+      allow(http).to receive(:request).and_raise(SocketError, "getaddrinfo failed")
+      expect(Rails.logger).to receive(:error).with(/SocketError: getaddrinfo failed/)
+      expect do
+        described_class.chat_with_tools([{ role: "user", content: "hi" }], tools: []) { |_n, _a| {} }
+      end.to raise_error(RuntimeError, "Ollama接続エラー: getaddrinfo failed")
+    end
+
+    it "generateはログを追加しない（T4のスコープ外・既存挙動を維持）" do
+      allow(http).to receive(:request).and_raise(SocketError, "getaddrinfo failed")
+      expect(Rails.logger).not_to receive(:error)
+      expect { described_class.generate("prompt") }
+        .to raise_error(RuntimeError, "Ollama接続エラー: getaddrinfo failed")
+    end
+  end
 end

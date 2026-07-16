@@ -56,7 +56,7 @@ class OllamaClient
   rescue Net::ReadTimeout
     raise "メンタムさんへの接続がタイムアウトしました（#{timeout}秒）"
   rescue => e
-    raise "Ollama接続エラー: #{e.message}"
+    log_and_reraise!(e)
   end
 
   # messages: [{ role:, content: }, ...]
@@ -104,7 +104,7 @@ class OllamaClient
   rescue Net::ReadTimeout
     raise "メンタムさんへの接続がタイムアウトしました（#{timeout}秒）"
   rescue => e
-    raise "Ollama接続エラー: #{e.message}"
+    log_and_reraise!(e)
   end
 
   # 其の四十 D-40-2: 従来ステータスコードを検査していなかったため、
@@ -116,5 +116,18 @@ class OllamaClient
     raise "HTTP #{res.code}"
   end
   private_class_method :check_status!
+
+  # 其の四十 D-40-4: chat/chat_with_toolsは"rescue => e"でStandardError全体を
+  # 捕捉し「Ollama接続エラー: <元メッセージ>」というRuntimeErrorに正規化して
+  # いる。この正規化自体は挙動を変えず維持するが、正規化前に元の例外クラス・
+  # バックトレースをログへ残すことで、正規化によって失われていた情報
+  # （run5インシデント調査でバックトレースが復元不能だった問題）を今後は
+  # 追跡できるようにする。
+  def self.log_and_reraise!(e)
+    Rails.logger.error "[OllamaClient] #{e.class}: #{e.message}\n" \
+                        "#{e.backtrace&.first(10)&.join("\n")}"
+    raise "Ollama接続エラー: #{e.message}"
+  end
+  private_class_method :log_and_reraise!
 end
 
