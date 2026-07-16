@@ -26,8 +26,9 @@ class OllamaClient
     body[:temperature] = temperature if temperature
     req.body = { model: MODEL, prompt: prompt, stream: false, think: think }.to_json
 
-    res = http.request(req)
-    JSON.parse(res.body)["response"]
+    http_res = http.request(req)
+    check_status!(http_res)
+    JSON.parse(http_res.body)["response"]
   rescue Net::ReadTimeout
     raise "メンタムさんへの接続がタイムアウトしました（#{timeout}秒）"
   rescue => e
@@ -49,7 +50,9 @@ class OllamaClient
       stream: false,
       think: think
     }.to_json
-    res = JSON.parse(http.request(req).body)
+    http_res = http.request(req)
+    check_status!(http_res)
+    res = JSON.parse(http_res.body)
     res.dig("message", "content")
   rescue Net::ReadTimeout
     raise "メンタムさんへの接続がタイムアウトしました（#{timeout}秒）"
@@ -77,7 +80,9 @@ class OllamaClient
     }.to_json
 
     t0 = Time.now
-    res = JSON.parse(http.request(req).body)
+    http_res = http.request(req)
+    check_status!(http_res)
+    res = JSON.parse(http_res.body)
     elapsed = (Time.now - t0).round(1)
 
     message = res["message"]
@@ -102,5 +107,15 @@ class OllamaClient
   rescue => e
     raise "Ollama接続エラー: #{e.message}"
   end
+
+  # 其の四十 D-40-2: 従来ステータスコードを検査していなかったため、
+  # 500応答等でもJSONボディにmessage/responseキーがなければ静かにnilを
+  # 返すだけで例外化されなかった。2xx以外は明示的に例外化する。
+  def self.check_status!(res)
+    return if res.is_a?(Net::HTTPSuccess)
+
+    raise "HTTP #{res.code}"
+  end
+  private_class_method :check_status!
 end
 
