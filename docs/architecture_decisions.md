@@ -4,6 +4,62 @@
 引き継ぎ文書とは別に、設計判断が生まれるたびにここに追記する。  
 **更新:** 新しい判断は上に追記する（最新が先頭）。
 
+## 其の四十四（2026-07-17）追記
+
+---
+
+### D-44-1　next_constraints（forbidden_bui/season_hint）をRengaGeneratorへ配線
+
+**判断：`RengasController#create`で、`ShikimokuChecker#next_constraints`が算出する
+`forbidden_bui`/`season_hint`を、生成前に`RengaGenerator`のconstraintsへ渡すよう配線した
+（D-33-1の人間承認プロセスに従い、修正案[diff]を人間に提示・承認を得てから実装）。**
+
+**背景：** 其の四十一(T5)の調査で、`RengaGenerator`側（`filter_pool`・`kigo_hint`・
+`build_full_prompt`）は`@constraints[:forbidden_bui]`・`@constraints.dig(:season_hint, :current)`・
+`season_hint[:must_switch]`/`[:must_continue]`を消費する実装が既に完成しており、
+`ShikimokuChecker#next_constraints`の戻り値形式ともビット単位で一致していたにもかかわらず、
+本番経路（`RengasController#create`）にも観測スクリプト（`script/observe_production_hyakuin.rb`）
+にも呼び出し側の配線が一切なく、`script/dryrun_hyakuin.rb`（検証ハーネス）のみが使用していた
+（`docs/observation_analysis_其の四十一.md` §5）。すなわち欠けていたのは
+`RengaGenerator`本体ではなく、呼び出し元でconstraintsを組み立てる部分だけだった。
+
+**修正内容（其の四十四）：**
+`app/controllers/rengas_controller.rb#create`で、`nm`/`bui_dict`/`history`
+（`build_verse_history`）/`checker`（`ShikimokuChecker.new`）の構築を、
+`RengaGenerator.new`呼び出しより**前**に繰り上げた。従来はこれらの構築が
+生成**後**（付句の式目検証のためだけ）に行われていたため、`next_constraints`
+（historyが必要）を生成前に計算する余地がなかった。構築順序を変えた上で
+`next_constraints = checker.next_constraints(history)`を呼び、
+`constraints: { verse_history:, forbidden_bui:, season_hint: }`として
+`RengaGenerator.new`に渡す。生成後の式目検証（`all_violations`等）は同じ
+`history`/`checker`を再利用し、二重構築は発生しない。`RengaGenerator`本体・
+`ShikimokuChecker`本体・`build_verse_history`（D-41-1修正部分）・
+`build_full_prompt`冒頭指示文（D-19-1）は無変更。
+
+`script/observe_production_hyakuin.rb`への同様の配線は、人間の判断で今回は
+対象外とした（本番経路[`RengasController`]の変更を優先し、観測スクリプトは
+現状のまま）。そのため同スクリプトでは引き続き`forbidden_bui`/`season_hint`が
+空のまま扱われる。次回、観測での効果測定が必要になった際に改めて配線するか、
+使い捨ての検証スクリプトで代替するかを判断すること。
+
+**動作確認（其の四十四T5）：** `script/observe_production_hyakuin.rb`を変更しない方針の
+ため、使い捨ての検証スクリプト（リポジトリ非管理、Renga生成15句分）で、実際の
+`RengaGenerator`インスタンスの`@constraints`が期待通りの値になっていること
+（配線OK＝15/15）、forbidden_bui発火時（"植物"、複数回）に生成句のbuiと
+重複した回数が0/15であること、season_hintのmust_continue（4回）・
+must_switch（2回）が正しく発火し、must_switch発火直後に実際に季節転換
+（秋→春）が起きることを確認した。`bundle exec ruby script/verify_shikimoku.rb`は
+88 pass/0 fail維持、`spec/controllers/rengas_controller_spec.rb`は既存の
+D-41-1回帰テストを含め11 examples全成功（`create`アクション自体の順序変更は
+既存specの対象外の私メソッドテストには影響しない）。
+
+**次のステップ：** 本配線による式目ng却下率・generate_fail率への効果は、
+次回の其の三十九系列観測（`script/observe_production_hyakuin.rb`）で改めて
+測定する必要がある（今回のT5は配線の正しさの確認に限定し、大規模な効果測定は
+対象外）。その際、観測スクリプト側にも同様の配線を行うかどうかは別途判断する。
+
+---
+
 ## 其の四十一（2026-07-17）追記
 
 ---

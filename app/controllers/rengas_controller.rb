@@ -47,23 +47,32 @@ class RengasController < ApplicationController
     honka_ids = Array(renga_params[:honka_ids]).reject(&:blank?).map(&:to_i)
     honkas    = honka_ids.any? ? Waka.where(id: honka_ids) : []
 
-    tsugeku = RengaGenerator.new(
-      maeku, honkas, next_verse_type,
-      constraints: { verse_history: fetch_verse_history(previous_renga_id) }
-    ).generate_tsugeku
-
     # 其の三十八 D-38-1: RengaChecker（LLM式目チェック）からShikimokuChecker
     # （Ruby決定論的チェック）へ置換。bui情報源はBuiDictionary確定値に限定（D-36-1）。
     nm       = build_mecab
     bui_dict = BuiDictionary.new
+    history  = build_verse_history(previous_renga_id, maeku, maeku_type, nm: nm, bui_dict: bui_dict)
+    checker  = ShikimokuChecker.new
+
+    # 其の四十四 D-44-1: next_constraints（forbidden_bui/season_hint）を生成前に
+    # RengaGeneratorへ渡し、事後棄却だけでなく生成段階から式目違反を避けるよう誘導する。
+    next_constraints = checker.next_constraints(history)
+
+    tsugeku = RengaGenerator.new(
+      maeku, honkas, next_verse_type,
+      constraints: {
+        verse_history: fetch_verse_history(previous_renga_id),
+        forbidden_bui: next_constraints[:forbidden_bui],
+        season_hint:   next_constraints[:season_hint]
+      }
+    ).generate_tsugeku
+
     candidate = {
       bui:        bui_dict.detect_all(tsugeku, nm),
       season:     season_from_text(tsugeku),
       verse_type: next_verse_type
     }
-    history = build_verse_history(previous_renga_id, maeku, maeku_type, nm: nm, bui_dict: bui_dict)
 
-    checker    = ShikimokuChecker.new
     violations = checker.all_violations(history, candidate)
     violations += checker.ichiza_violations(history, candidate)
     violations += checker.chotan_violations(history, candidate)
