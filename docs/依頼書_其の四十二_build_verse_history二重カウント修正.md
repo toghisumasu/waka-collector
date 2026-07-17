@@ -141,7 +141,14 @@ bundle exec rspec spec/                        # build_verse_history関連の新
 
 | 日時 | タスク | 結果 | メモ |
 |---|---|---|---|
-| | | | |
+| 2026-07-17 | T1: ゲートチェック | 88 pass / 0 fail、clean、HEAD=4199b90 | 作業許可 |
+| 2026-07-17 | T2: 修正案（diff）提示 | `history << {...}`に`if chain.empty?`を追加する1行diffを提示 | 窓幅(limit:9)には触れないことを人間から確認質問あり、回答して整合性を確認 |
+| 2026-07-17 | T2: 人間承認 | **承認済み**。「この修正案を承認します。実装を進めてください」 | 承認後にT3着手 |
+| 2026-07-17 | T3: 実装 | `app/controllers/rengas_controller.rb`の`build_verse_history`末尾1行を修正 | 承認済みdiff通りに適用 |
+| 2026-07-17 | T4: 回帰テスト作成・実行 | `spec/controllers/rengas_controller_spec.rb`に4件新規追加（verse30/34/56相当のkukazo_over誤却下解消、verse21相当のkukazo_under結論不変）、既存2件を修正後の正しい期待値に更新。11 examples全成功 | verse34は5回分・verse30は2回分・verse56は1回分の誤却下を代表1ケースずつで検証（同一history・同一mechanism） |
+| 2026-07-17 | T5: ゲートチェック再確認 | `verify_shikimoku.rb` 88 pass/0 fail維持、`bundle exec rspec`全体は51 examples中5 failure（既知のWakaファクトリ無関係バグのみ、新規failureなし） | |
+| 2026-07-17 | T6: D-41-1更新 | `docs/architecture_decisions.md`のD-41-1を「未修正」から「其の四十二で修正済み」に更新、修正内容・回帰テスト結果を追記 | |
+| 2026-07-17 | T7: 引き継ぎ更新 | `docs/observation_analysis_其の四十一.md`にD-41-1解消・B-4着手準備完了を追記 | |
 
 ## 9. ロールバック
 
@@ -152,9 +159,10 @@ bundle exec rspec spec/                        # build_verse_history関連の新
   コミットせず方針を人間に再提示すること
 - D-41-1の更新（T6）は他タスクと独立して取り消し可能（文書のみ）
 
-## 10. 次回（B-4着手）への申し送り事項（本セッション終了時に更新）
+## 10. 次回（B-4着手）への申し送り事項
 
-- D-41-1修正の完了状況：〈T6完了後にここへ転記〉
+- **D-41-1修正の完了状況：完了。** `build_verse_history`の二重カウントを解消
+  （1行修正）、回帰テスト11 examples全成功、`verify_shikimoku.rb` 88 pass/0 fail維持
 - 修正後、改めてRun5相当の観測を行い、句去ng（4件、19%）・句数ng残存分の
   発生状況を確認してからB-4（next_constraints配線）に進むことを推奨
-  （其の四十一 T7参照）
+  （其の四十一 T7参照）。**B-4着手の準備は整った。**

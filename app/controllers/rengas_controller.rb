@@ -151,7 +151,11 @@ class RengasController < ApplicationController
       text   = r["tsugeku"]
       { bui: bui_dict.detect_all(text, nm), season: season_from_text(text), verse_type: vtype }
     end
-    history << { bui: bui_dict.detect_all(maeku, nm), season: season_from_text(maeku), verse_type: maeku_type }
+    # chainが非空のとき、末尾要素（previous_renga_id自体＝maekuと同一句）は
+    # 既にmapで含まれているため、ここで再度追加すると二重カウントになる（D-41-1）。
+    # chainが空（previous_renga_idがblank等でfetch_verse_chainが[]を返す）の
+    # ときのみ、maeku自身の情報を補う。
+    history << { bui: bui_dict.detect_all(maeku, nm), season: season_from_text(maeku), verse_type: maeku_type } if chain.empty?
     history
   end
 

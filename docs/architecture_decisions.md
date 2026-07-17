@@ -10,8 +10,29 @@
 
 ### D-41-1　build_verse_history前句二重カウントバグ
 
-**判断：現時点では未修正。既知の不具合として記録し、次回（其の四十二）で
-`build_verse_history`内のみのスコープで修正する（D-33-1の人間承認プロセスに従う）。**
+**判断：其の四十二で修正済み。`build_verse_history`内のみのスコープで、
+`chain`が非空のときは`maeku`エントリの再追加を行わないよう修正した
+（D-33-1の人間承認プロセスに従い、修正案[diff]を人間に提示・承認を得てから実装）。**
+
+**修正内容（其の四十二）：**
+`app/controllers/rengas_controller.rb#build_verse_history`の末尾、
+`history << { ... }`（maekuエントリの追加）に`if chain.empty?`ガードを追加。
+`chain`が非空のとき、その末尾要素（`previous_renga_id`自体＝`maeku`と同一句）は
+既に`chain.each_with_index.map`で`history`に含まれているため、追加の`maeku`
+エントリは不要（むしろ重複の原因だった）。`chain`が空（`previous_renga_id`が
+blank等）のときのみ、従来通り`maeku`エントリを追加する。変更は1行のみ。
+`fetch_verse_chain`の呼び出し・`limit: 9`（其の三十七で確定した`chain.size<9`の
+上限）には一切触れていない。
+
+**回帰テスト（`spec/controllers/rengas_controller_spec.rb`、其の四十二で追加）：**
+其の四十一で特定した誤却下8件（verse30×2「句数:冬」、verse34×5「句数:秋」、
+verse56×1「句数:秋」）に対応する実データ（同一テキスト）で、修正後は
+`kukazo_violations`が空（誤却下解消）になることを検証。あわせてkukazo_under系
+（verse21相当）の判定結論が修正前後で変わらないことも検証。既存テスト2件
+（verse_type奇偶交互パターン・9句上限）は、重複バグに依存した期待値
+（chain 3件+1件=4件、chain 9件+1件=10件）を、修正後の正しい期待値
+（3件、9件）に更新した。全11 examples成功。`verify_shikimoku.rb`は
+88 pass / 0 fail維持。
 
 **背景：**
 其の四十一（`docs/observation_analysis_其の四十一.md` §4）で、Run5ログ
@@ -41,15 +62,14 @@ Run5（72句）の句数ng却下17件のうち、`previous_renga_id`が存在す
 あるべき遷移が見逃される（false negative）方向のリスクを構造的に持つ（Run5データでは
 verdictが変わる事例は未確認）。
 
-**今回対処しない理由：** 其の四十一は分析専用の依頼書であり、`RengasController`本体の
-変更は禁止範囲だった（D-33-1: 人間承認なしに変更しない）。修正は別途、専用の依頼書
-（其の四十二）で行う。
+**其の四十一時点で対処しなかった理由（経緯として保持）：** 其の四十一は分析専用の
+依頼書であり、`RengasController`本体の変更は禁止範囲だった（D-33-1: 人間承認なしに
+変更しない）。そのため修正は専用の依頼書（其の四十二）に切り出して行った。
 
-**次のステップ（其の四十二で実施予定）：**
-`build_verse_history`内のみのスコープで、直前句の二重カウントを解消する。修正後、
-其の四十一で確認した8件の誤却下パターンが解消されることをspecまたは再現スクリプトで
-確認する。修正完了後、優先順位（其の四十一 T7で提案・人間合意済み）に従い、
-次はnext_constraints配線（B-4、`docs/observation_analysis_其の四十一.md` §5）に進む。
+**次のステップ：** 優先順位（其の四十一 T7で提案・人間合意済み）に従い、次は
+next_constraints配線（B-4、`docs/observation_analysis_其の四十一.md` §5）に進む。
+着手前に改めてRun5相当の観測を行い、D-41-1修正後の句去ng・句数ng残存分の発生状況を
+確認してからB-4に進むことを推奨する（其の四十一 T7参照）。
 
 ---
 
