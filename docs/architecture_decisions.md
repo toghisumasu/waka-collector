@@ -4,6 +4,42 @@
 引き継ぎ文書とは別に、設計判断が生まれるたびにここに追記する。  
 **更新:** 新しい判断は上に追記する（最新が先頭）。
 
+## 其の四十六（2026-07-18）追記
+
+---
+
+### D-46-1　observe_production_hyakuin.rb起動時のstderrキャプチャ追加
+
+**判断：** `script/observe_production_hyakuin.rb`本体は無変更のまま、起動用の
+薄いラッパー`script/run_observe_production.sh`を新設した。`bundle exec rails
+runner script/observe_production_hyakuin.rb <verses> <tag>`を`2>&1 | tee
+log/observation_stderr_<tag_>_<date>.log`で包み、Rubyの未捕捉例外バックトレース
+を確実にファイル保存する。
+
+**背景：** 其の四十のバックログ②（`docs/handover_20260717_其の四十.md` §4）。
+run5でプロセスが無言終了した際、tmuxスクロールバックが空でstderr保存設定も
+なかったため、どの例外が投げられたか復元不可能だった。
+
+**なぜラッパースクリプトか（本体を直接変更しなかった理由）：** stderrキャプチャは
+「起動方法」の問題であり、Rubyスクリプト自身が自分の標準エラー出力を
+リダイレクトすることはできない（シェル側の責務）。`observe_production_hyakuin.rb`
+本体・`RengasController`・`RengaGenerator`・`ShikimokuChecker`は無改修。
+
+**動作確認：** 5句のスモークテスト（`script/run_observe_production.sh 5
+sono46smoke`）で、`log/observation_stderr_sono46smoke_20260718.log`が生成され
+stdout/stderr両方が記録されることを確認した（bundlerのGem::Platform警告＋通常の
+進捗出力が両方ファイルに残っている）。検証用に作成されたRenga 5件
+（observation_batch: "sono39_sono46smoke_20260718"）は人間確認の上削除予定。
+`bundle exec ruby script/verify_shikimoku.rb`は88 pass/0 fail維持（本体無変更のため
+影響なし）。
+
+**残課題：** バックログ①（rescue範囲見直し）は今回未着手。`rescue RuntimeError,
+Net::ReadTimeout`のみを捕捉する現状の構造上の欠陥（`NoMemoryError`等や
+`RengaGenerator`内部の非RuntimeError系`StandardError`がすり抜ける問題）は
+次回セッションで着手する。
+
+---
+
 ## 其の四十四（2026-07-17）追記
 
 ---
