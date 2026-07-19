@@ -4,6 +4,63 @@
 引き継ぎ文書とは別に、設計判断が生まれるたびにここに追記する。  
 **更新:** 新しい判断は上に追記する（最新が先頭）。
 
+## 其の四十七（2026-07-19）追記
+
+---
+
+### D-47-1　observe_production_hyakuin.rbの無防備な例外経路にrescue追加（案A）
+
+**判断：** `script/observe_production_hyakuin.rb`の`(1..TOTAL_VERSES).each do |verse_no|
+... end`ブロックに、Ruby 2.6+のブロックレベルrescue構文で`rescue StandardError => e`
+を直接付けた（既存行の再インデント不要、最小diff）。あわせて`stage`変数を
+KuValidator（前句／付句）・bui_dict/season_from_text・build_verse_history・
+ShikimokuChecker・forced_zatsu_candidates・Renga.create!の各呼び出し直前で更新し、
+rescue時にverse_noとstageの両方をログできるようにした。rescue内では
+`warn`（標準エラー出力、D-46-1の`run_observe_production.sh`の`2>&1 | tee`で
+ファイル保存される）と`log_line`（既存jsonl、`action: "error"`）の両方に記録した上で
+`raise`により再送出する（握りつぶさない。プロセスは従来通り停止する）。
+
+**背景：** 其の四十バックログ①・其の四十七 Phase 0調査
+（`docs/investigation_20260718_其の四十七_phase0.md`）。既存の3rescue箇所
+（`RuntimeError`/`Net::ReadTimeout`限定×2、`RetryExhausted`限定×1）の対象外だった
+KuValidator検証・bui_dict検出・build_verse_history・ShikimokuChecker各種チェック・
+`Renga.create!`呼び出しは無防備で、ここで発生した`StandardError`系例外
+（`NoMethodError`・`ArgumentError`・`ActiveRecord::RecordInvalid`等）はどこにも
+捕捉されずトップレベルまで伝播し、原因不明のまま無言終了していた
+（run5で実際に発生した障害と同種）。
+
+**案Bを不採用とした理由：** `rescue Exception`まで広げて`NoMemoryError`等も
+含めて捕捉する案は検討したが不採用。`NoMemoryError`・`SystemStackError`はRuby VM
+自体が異常状態にある可能性が高く、この状態で追加のログ書き込み処理を行うこと
+自体が二次障害を招くリスクがある。また`Exception`を広く捕捉すると`SystemExit`・
+`Interrupt`（Ctrl-C）まで飲み込んでしまう副作用もある。これらは捕捉して復旧を
+試みるべき対象ではなく、むしろ潔く落ちるべき例外と判断した。
+
+**D-33-1抵触の有無：** 抵触なし。変更は`script/observe_production_hyakuin.rb`
+単体に閉じており、`RengasController`・`RengaGenerator`・`ShikimokuChecker`本体は
+無改修。
+
+**動作確認：**
+- `bundle exec ruby script/verify_shikimoku.rb`は88 pass/0 fail維持（本体3ファイル
+  無変更のため影響なし）。
+- 5句のスモークテスト（`bundle exec rails runner script/observe_production_hyakuin.rb
+  5 sono47smoke`）で全句正常にcreateされ、新設rescueは発火しないことを確認
+  （検証用Renga 5件[observation_batch: "sono39_sono47smoke_20260719"]は人間確認の上削除済み）。
+- 意図的な例外発生テスト：`BuiDictionary#detect_all`をモンキーパッチで
+  `RuntimeError`を投げるよう差し替え、`rails runner`経由で実行。stderrに
+  `stage=bui_dict/season_from_text`付きのログが出力され、jsonlログにも
+  `action: "error"`エントリ（`violations`に`stage`と例外クラス・メッセージ）が
+  記録された上でプロセスが終了コード1でクラッシュすることを確認した
+  （テストスクリプトはリポジトリ外の一時ファイルで実施、本体は無改変）。
+
+**残課題：** 其の四十で挙げたバックログ①②（`docs/handover_20260717_其の四十.md`
+§4）は、②が其の四十六（D-46-1）、①が本セッション（D-47-1）で両方対応完了。
+次はstderrキャプチャ＋rescue範囲見直しの両方が揃った状態で改めて本番相当の
+観測run（100句）を実行し、run5のような無言クラッシュが再発しないか、
+再発した場合は原因がログから復元できるかを確認することを推奨する。
+
+---
+
 ## 其の四十六（2026-07-18）追記
 
 ---

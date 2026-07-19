@@ -184,6 +184,7 @@ forced_zatsu_mora_ng_ct = 0
 
 catch(:attempt_cap_reached) do
   (1..TOTAL_VERSES).each do |verse_no|
+    stage = "verse_start"
     maeku_mora      = KuValidator.new(maeku).count_mora
     maeku_type      = KuValidator.nearest_verse_type(maeku_mora)
     next_verse_type = (maeku_type == :chouku) ? :tanku : :chouku
@@ -195,6 +196,7 @@ catch(:attempt_cap_reached) do
     # 続ける」ための機構なので、ここで中断すると救済策自体が矛盾を生む
     # （其の三十九・追記4）。中断はせず、参考情報としてログとtrigger_labelsに
     # 残した上で通常通り次の生成に進む。
+    stage = "KuValidator(前句)"
     maeku_check = KuValidator.new(maeku, type: maeku_type).validate
     trigger_labels = []
     if maeku_check[:result] == "ng"
@@ -250,6 +252,7 @@ catch(:attempt_cap_reached) do
           next
         end
 
+        stage = "KuValidator(付句)"
         mora_check = KuValidator.new(tsugeku, type: next_verse_type).validate
         if mora_check[:result] == "ng"
           total_ng += 1
@@ -264,13 +267,16 @@ catch(:attempt_cap_reached) do
           next
         end
 
+        stage = "bui_dict/season_from_text"
         candidate = {
           bui:        bui_dict.detect_all(tsugeku, nm),
           season:     controller.send(:season_from_text, tsugeku),
           verse_type: next_verse_type
         }
+        stage = "build_verse_history"
         history = controller.send(:build_verse_history, previous_renga_id, maeku, maeku_type, nm: nm, bui_dict: bui_dict)
 
+        stage = "ShikimokuChecker"
         checker    = ShikimokuChecker.new
         violations = checker.all_violations(history, candidate)
         violations += checker.ichiza_violations(history, candidate)
@@ -305,6 +311,7 @@ catch(:attempt_cap_reached) do
       # 「4回shikimoku ng→5回目だけ生成失敗」のように原因が試行ごとに変わって
       # 特定の失敗種別のstreakが閾値に届かないケースでも確実に発火する。
       puts "  #{verse_no}句目: #{e.message}（#{MAX_RETRY}回試行）→ forced_zatsuへエスカレーション"
+      stage = "forced_zatsu_candidates"
       fz_results = forced_zatsu_candidates(
         maeku, next_verse_type, trigger_labels, MAX_RETRY, FORCED_ZATSU_MORA_RETRY
       )
@@ -359,6 +366,7 @@ catch(:attempt_cap_reached) do
         { "result" => final_action, "issues" => trigger_labels.uniq, "breakdown" => [] }
       end
 
+    stage = "Renga.create!"
     renga = Renga.create!(
       maeku:              maeku,
       tsugeku:            final_text,
@@ -375,6 +383,19 @@ catch(:attempt_cap_reached) do
 
     previous_renga_id = renga.id
     maeku              = final_text
+  rescue StandardError => e
+    # 其の四十七・案A: KuValidator/bui_dict/build_verse_history/ShikimokuChecker/
+    # Renga.create!等、既存3rescue（RuntimeError/Net::ReadTimeout限定×2、
+    # RetryExhausted限定×1）の対象外だった無防備な箇所向けの最終防波堤。
+    # 握りつぶさず、どのverse_no・どの処理段階(stage)で発生したかをログしてから
+    # 再raiseする（プロセスは従来通り停止する。原因不明のまま無言終了するのを防ぐのが目的）。
+    warn "[observe_production_hyakuin] verse_no=#{verse_no} stage=#{stage} #{e.class}: #{e.message}"
+    warn e.backtrace.first(10).join("\n") if e.backtrace
+    log_line(log_file, {
+      verse_no: verse_no, attempt: attempt_no, text: nil, mora_result: nil,
+      shikimoku_result: nil, violations: ["#{stage}: #{e.class}: #{e.message}"], action: "error"
+    })
+    raise
   end
 end
 
