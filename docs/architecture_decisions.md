@@ -4,6 +4,67 @@
 引き継ぎ文書とは別に、設計判断が生まれるたびにここに追記する。  
 **更新:** 新しい判断は上に追記する（最新が先頭）。
 
+## 其の四十八（2026-07-19）追記
+
+---
+
+### D-48-1　run_observe_and_summarize.sh新設（100句run自動化＋結果サマリー）
+
+**判断：** `script/run_observe_production.sh`（D-46-1）と同じく`observe_production_hyakuin.rb`
+本体は無変更のまま、新規スクリプト`script/run_observe_and_summarize.sh`を追加した。
+`bundle exec rails runner script/observe_production_hyakuin.rb <verses> <tag> 2>&1 | tee
+<stderr_log>`でstderrキャプチャを維持しつつ、実行後にjsonlログ・stderrログを
+自動集計してサマリーファイル`log/observation_<tag>_summary.txt`に書き出す。
+`set -e`は使わない（rails runnerが非0で終了してもサマリー書き出しを必ず実行するため。
+クラッシュ時こそサマリーが必要という設計意図）。
+
+**引数順序がrun_observe_production.shと異なる理由：** `run_observe_production.sh`は
+`<verses> <tag>`の順だが、本スクリプトは`<tag> [verses=100]`の順（tagが必須第一引数、
+verses省略時100）。其の四十八の依頼書で人間が`script/run_observe_and_summarize.sh
+sono48_run1`という1引数呼び出しを明示していたため、それに合わせた。両スクリプトの
+引数順が不揃いになる点は認識した上で、依頼書の指定を優先した。
+
+**集計ロジック：** 総試行回数・総ng回数・forced_zatsu採用数は、`observe_production_hyakuin.rb`
+本体の内部カウンタ（`total_attempts`/`total_ng`/`forced_zatsu_creates`/
+`forced_zatsu_mora_ng_ct`）と同じ判定基準をjsonlログの`action`フィールドから
+再現している（`action`が`retry`/`exhausted`/`forced_zatsu`/`forced_zatsu_mora_ng`/
+`forced_zatsu_create`/`create`のいずれかを対象、`seed`/`maeku_ng_continue`/`error`は
+除外）。この方式は正常完走時だけでなくクラッシュ時（スクリプト本体が最終サマリーを
+`puts`する前に終了する場合）でも同じ精度で集計できる利点がある（stdout文字列の
+grep依存だと正常完走時しか機能しないため採用しなかった）。
+
+**完走判定：** 依頼書の指定通り「verse_no:目標句数の行が存在するか」をjq
+（`any(.[]; .verse_no == $v)`）で判定。加えて`rails runner`の終了コードも
+あわせて見て「完走」「到達したが異常終了」「未完走」の3状態を区別する。
+
+**クラッシュ時のstage抽出：** D-47-1（其の四十七）がstderrに出力する
+`[observe_production_hyakuin] verse_no=... stage=...`行をgrepで抽出。jsonlの
+`action: "error"`エントリも件数・内容とも表示する。D-47-1のstage記録が
+このスクリプトの診断機能の前提になっている。
+
+**D-33-1抵触の有無：** 抵触なし。新規スクリプトであり、`observe_production_hyakuin.rb`・
+`RengasController`・`RengaGenerator`・`ShikimokuChecker`本体はいずれも無変更。
+D-46-1と同じ理由でこの新規スクリプトには人間承認ゲートを踏まず実装した
+（依頼書内で判断を委任されていた）。
+
+**動作確認：** 成功パス（3句スモーク、`sono48smoke_ok`タグ）でサマリーの
+総試行回数6・総ng回数3・ng率50.0%が観測スクリプト自身の`puts`出力と一致することを
+確認。クラッシュパスは`config/initializers/`に一時ファイルを置き
+`BuiDictionary#detect_all`をRailsブート時にモンキーパッチしてテスト後即削除する形で
+検証（3句、`sono48smoke_crash`タグ）。`stage=bui_dict/season_from_text`の抽出、
+`action: "error"`1件の検出、終了コード1の伝播、いずれも正しく機能することを確認した。
+検証用Renga（`sono39_sono48smoke_ok_20260719`、3件）・jsonl/stderrログ・サマリー
+ファイルは人間確認の上削除済み。`verify_shikimoku.rb`は88 pass/0 fail維持
+（本体3ファイル無変更のため影響なし）。
+
+**残課題：** 本番相当の100句run（`script/run_observe_and_summarize.sh sono48_run1`）
+自体は今回未実施。tmux起動・二重確認・1コマンド実行・デタッチは人間（Nobuson）が
+行う（[[tmux_claude_code_instability]]参照：長時間runはClaude Code経由のtmuxではなく
+人間が直接ターミナルから起動する）。次回セッション冒頭で
+`log/observation_sono48_run1_summary.txt`を確認することから再開する。
+
+---
+
 ## 其の四十七（2026-07-19）追記
 
 ---
