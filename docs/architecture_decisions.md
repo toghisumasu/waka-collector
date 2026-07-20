@@ -4,6 +4,53 @@
 引き継ぎ文書とは別に、設計判断が生まれるたびにここに追記する。  
 **更新:** 新しい判断は上に追記する（最新が先頭）。
 
+## 其の五十一（2026-07-20）追記
+
+---
+
+### D-51-1　RengaGenerator内部却下理由の診断ログ（一時追加→revert）
+
+**判断：** `app/services/renga_generator.rb`の`generate_tsugeku`内部ループ（5シード×5試行）の却下分岐2箇所（モーラ不一致／echo・鸚鵡返し・固着・history_repeat）に`Rails.logger.info`を1行ずつ追加し、`category=model`（モデル出力自体の問題：モーラ不一致・echo・鸚鵡返し）と`category=prompt`（候補プール・制約側の収束が疑われるもの：固着・history_repeat）に分類してログした。sono51_run2（100句、D-50-1検証run）で実戦投入し、内部却下948件中901件がcategory=model（95%）、47件がcategory=prompt（5%）という内訳を確認した後、**本番development.logの常時ノイズになるため人間の判断でrevertした**（コミットハッシュは末尾参照）。
+
+**背景：** sono51_run1（其の五十、D-50-1検証の100句run、95句で中断）で「生成失敗」（`RengaGenerator`が空文字を返す＝内部25回全滅）が40件観測され、原因がモデル側要因（モーラ不一致）かプロンプト側要因（duplicate等）か切り分けたいという要望から着手した。既存コードには却下理由をログする箇所が一切なく、`observe_production_hyakuin.rb`側のjsonlログも外側の試行結果（create/retry/exhausted等）のみで、`RengaGenerator`内部の25回ループの中身は不可視だった。
+
+**KuValidatorの独立モーラ判定との違い（要記録）：** 本診断が捕捉するのは`RengaGenerator`内部の候補却下（`morphemes_of`独自実装、±1音許容、D-22-1）のみ。`observe_production_hyakuin.rb`側が`generate_tsugeku`の戻り値に対して行う`KuValidator#count_mora`（`yomi_string.gsub(/[ゃゅょ]/,'').length`という別実装）による再チェックは対象外（jsonlに`violations:["モーラng(##音)"]`として既に独立ラベル済みのため、追加計装不要と判断）。この2つのモーラ計算は独立実装であり、`RengaGenerator`が内部で許容した候補が`KuValidator`側で改めてngになるケースが理論上あり得る（別経路・別問題として扱うこと）。
+
+**D-33-1抵触の有無：** 抵触あり。`RengaGenerator`本体（本番`RengasController`からも呼ばれる）への変更のため、実装前にdiffを人間に提示し承認を得てから実装した。`verify_shikimoku.rb`は88 pass/0 fail維持（ログ追加のみでロジック分岐は無変更）。
+
+**再導入の要否：** must_switch/must_continue（season_hintのフラグ）の実発火有無は現状ログから一切確認できない（別途要計装、次の課題として残す）。次回この種の内部診断が必要になった際は、revertコミットを`git revert`で取り消せば再導入できる。
+
+**コミット履歴：** 追加コミット `14bcf5c481c2ee3b8ca044ce915996b1e1b9dadd`、revertコミット `09bb0037ddc489b832fcdcdcfd34ba7ee0e37da0`。再導入する場合は`git revert 09bb0037ddc489b832fcdcdcfd34ba7ee0e37da0`（＝revertのrevert）でD-51-1のログ2行を復元できる。
+
+---
+
+## 其の五十（実施時期不明、2026-07-20時点で事後記録・本番稼働判定）追記
+
+---
+
+### D-50-1　observe_production_hyakuin.rbへのnext_constraints配線
+
+**判断：** `script/observe_production_hyakuin.rb`で、`RengasController#create`（D-44-1）と同じく`history`/`checker`の構築を`RengaGenerator.new`呼び出し**前**に繰り上げ、`next_constraints = checker.next_constraints(history)`を算出して`constraints: { verse_history:, forbidden_bui:, season_hint: }`として渡すよう配線した。D-44-1の時点では「観測スクリプトへの配線は今回は対象外」として見送られていたものを、本セッションで着手した。
+
+**経緯の特記事項：** この変更は本conversationの開始時点で既に作業ツリーに存在しており（コミットなし、`docs/architecture_decisions.md`への記載もなし）、いつ・どのセッションで実装されたか正確な記録がない。其の四十九というセッション番号もgit履歴上存在しない（欠番、または口頭作業のみで記録が残らなかったと推定）。本記録は事後的に其の五十として追記するものである。
+
+**本番稼働判定（2026-07-20、sono51_run1・sono51_run2の観測により実施）：**
+
+| 指標 | 其の四十五 Run1〜4（配線前） | sono51_run1（D-50-1、95句中断） | sono51_run2（D-50-1、100句完走） |
+|---|---|---|---|
+| ng率 | 31.7%〜40.2% | 42.9%（範囲外・n不完全） | 36.1%（範囲内） |
+| 句数:秋 発生率 | 12.8%〜19.5% | 16.1%（範囲内） | 23.2%（範囲外・最高値） |
+| action:error | - | 0件 | 0件 |
+| forced_zatsu | - | 1句 | 4イベント（3, 51, 98, 100） |
+
+sono51_run1は途中でtmuxサーバーごとプロセスが外部終了した（Ollama側の異常ではなく、クライアント接続が処理中に切断されたことを示す`ollama.log`の500応答[105ms、直前まで正常応答]と、development.logに例外ログが一切残っていないことから外部kill説を採用。詳細は本セッションの調査ログ参照）。sono51_run2で完走を確認し、総合ng率はベースライン範囲内、クラッシュ系は健全である一方、season_hintが直接改善を狙う「句数:秋」はn=2で16.1%→23.2%と悪化方向に振れており、季節遷移の狙い通りの効果が出ているとは言い切れない。
+
+**人間の最終判断（2026-07-20）：** 上記を踏まえた上で「D-50-1は本番稼働に問題なし」と判断（Nobuson）。ただしseason_hintの効果自体（句数:秋の改善）は未実証のまま運用開始することになる点は申し送り事項とする。次点の課題：①must_switch/must_continueの発火ログ追加、②もう1本100句runでの句数:秋の再現性確認。
+
+**D-33-1抵触の有無：** 抵触あり（`script/observe_production_hyakuin.rb`単体だが`RengaGenerator`呼び出しの`constraints`引数を変更するため）。ただし人間承認プロセスを経ずに作業ツリーへ導入された経緯があり、本記録時点で遡って承認・sign-offを得た形になる。
+
+---
+
 ## 其の四十八（2026-07-19）追記
 
 ---
