@@ -212,6 +212,18 @@ catch(:attempt_cap_reached) do
     final_text       = nil
     final_action      = nil
 
+    # 其の五十 D-50-1: RengasController#create（D-44-1）と同じく、history/checkerの
+    # 構築をRengaGenerator呼び出し前に繰り上げ、next_constraints（forbidden_bui/
+    # season_hint）を算出してconstraintsに追加する。history/checkerはmaeku・
+    # previous_renga_idのみに依存しtsugeku（試行毎に変わる）には依存しないため、
+    # MAX_RETRYループの外側で1回だけ計算すれば足りる。
+    stage   = "build_verse_history"
+    history = controller.send(:build_verse_history, previous_renga_id, maeku, maeku_type, nm: nm, bui_dict: bui_dict)
+    checker = ShikimokuChecker.new
+
+    stage            = "next_constraints"
+    next_constraints = checker.next_constraints(history)
+
     begin
       MAX_RETRY.times do |i|
         attempt_no = i + 1
@@ -222,7 +234,11 @@ catch(:attempt_cap_reached) do
         begin
           tsugeku = RengaGenerator.new(
             maeku, [], next_verse_type,
-            constraints: { verse_history: verse_history }
+            constraints: {
+              verse_history: verse_history,
+              forbidden_bui: next_constraints[:forbidden_bui],
+              season_hint:   next_constraints[:season_hint]
+            }
           ).generate_tsugeku
         rescue RuntimeError, Net::ReadTimeout => conn_err
           # RengasController#createと同じ例外クラス（OllamaClient側はNet::ReadTimeout
@@ -273,11 +289,8 @@ catch(:attempt_cap_reached) do
           season:     controller.send(:season_from_text, tsugeku),
           verse_type: next_verse_type
         }
-        stage = "build_verse_history"
-        history = controller.send(:build_verse_history, previous_renga_id, maeku, maeku_type, nm: nm, bui_dict: bui_dict)
 
         stage = "ShikimokuChecker"
-        checker    = ShikimokuChecker.new
         violations = checker.all_violations(history, candidate)
         violations += checker.ichiza_violations(history, candidate)
         violations += checker.chotan_violations(history, candidate)
