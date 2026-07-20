@@ -161,6 +161,11 @@ class RengaGenerator
           past_mora_error_words.shift while past_mora_error_words.size > 3
           last_mora_count = mora
 
+          # 其の五十一 D-51-1: 生成失敗（25回全滅でresult_kuがnilのまま返る）の
+          # 内訳診断用。ここでの却下はKuValidator（observe_production_hyakuin.rb側の
+          # 独立したモーラ再計算、count_mora）とは別実装・別経路であり、混同しないこと。
+          Rails.logger.info "[RengaGenerator] reject category=model reason=モーラ不一致(#{mora}音/目標#{target_mora}音) ku=#{ku}"
+
           wrong_streak += 1
           if wrong_streak >= 3
             seed         = pool.sample
@@ -194,6 +199,17 @@ class RengaGenerator
           used_afters << ku
           break
         end
+
+        # 其の五十一 D-51-1: 生成失敗の内訳診断用（上記モーラ不一致ログと対）。
+        # echo/鸚鵡返しはモデル出力自体の問題、history_repeat/固着は候補プール・
+        # 制約側の収束が疑われるものとして分類する。
+        reject_reason   = if is_echo || is_rep
+                            is_echo ? "echo" : "鸚鵡返し"
+                          else
+                            is_history_repeat ? "history_repeat(重複)" : "固着(sticky)"
+                          end
+        reject_category = (is_echo || is_rep) ? "model" : "prompt"
+        Rails.logger.info "[RengaGenerator] reject category=#{reject_category} reason=#{reject_reason} ku=#{ku}"
 
         wrong_streak += 1
         if wrong_streak >= 3
