@@ -223,6 +223,7 @@ catch(:attempt_cap_reached) do
 
     stage            = "next_constraints"
     next_constraints = checker.next_constraints(history)
+    controller.send(:log_season_hint, next_constraints, verse_no: verse_no)
 
     begin
       MAX_RETRY.times do |i|

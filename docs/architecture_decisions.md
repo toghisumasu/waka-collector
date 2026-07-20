@@ -4,6 +4,35 @@
 引き継ぎ文書とは別に、設計判断が生まれるたびにここに追記する。  
 **更新:** 新しい判断は上に追記する（最新が先頭）。
 
+## 其の五十二（2026-07-21）追記
+
+---
+
+### D-52-1　SeasonHintLoggerによるmust_switch/must_continue発火ログの可視化
+
+**判断：** `ShikimokuChecker#compute_season_hint`が返す`must_switch`（季節上限到達→転季義務）/`must_continue`（季節下限未達→継続義務）の発火状況を、`app/controllers/concerns/season_hint_logger.rb`に新設した共通モジュール`SeasonHintLogger`経由で`Rails.logger.info`に出力するようにした。フォーマット：`[SeasonHint] verse_no=XX season=秋 count=5 must_switch=true must_continue=false`。季雑（`season_hint[:current]`がnil）の場合はログをスキップする。
+
+**背景：** 其の五十一の申し送り事項2（`docs/handover_20260720_其の五十一.md`）で指摘されていた「must_switch/must_continueの発火有無を確認するログが存在しない」というブラックボックスの解消。D-51-1（RengaGenerator内部却下ログ）とは異なり毎リトライで出力されるものではなく、1 verseにつき最大1行のため、**恒久的にログとして残す方針**とした（revert前提のD-51-1とは性質が異なる）。
+
+**ログ追加箇所の設計（候補A/B/C/D比較）：** Phase 0調査の結果、`next_constraints`の消費箇所は`RengasController#create`（Web版）と`script/observe_production_hyakuin.rb`（観測版）の2箇所のみと判明。
+- 候補A（`compute_season_hint`内部）：`ShikimokuChecker`のA層純粋関数設計（D-38-1）を壊すため却下。
+- 候補C（観測スクリプトのみ）：Web版の発火状況が見えないままになり、観測系とWeb版の一致という要件を満たさないため却下。
+- 候補B（2箇所に同一ログコードを直接複製）を最初に提示したが、人間の判断で**候補D（共通concernモジュール化）**を採用。`RengasController`は`include SeasonHintLogger`し、`observe_production_hyakuin.rb`は既存の`controller.send(:build_verse_history, ...)`と同じ流儀で`controller.send(:log_season_hint, next_constraints, verse_no: verse_no)`として呼び出す。ログ処理の実装は1箇所に集約され、フォーマット乖離のリスクを候補Bより低減できる。
+
+**D-33-1抵触の有無：** 抵触あり（`RengasController`・`observe_production_hyakuin.rb`双方への変更）。diff事前提示・承認を経て実装。`ShikimokuChecker`・`RengaGenerator`本体のロジックは無変更（`verify_shikimoku.rb` 88 pass/0 fail維持）。
+
+**動作確認（15句短縮run、タグ=sono52check、2026-07-21）：**
+- `must_continue=true`：verse_no 2,3,5,6,10,11,14,15の計8回出現。季節開始直後（count=1〜2）に一貫して発火し、count=3（min到達）で`false`に転じることを確認。
+- verse_noと実句番号（stdout「N/15句目」表示）の対応：ズレなし。
+- 季雑スキップ：verse_no 1（発句）・13（季語なし句「夜空に星の光りゆかしや」）の2箇所でログが出力されないことを確認（設計通り）。
+- `must_switch=true`：verse_no=9（春count=5、max到達）で出現。想定では「短縮runでは恐らく未出現」だったが、偶然15句以内で到達し確認できた。ただし直後の9句目は式目ngが解消せずforced_zatsuへエスカレーションしており、`RengaGenerator#filter_pool`内の`must_switch`分岐（同季拒否→フィルタ）が意図通り機能して季転換に成功したケースは本runでは未確認（forced_zatsu救済経路での転換のみ観測）。**「must_switch発火時にfilter_pool経由で季転換が成功するか」は其の五十三以降の課題として残す。**
+
+**次点の課題：**
+1. 上記「must_switch発火時のfilter_pool経由季転換」の100句run規模での確認
+2. D-50-1のseason_hint効果（句数:秋の改善）自体は本ログでは検証できないため、既存の申し送り事項（其の五十一 D-50-1参照）は引き続き未解消
+
+---
+
 ## 其の五十一（2026-07-20）追記
 
 ---

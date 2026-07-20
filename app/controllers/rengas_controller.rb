@@ -3,6 +3,8 @@
 require "natto"
 
 class RengasController < ApplicationController
+  include SeasonHintLogger
+
   def new
     @renga  = Renga.new
     @honkas = Waka.limit(5)
@@ -57,6 +59,7 @@ class RengasController < ApplicationController
     # 其の四十四 D-44-1: next_constraints（forbidden_bui/season_hint）を生成前に
     # RengaGeneratorへ渡し、事後棄却だけでなく生成段階から式目違反を避けるよう誘導する。
     next_constraints = checker.next_constraints(history)
+    log_season_hint(next_constraints, verse_no: history.size + 1)
 
     tsugeku = RengaGenerator.new(
       maeku, honkas, next_verse_type,
