@@ -42,3 +42,8 @@ app/controllers/*.swp
 Create_*.py
 *.bak
 patch_*.py
+
+# 著作物PDF（研究紀要）はローカル参照のみ、コミット対象外
+docs/reference/*.pdf
+docs/kiyo_r2_7.pdf
+docs/kiyo_r3_5.pdf
