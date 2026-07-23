@@ -32,6 +32,21 @@ class BuiDictionary
     @data.dig(word, 'plant_type')
   end
 
+  # taiyo/plant_type の完全一致検索に使う代表語を1つ抽出する（其の五十九 D-59-1）。
+  # detect_all と同じMeCab解析で、辞書に登録済みの語（@data.key?）を最初に
+  # 見つけたものを返す。ichiza_violations用の全文検索（:text）とは別に、
+  # taiyo/plant_typeの辞書完全一致検索（:word）に使う語を得るための補助。
+  def detect_word(text, nm)
+    return nil if text.nil? || text.strip.empty?
+
+    found = nil
+    nm.parse(text.gsub(/[\s　]+/, "")) do |node|
+      next if node.is_eos?
+      found ||= node.surface if @data.key?(node.surface)
+    end
+    found
+  end
+
   # 部立の集合検出（D-38-3：MeCab形態素解析を標準手段とする）。
   # 形態素ごとの表層形をprimary_buiに照会し、見つかった部立を重複排除して返す。
   # nmは呼び出し側で構築済みのNatto::MeCabインスタンス（辞書ロードの重複を避けるため注入）。

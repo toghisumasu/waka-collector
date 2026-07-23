@@ -327,13 +327,17 @@ class ShikimokuChecker
   #
   # 候補句が history 内に既出の一座一句物語を含む場合のみ違反を返す。
   # history 内部同士の重複は検査しない（確定済み履歴の再検査は行わない）。
-  # 照合は verse[:word].to_s への部分文字列マッチで行う。
+  # 照合は verse[:text].to_s（無ければ verse[:word]）への部分文字列マッチで行う。
+  # :text と :word を分けているのは、:word がtaiyo/plant_type検索用の辞書
+  # 完全一致語（BuiDictionary#detect_word）に使われる一方、一座一句物の
+  # 照合には句の全文が必要なため（其の五十九 D-59-1）。:text 未設定の
+  # 既存呼び出し・テストは :word を全文とみなす従来動作のまま変わらない。
   # 花（一座四句物）は本リストに含めず、teiza_hana_violations で管理する。
   def ichiza_violations(history, candidate, ichiza_words = @ichiza_words)
-    cand_text = candidate.is_a?(Hash) ? candidate[:word].to_s : candidate.to_s
+    cand_text = candidate.is_a?(Hash) ? (candidate[:text] || candidate[:word]).to_s : candidate.to_s
     hist_seen = {}
     history.each_with_index do |verse, i|
-      text = verse.is_a?(Hash) ? verse[:word].to_s : verse.to_s
+      text = verse.is_a?(Hash) ? (verse[:text] || verse[:word]).to_s : verse.to_s
       Array(ichiza_words).each do |iw|
         hist_seen[iw] ||= i + 1 if text.include?(iw)
       end

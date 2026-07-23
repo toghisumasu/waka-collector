@@ -70,13 +70,17 @@ class RengasController < ApplicationController
       }
     ).generate_tsugeku
 
+    tsugeku_word = bui_dict.detect_word(tsugeku, nm)
     candidate = {
       bui:        bui_dict.detect_all(tsugeku, nm),
       season:     season_from_text(tsugeku),
-      verse_type: next_verse_type
+      verse_type: next_verse_type,
+      word:       tsugeku_word,
+      text:       tsugeku,
+      plant_type: bui_dict.plant_type(tsugeku_word)
     }
 
-    violations = checker.all_violations(history, candidate)
+    violations = checker.all_violations(history, candidate, bui_dict: bui_dict)
     violations += checker.ichiza_violations(history, candidate)
     violations += checker.chotan_violations(history, candidate)
 
@@ -160,14 +164,20 @@ class RengasController < ApplicationController
     history = chain.each_with_index.map do |r, i|
       offset = chain.size - i
       vtype  = offset.odd? ? maeku_type : (maeku_type == :chouku ? :tanku : :chouku)
-      text   = r["tsugeku"]
-      { bui: bui_dict.detect_all(text, nm), season: season_from_text(text), verse_type: vtype }
+      text = r["tsugeku"]
+      word = bui_dict.detect_word(text, nm)
+      { bui: bui_dict.detect_all(text, nm), season: season_from_text(text), verse_type: vtype,
+        word: word, text: text, plant_type: bui_dict.plant_type(word) }
     end
     # chainが非空のとき、末尾要素（previous_renga_id自体＝maekuと同一句）は
     # 既にmapで含まれているため、ここで再度追加すると二重カウントになる（D-41-1）。
     # chainが空（previous_renga_idがblank等でfetch_verse_chainが[]を返す）の
     # ときのみ、maeku自身の情報を補う。
-    history << { bui: bui_dict.detect_all(maeku, nm), season: season_from_text(maeku), verse_type: maeku_type } if chain.empty?
+    if chain.empty?
+      maeku_word = bui_dict.detect_word(maeku, nm)
+      history << { bui: bui_dict.detect_all(maeku, nm), season: season_from_text(maeku), verse_type: maeku_type,
+                   word: maeku_word, text: maeku, plant_type: bui_dict.plant_type(maeku_word) }
+    end
     history
   end
 

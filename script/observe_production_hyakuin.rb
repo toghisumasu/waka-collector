@@ -285,14 +285,18 @@ catch(:attempt_cap_reached) do
         end
 
         stage = "bui_dict/season_from_text"
+        tsugeku_word = bui_dict.detect_word(tsugeku, nm)
         candidate = {
           bui:        bui_dict.detect_all(tsugeku, nm),
           season:     controller.send(:season_from_text, tsugeku),
-          verse_type: next_verse_type
+          verse_type: next_verse_type,
+          word:       tsugeku_word,
+          text:       tsugeku,
+          plant_type: bui_dict.plant_type(tsugeku_word)
         }
 
         stage = "ShikimokuChecker"
-        violations = checker.all_violations(history, candidate)
+        violations = checker.all_violations(history, candidate, bui_dict: bui_dict)
         violations += checker.ichiza_violations(history, candidate)
         violations += checker.chotan_violations(history, candidate)
 

@@ -39,7 +39,8 @@ RSpec.describe RengasController, type: :controller do
   describe "#build_verse_history (private)" do
     it "previous_renga_idが空なら現在句のみのhistoryを返す" do
       history = controller.send(:build_verse_history, nil, "はるののにかすみたなびく", :tanku)
-      expect(history).to eq([{ bui: [], season: "春", verse_type: :tanku }])
+      expect(history).to eq([{ bui: [], season: "春", verse_type: :tanku,
+                               word: nil, text: "はるののにかすみたなびく", plant_type: nil }])
     end
 
     it "verse_typeの奇偶交互パターンとseasonのマッピングを維持する" do
@@ -55,9 +56,9 @@ RSpec.describe RengasController, type: :controller do
       history = controller.send(:build_verse_history, r3.id, r3.tsugeku, :tanku)
 
       expect(history).to eq([
-        { bui: [], season: nil, verse_type: :tanku },
-        { bui: [], season: nil, verse_type: :chouku },
-        { bui: [], season: nil, verse_type: :tanku }
+        { bui: [], season: nil, verse_type: :tanku,  word: nil, text: "つぎく1", plant_type: nil },
+        { bui: [], season: nil, verse_type: :chouku, word: nil, text: "つぎく2", plant_type: nil },
+        { bui: [], season: nil, verse_type: :tanku,  word: nil, text: "つぎく3", plant_type: nil }
       ])
     end
 
