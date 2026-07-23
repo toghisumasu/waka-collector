@@ -1,4 +1,11 @@
 # frozen_string_literal: true
+
+# 【dead code・其の五十九 課題#7で確認】其の三十八（D-38-1）でShikimokuChecker
+# に置換されて以降、本番のどのコードパスからも呼び出されていない。
+# rengas_controller.rbに残る「RengaCheckerからShikimokuCheckerへ置換した」と
+# いうコメント、および呼び出し実体が失われた rengas_controller.rb.bak が
+# その置換の痕跡。D-19-5（句数不足の誤判定）はこのクラス自体の不具合だが、
+# 呼ばれていない以上実害は生まない。削除するか残すかは人間の判断に委ねる。
 class RengaChecker
   def initialize(sentences)
     @sentences = sentences

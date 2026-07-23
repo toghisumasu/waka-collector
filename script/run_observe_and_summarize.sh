@@ -31,7 +31,11 @@ if [ -z "${1:-}" ]; then
 fi
 RUN_TAG="$1"
 TOTAL_VERSES="${2:-100}"
-RUN_DATE=$(date +%Y%m%d)
+# UTC固定（其の五十九 課題#5）：config/application.rbのconfig.time_zoneは未設定のため
+# Railsは常にUTCで動く（observe_production_hyakuin.rb:51のTime.zone.now基準）。
+# ここをシステムのローカルタイムゾーン（JST）のままにすると、JST 00:00〜08:59の間
+# jsonlログの実ファイル名と食い違い「ログが見つかりません」と誤報する。
+RUN_DATE=$(date -u +%Y%m%d)
 
 STDERR_LOG="$PROJECT_DIR/log/observation_stderr_${RUN_TAG}_${RUN_DATE}.log"
 JSONL_LOG="$PROJECT_DIR/log/observation_sono39_${RUN_TAG}_${RUN_DATE}.jsonl"
