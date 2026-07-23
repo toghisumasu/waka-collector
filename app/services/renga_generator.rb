@@ -105,7 +105,7 @@ class RengaGenerator
     m_nature = maeku_nature
 
     target_mora     = (@verse_type == :chouku) ? 17 : 14
-    season_label    = @constraints.dig(:season_hint, :current) || SEASON_JP[m_season] || "雑"
+    season_hint     = @constraints[:season_hint]
     forbidden_bui   = @constraints[:forbidden_bui] || []
     forbidden_label = forbidden_bui.any? ? forbidden_bui.join("・") : nil
 
@@ -145,6 +145,11 @@ class RengaGenerator
             think: false, timeout: 300
           )
         else
+          season_label = if season_hint && season_hint[:must_switch]
+            seed[:season] || "雑"
+          else
+            season_hint&.dig(:current) || SEASON_JP[m_season] || "雑"
+          end
           prompt    = build_full_prompt(seed, example, feedback, season_label, forbidden_label)
           gen_start = Time.now
           raw       = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: temperature)
