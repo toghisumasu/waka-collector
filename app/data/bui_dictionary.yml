@@ -172,3 +172,47 @@
   primary_bui: 動物
   season: null
   taiyo: 体
+
+# ── 其の五十七・五十八：湯山三吟・遺誡百韻去嫌一覧の書き起こしで判明した
+#    未登録語彙（いずれも七句去物の構成語でもある。七句去物自体の間隔規定は
+#    BuiDictionaryではなくapp/data/nanaku_gomono_words.yml側で別途管理する）──
+月:
+  primary_bui: 光物
+  season: 秋
+  taiyo: 体
+  # KIGO_BUI（renga_generator.rb）には既に光物として登録済みだったが、
+  # BuiDictionary.yml側は未登録という非対称があった（其の五十七で発見）。本追加で解消。
+船:
+  primary_bui: 水辺
+  season: null
+  taiyo: 用
+  # 「舟」と同義の表記ゆれ。既存の「舟」エントリと同じ属性で登録する。
+夢:
+  primary_bui: null
+  season: null
+  taiyo: 体
+枕:
+  primary_bui: null
+  season: null
+  taiyo: 体
+涙:
+  primary_bui: null
+  season: null
+  taiyo: 体
+煙:
+  primary_bui: 聳物
+  season: null
+  taiyo: 体
+
+# ── 其の五十八：春季語の補強候補（其の五十七で判明） ──
+いとゆふ:
+  primary_bui: 聳物
+  season: 春
+  taiyo: 体
+  # 陽炎の異名（糸遊）。現行SEASON_WORDS[:spring]に陽炎系の語が未収録だったため追加。
+帰雁:
+  primary_bui: 動物
+  season: 春
+  taiyo: 体
+  # 雁は現行SEASON_WORDSでは秋語のみだが、帰雁（春に北へ帰る雁）は
+  # 古典的に春の景物として扱われる。湯山三吟95句「あまつかり」が春句である実例。
