@@ -42,17 +42,29 @@ class ShikimokuChecker
       File.expand_path("../data/ichiza_ichiku_words.yml", __dir__)
     end
 
-  attr_reader :rules, :kukazo_rules, :ichiza_words
+  DEFAULT_NANAKU_PATH =
+    if defined?(Rails)
+      Rails.root.join("app/data/nanaku_gomono_words.yml").to_s
+    else
+      File.expand_path("../data/nanaku_gomono_words.yml", __dir__)
+    end
 
-  # rules / kukazo_rules / ichiza_words はテスト時に直接注入できる（ファイル不要）。
-  def initialize(rules: nil, kukazo_rules: nil, ichiza_words: nil,
+  NANAKU_GOMONO_INTERVAL = 7
+
+  attr_reader :rules, :kukazo_rules, :ichiza_words, :nanaku_words
+
+  # rules / kukazo_rules / ichiza_words / nanaku_words はテスト時に直接注入できる（ファイル不要）。
+  def initialize(rules: nil, kukazo_rules: nil, ichiza_words: nil, nanaku_words: nil,
                  rules_path: DEFAULT_KUZARI_PATH,
                  kukazo_path: DEFAULT_KUKAZO_PATH,
-                 ichiza_path: DEFAULT_ICHIZA_PATH)
+                 ichiza_path: DEFAULT_ICHIZA_PATH,
+                 nanaku_path: DEFAULT_NANAKU_PATH)
     @rules        = rules        || YAML.load_file(rules_path)
     @kukazo_rules = kukazo_rules || YAML.load_file(kukazo_path)
     raw_ichiza    = ichiza_words || (File.exist?(ichiza_path.to_s) ? YAML.load_file(ichiza_path) : {})
     @ichiza_words = raw_ichiza.is_a?(Hash) ? raw_ichiza.keys : Array(raw_ichiza)
+    raw_nanaku    = nanaku_words || (File.exist?(nanaku_path.to_s) ? YAML.load_file(nanaku_path) : {})
+    @nanaku_words = raw_nanaku.is_a?(Hash) ? raw_nanaku.keys : Array(raw_nanaku)
   end
 
   # ══════════════════════════════════════════════════════
@@ -195,7 +207,8 @@ class ShikimokuChecker
                       candidate_word: candidate_word,
                       history_plant_types: history_plant_types,
                       candidate_plant_type: candidate_plant_type) +
-      kukazo_violations(history, candidate)
+      kukazo_violations(history, candidate) +
+      nanaku_gomono_violations(history, candidate)
   end
 
   def all_ok?(history, candidate)
@@ -356,6 +369,49 @@ class ShikimokuChecker
   end
 
   # ══════════════════════════════════════════════════════
+  #  七句去物チェック（其の六十一 D-61-1）
+  # ══════════════════════════════════════════════════════
+
+  # history   : Array<Hash>  確定済みの句列（候補を含まない）
+  # candidate : Hash         今付けようとする句
+  # 返り値: Array<Hash> { type: :nanaku_gomono, word:, bui: "七句去物",
+  #                       last_pos:, pos:, interval: }
+  #
+  # ichiza_violationsと違い「二度目は常に違反」ではなく、直近の再出現位置
+  # からの間隔が7句未満の場合のみ違反とする（湯山三吟・遺誡百韻・水無瀬三吟
+  # 3作品30ペアの実証検証で違反0件だった閾値、其の五十八）。
+  # 照合はichiza_violationsと同じく verse[:text].to_s（無ければ verse[:word]）
+  # への部分文字列マッチ。:word（BuiDictionary#detect_wordの辞書完全一致語
+  # 1語のみ）だけで照合すると、候補句に対象語が複数含まれる場合に見落とす
+  # ため（其の五十九で発見したのと同型の配線ギャップの再導入を避ける）。
+  # bui: "七句去物" は本来のbui部立ではなく、observe_production_hyakuin.rb
+  # 側の未対応:typeを"句去:#{bui}"表示にフォールバックする仕組みに乗せる
+  # ためのラベル（同スクリプトは今回変更しない）。
+  def nanaku_gomono_violations(history, candidate, nanaku_words = @nanaku_words)
+    cand_text = candidate.is_a?(Hash) ? (candidate[:text] || candidate[:word]).to_s : candidate.to_s
+    last_seen = {}
+    history.each_with_index do |verse, i|
+      text = verse.is_a?(Hash) ? (verse[:text] || verse[:word]).to_s : verse.to_s
+      Array(nanaku_words).each { |nw| last_seen[nw] = i + 1 if text.include?(nw) }
+    end
+    violations = []
+    Array(nanaku_words).each do |nw|
+      next unless cand_text.include?(nw)
+      pos = last_seen[nw]
+      next unless pos
+      interval = history.size + 1 - pos
+      next if interval >= NANAKU_GOMONO_INTERVAL
+      violations << { type: :nanaku_gomono, word: nw, bui: "七句去物",
+                       last_pos: pos, pos: history.size + 1, interval: interval }
+    end
+    violations
+  end
+
+  def nanaku_gomono_ok?(history, candidate, nanaku_words = @nanaku_words)
+    nanaku_gomono_violations(history, candidate, nanaku_words).empty?
+  end
+
+  # ══════════════════════════════════════════════════════
   #  違反の人間可読表示
   # ══════════════════════════════════════════════════════
 
@@ -364,6 +420,9 @@ class ShikimokuChecker
     case violation[:type]
     when :ichiza_duplicate
       "#{pos_str}一座一句物「#{violation[:word]}」が#{violation[:first_pos]}句目に続き再出（一座一句・二度目不可）"
+    when :nanaku_gomono
+      "#{pos_str}七句去物「#{violation[:word]}」が#{violation[:last_pos]}句目から間#{violation[:interval]}句で再出" \
+        "（7句去・不足#{NANAKU_GOMONO_INTERVAL - violation[:interval]}句）"
     when :teiza_tsuki
       "#{pos_str}面「#{violation[:fold]}」（#{violation[:range]}句）に月なし"
     when :teiza_hana

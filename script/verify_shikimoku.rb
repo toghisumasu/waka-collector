@@ -909,6 +909,96 @@ puts "試験13：#{p13} pass / #{f13} fail"
 total_pass += p13; total_fail += f13
 puts
 
+# ─────────────────────────────────────────────────────────────
+#  試験14：七句去物チェック（nanaku_gomono_violations、其の六十一 D-61-1）
+# ─────────────────────────────────────────────────────────────
+puts "═" * 56
+puts "試験14：七句去物チェック（nanaku_gomono_violations）"
+puts "─" * 56
+
+p14 = 0; f14 = 0
+def r14(r, p, f) = r ? [p+1, f] : [p, f+1]
+
+# (14a) 月が1句目に既出・候補7句目（間隔6）→ 違反検出
+history_a = [{ text: "月かげ澄める夜半の空" }] + Array.new(5) { |i| { text: "無関係な句#{i}" } }
+cand_a    = { text: "また月を見る夕まぐれ" }
+v14a = checker.nanaku_gomono_violations(history_a, cand_a, ["月"])
+res14a = check("月が1句目・候補7句目（間隔6）→ nanaku_gomono検出",
+               v14a.map { |h| [h[:type], h[:word], h[:last_pos], h[:pos], h[:interval]] },
+               [[:nanaku_gomono, "月", 1, 7, 6]])
+p14, f14 = r14(res14a, p14, f14)
+
+# (14b) 月が1句目に既出・候補8句目（間隔7、境界値）→ 違反なし
+history_b = history_a + [{ text: "無関係な句6" }]
+v14b = checker.nanaku_gomono_violations(history_b, cand_a, ["月"])
+res14b = check("月が1句目・候補8句目（間隔7、境界値）→ 違反なし",
+               v14b, [])
+p14, f14 = r14(res14b, p14, f14)
+
+# (14c) 対象語を含まない候補 → 違反なし
+res14c = check("対象語を含まない候補 → 違反なし",
+               checker.nanaku_gomono_violations(history_a, { text: "無関係な句のみ" }, ["月"]), [])
+p14, f14 = r14(res14c, p14, f14)
+
+# (14d) nanaku_gomono_ok? のラッパー動作確認
+res14d1 = check("nanaku_gomono_ok? 間隔6 → false",
+                checker.nanaku_gomono_ok?(history_a, cand_a, ["月"]), false)
+p14, f14 = r14(res14d1, p14, f14)
+res14d2 = check("nanaku_gomono_ok? 間隔7 → true",
+                checker.nanaku_gomono_ok?(history_b, cand_a, ["月"]), true)
+p14, f14 = r14(res14d2, p14, f14)
+
+# (14e) :text 優先・:word フォールバック（旧形式呼び出しの後方互換）
+history_e = [{ word: "月かげ澄める夜半の空" }] + Array.new(5) { |i| { word: "無関係な句#{i}" } }
+cand_e    = { word: "また月を見る夕まぐれ" }
+res14e = check(":text未設定でも :word への部分文字列マッチにフォールバック",
+               checker.nanaku_gomono_violations(history_e, cand_e, ["月"]).map { |h| h[:word] },
+               ["月"])
+p14, f14 = r14(res14e, p14, f14)
+
+# (14f) :word が辞書完全一致の代表語1つだけの場合でも :text があれば正しく検出
+#   （候補句に複数の辞書語が含まれ :word が対象外の語になっているケースの再現。
+#    :word だけで照合すると見落とす、其の五十九で発見した配線ギャップと同型）
+history_f = [{ text: "桜さく庭の面影" }] + Array.new(5) { |i| { text: "無関係な句#{i}" } }
+cand_f    = { text: "松風に月の光そふ", word: "松" } # detect_wordが「松」を返した想定（「月」は非対象）
+res14f = check("candidate[:word]が「松」でも:textの「月」を正しく検出（配線ギャップ再現防止）",
+               checker.nanaku_gomono_violations(
+                 [{ text: "月かげ澄める夜半の空" }] + Array.new(5) { |i| { text: "無関係な句#{i}" } },
+                 cand_f, ["月", "松"]
+               ).map { |h| h[:word] }.sort,
+               ["月"])
+p14, f14 = r14(res14f, p14, f14)
+
+# (14g) describe(:nanaku_gomono) がクラッシュせず読める文言を返す
+#   （試験11と同型：bui/last_pos/required/actualが無いviolationでのnil-nilクラッシュを
+#    再現しないことの確認。RengasController#createが実リクエスト経路でdescribeを呼ぶため重要）
+desc14g = ShikimokuChecker.describe({ type: :nanaku_gomono, word: "月", last_pos: 1, pos: 7, interval: 6 })
+res14g = check("describe(:nanaku_gomono) がクラッシュせず文言を返す",
+               desc14g.include?("七句去物") && desc14g.include?("月"), true)
+p14, f14 = r14(res14g, p14, f14)
+
+# (14h) all_violations経由でnanaku_gomonoが発火する（配線確認）
+v14h = checker.all_violations(history_a, cand_a)
+res14h = check("all_violations経由でnanaku_gomono違反が含まれる（配線確認）",
+               v14h.any? { |v| v[:type] == :nanaku_gomono }, true)
+p14, f14 = r14(res14h, p14, f14)
+
+# (14i) 水無瀬三吟全100句をchain走査 → クラッシュしないこと（実データ検証ではない）
+#   minase_full の word: は各句冒頭の短い一部分（全文ではない）ため、
+#   実際より出現数が少なく出る。ここでは「このフィクスチャに対して安定して
+#   0件（既知の出現位置はいずれも間隔7句を大きく超える）」ことのみを固定する
+#   回帰テストであり、Phase 0（其の五十八）の実データ検算の代わりにはならない。
+viols_minase_nanaku = minase_full.each_with_index.flat_map do |verse, i|
+  checker.nanaku_gomono_violations(minase_full[0...i], verse)
+end
+res14i = check("水無瀬三吟全100句 nanaku_gomono_violations=0（フィクスチャの簡略wordでの回帰確認）",
+               viols_minase_nanaku.size, 0)
+p14, f14 = r14(res14i, p14, f14)
+
+puts "試験14：#{p14} pass / #{f14} fail"
+total_pass += p14; total_fail += f14
+puts
+
 puts "═" * 56
 puts "総合：#{total_pass} pass / #{total_fail} fail"
 exit(total_fail.zero? ? 0 : 1)
