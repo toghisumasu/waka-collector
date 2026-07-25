@@ -999,6 +999,88 @@ puts "試験14：#{p14} pass / #{f14} fail"
 total_pass += p14; total_fail += f14
 puts
 
+# ─────────────────────────────────────────────────────────────
+#  試験15：BuiDictionary「かりね」「かりふし」旅検出回帰テスト（其の六十五 D-65-1）
+#   Phase 1-A（其の六十五）で「かりね」「かりふし」（ひらがな）を候補として
+#   実証したが、MeCab標準辞書はどちらも1トークンに分割できない
+#   （「かりね」→「かり」+「ね」、「かりふし」→「か」+「り」+「ふし」）ため、
+#   detect_all経由では発火しないことが判明した。ユーザー辞書（dict/user_entries.csv
+#   → dict/user.dic）に両語を追加登録することで1トークン化し、ひらがな原文の
+#   まま検出できるようにした（其の六十五 追記2）。本試験はdetect_allの実
+#   パイプライン（本番と同じdict/user.dic込みのMeCab分かち書き）で検証する。
+# ─────────────────────────────────────────────────────────────
+require "natto"
+
+puts "═" * 56
+puts "試験15：BuiDictionary「かりね」「かりふし」旅検出回帰テスト（其の六十五 D-65-1）"
+puts "─" * 56
+
+p15 = 0; f15 = 0
+def r15(r, p, f) = r ? [p+1, f] : [p, f+1]
+
+nm15 = Natto::MeCab.new(userdic: File.expand_path("../dict/user.dic", __dir__))
+
+# (15a) 水無瀬三吟28句「かりねの露の秋の明けぼの」（ひらがな原文そのもの）
+#   → ユーザー辞書登録により1トークン化され、detect_allが'旅'を検出する
+res15a = check("「かりねの露の秋の明けぼの」（水無瀬28句原文）→ detect_allに'旅'を含む",
+               bui_dict.detect_all("かりねの露の秋の明けぼの", nm15).include?("旅"), true)
+p15, f15 = r15(res15a, p15, f15)
+
+# (15b) 遺誡百韻04句「おもひもわかぬかりふしのそら」（ひらがな原文そのもの）
+#   → 同様に'旅'を検出する
+res15b = check("「おもひもわかぬかりふしのそら」（遺誡百韻04句原文）→ detect_allに'旅'を含む",
+               bui_dict.detect_all("おもひもわかぬかりふしのそら", nm15).include?("旅"), true)
+p15, f15 = r15(res15b, p15, f15)
+
+# (15c) 既存5語（旅・旅衣・草枕・旅路・旅人）がかりね・かりふし追加後も引き続き検出できる
+{
+  "はるゝまも袖は時雨の旅衣" => "旅衣",
+  "わが草枕月ややつさん"     => "草枕",
+  "かへりこむをも知らぬ旅路" => "旅路",
+  "なみだの海を渡る旅人"     => "旅人",
+}.each do |text, word|
+  res = check("既存語「#{word}」を含む句 → detect_allに'旅'を含む（回帰確認）",
+              bui_dict.detect_all(text, nm15).include?("旅"), true)
+  p15, f15 = r15(res, p15, f15)
+end
+
+# (15d) 水無瀬三吟82句「誰が手枕に夢は見えけん」（恋句・minase_full上bui:["恋"]）
+#   → 「枕」「手枕」は今回不採用のため、detect_allは'旅'を含まないこと
+#   （其の六十五 T2で「枕」追加時に82句を誤検出したため不採用と判定した決定を、
+#    実装後も固定する回帰テスト。適合率100%維持の直接的な検証）
+res15d = check("「誰が手枕に夢は見えけん」（恋句）→ detect_allに'旅'を含まない（誤検出防止）",
+               bui_dict.detect_all("誰が手枕に夢は見えけん", nm15).include?("旅"), false)
+p15, f15 = r15(res15d, p15, f15)
+
+# (15e) 水無瀬三吟89句「秋風のあらいそ枕ふしわびぬ」→ 引き続き検出できない
+#   （「枕」は不採用のため、既知の取りこぼしとして残ることを明示する）
+res15e = check("「秋風のあらいそ枕ふしわびぬ」→ detect_allに'旅'を含まない（既知の取りこぼし、未解消）",
+               bui_dict.detect_all("秋風のあらいそ枕ふしわびぬ", nm15).include?("旅"), false)
+p15, f15 = r15(res15e, p15, f15)
+
+# (15f) 既存ユーザー辞書7語（紅葉・東風・時雨・妙高・春雨・五月雨・若菜）が
+#   かりね・かりふし追加後も引き続き1トークンとして切り出せる（回帰確認）。
+#   紅葉・東風・時雨・妙高はbui_dictionary.ymlにも登録済みのためprimary_buiも確認、
+#   春雨・五月雨・若菜はbui未登録（読み・分割のみが目的）のため1トークン化のみ確認。
+{
+  "紅葉" => "植物", "東風" => "聳物", "時雨" => "降物", "妙高" => "山類",
+}.each do |word, expected_bui|
+  res = check("既存ユーザー辞書語「#{word}」→ primary_bui「#{expected_bui}」（回帰確認）",
+              bui_dict.detect_all(word, nm15), [expected_bui])
+  p15, f15 = r15(res, p15, f15)
+end
+%w[春雨 五月雨 若菜].each do |word|
+  surfaces = []
+  nm15.parse(word) { |n| surfaces << n.surface unless n.is_eos? }
+  res = check("既存ユーザー辞書語「#{word}」→ 1トークンのまま（回帰確認）",
+              surfaces, [word])
+  p15, f15 = r15(res, p15, f15)
+end
+
+puts "試験15：#{p15} pass / #{f15} fail"
+total_pass += p15; total_fail += f15
+puts
+
 puts "═" * 56
 puts "総合：#{total_pass} pass / #{total_fail} fail"
 exit(total_fail.zero? ? 0 : 1)
