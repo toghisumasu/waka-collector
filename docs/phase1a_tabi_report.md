@@ -350,7 +350,7 @@ grep -ril "conoha" .   # worktrees等を除く
 
 また、`MECAB_USERDIC`等の環境変数名でリポジトリ全体（`.env`系ファイル含む）を検索したが、該当は無かった（`config/mecab.yml`が存在しないことは既にC1で報告済み）。
 
-**「わからない」という事実を正確に報告する：** ConoHa VPS上で`dict/user.dic`がどう配置・反映されるか、そもそも現在のwaka-collectorのデプロイ先がConoHaなのか、リポジトリの記述だけでは判断できない。この点は無理に推測で埋めず、次章（辞書反映手順ドキュメント）で「本番（ConoHa VPS）への反映手順は現時点で文書化されていない」と明記する。
+**「わからない」という事実を正確に報告する：** そもそも現在のwaka-collectorが本番環境にデプロイされているのかどうか自体、リポジトリの記述だけでは判断できない。この点は無理に推測で埋めず、次章（辞書反映手順ドキュメント）で「本番環境への反映手順・本番環境の有無自体が現時点で未確認」と明記する（なお、この後の追記5でConoHa VPSに関する前提がそもそも誤りだったことが判明している。詳細は第11章参照）。
 
 ---
 
@@ -363,14 +363,29 @@ T1（`dict/user_entries.csv`のdiff）を人間が承認。T2（適用・ビル�
 - `app/data/bui_dictionary.yml`に「かりね」「かりふし」を旅として追加（作業ツリーに残っていた「仮寝」差分は取り下げ、置き換えた）
 - `script/verify_shikimoku.rb`に試験15（15件）を追加：かりね・かりふしの実検出（水無瀬28句・遺誡百韻04句のひらがな原文そのもので確認）、既存5語の回帰、恋句「誰が手枕に」の誤検出防止、89句「枕」の既知の取りこぼし確認、既存ユーザー辞書7語（紅葉・東風・時雨・妙高・春雨・五月雨・若菜）のトークン化・primary_bui回帰確認
 - `bundle exec ruby script/verify_shikimoku.rb` → **113 pass / 0 fail**
-- `docs/dict_deploy_procedure.md`を新規作成。ローカル（Mac mini）反映手順を整理・転記し、ConoHa VPSへの反映手順は「現時点で文書化されていない」と明記、今回の対応はローカル環境への反映のみを保証範囲とすることを記載
+- `docs/dict_deploy_procedure.md`を新規作成。ローカル（Mac mini）反映手順を整理・転記し、本番環境への反映手順は「waka-collectorが本番環境にデプロイされているかどうか自体が未確認」と明記、今回の対応はローカル環境への反映のみを保証範囲とすることを記載
 
 以上でPhase 1-B（ユーザー辞書方式）を完了する。コミットは依頼書5節の指示通り、辞書関連・実装（bui_dictionary.yml+verify_shikimoku.rb）・ドキュメントの3単位に分離して行う。
+
+---
+
+## 11. 追記5：前提の訂正（「ConoHa VPSへ移行済み」は誤りだった）
+
+其の六十五 追記2の依頼書は「waka-collectorはAWS EC2の無料枠終了後、ConoHa VPSへ移行済み」という前提でT0の調査を指示していた。**この前提は人間側の確認により誤りと判明した。**
+
+- 人間が確認した結果、ConoHa VPSのデプロイ手順書は**別プロジェクト（栄養計画アプリ`eiyokeikaku_app`）専用**であり、waka-collectorへの言及は一切無い
+- **waka-collectorが同VPS（あるいは他のどこか）にデプロイされているかどうか自体が未確認。** ローカルMac mini上でのみ動作している可能性もある
+- 第9章（T0）で見つけた`docs/handover_其の十五.md`のConoHa言及1行は、（当時も断定は避けていたが）waka-collectorのデプロイ先を示すものではなく、無関係かたまたま同じ語が使われていただけの可能性が高い
+- `docs/aws_deploy_guide.md`（2026-04-15付）についても、「EC2時代の記録で現状と不一致」と断定せず、**「現状との整合性は未確認」**と修正する（不一致だと確認できたわけではなく、一致するかどうかも含めて未確認というだけである）
+
+この訂正を受け、`docs/dict_deploy_procedure.md`の「本番環境への反映手順」の章は、「waka-collectorが本番環境にデプロイされているかどうか自体が未確認。現時点ではローカル（Mac mini development環境）での反映のみを保証範囲とする」という記述に修正済みである（別コミットで反映）。
+
+**教訓：** 依頼書に書かれた前提（「移行済み」等の断定）であっても、リポジトリの記述だけでは裏付けが取れない場合は、その前提自体を鵜呑みにせず「確認できない」と留保すべきだった。第9章の調査自体は「ConoHaがwaka-collectorのデプロイ先と断定できる記載ではない」と慎重な書き方をしていたが、依頼書の前提（移行済み）をタイトルや後続の文章でそのまま踏襲してしまった箇所があり、今後は依頼書の前提そのものの検証可能性も区別して報告する。
 
 ---
 
 *関連：`docs/phase0_koi_tabi_jukkai_report.md`（其の六十四）、
 `app/data/bui_dictionary.yml`、`docs/reference/*.csv`、`script/verify_shikimoku.rb`（`minase_full`）、
 `dict/user_entries.csv`、`docs/handover_20260626.md`（ユーザー辞書再ビルド手順）、
-`docs/aws_deploy_guide.md`・`docs/waka-collector-aws-deploy-memo.md`（EC2デプロイ記録、現状と不一致）、
-`docs/handover_其の十五.md`（ConoHaへの唯一の言及）*
+`docs/aws_deploy_guide.md`・`docs/waka-collector-aws-deploy-memo.md`（EC2デプロイ記録、現状との整合性は未確認）、
+`docs/handover_其の十五.md`（ConoHaへの言及があるが別件の可能性が高い）*
