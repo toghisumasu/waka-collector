@@ -40,18 +40,26 @@
 
 ## 本番環境への反映手順
 
-**waka-collectorが本番環境にデプロイされているかどうか自体が未確認である。** 其の六十五 追記2 T0の調査でリポジトリ内を検索したところ、`docs/handover_其の十五.md`に「ConoHa」への言及が1行あったが、これは別プロジェクト（栄養計画アプリ`eiyokeikaku_app`）のデプロイ手順書に関するものであり、waka-collectorのデプロイ先を示す記録ではないことが人間側の確認で判明した（当初「ConoHa VPSへ移行済み」という前提で調査していたが、この前提自体が誤りだった）。
+**waka-collectorは現時点では未デプロイであり、ローカルMac miniでのみ動作している（人間による確認、2026-07-25）。** 其の六十五 追記2 T0の調査時点では「本番環境にデプロイされているかどうか自体が未確認」としていたが、その後の確認で「未デプロイ」という事実が判明した。`docs/handover_其の十五.md`の「ConoHa」への言及は別プロジェクト（栄養計画アプリ`eiyokeikaku_app`）のデプロイ手順書に関するものであり、waka-collectorとは無関係だった（当初「ConoHa VPSへ移行済み」という前提で調査していたが、この前提自体が誤りだったことも確認済み）。`docs/aws_deploy_guide.md`（2026-04-15付）のAWS EC2記録も、現状のwaka-collector運用とは対応していない。
 
-`docs/aws_deploy_guide.md`（2026-04-15付）にはAWS EC2へのデプロイ記録があるが、**これが現在も有効か、waka-collectorが今どこかにデプロイされているのかは、リポジトリの記述だけでは確認できない**（現状との整合性は未確認。EC2時代の記録として現状と不一致と断定するものではない）。ローカル（Mac mini）以外に実際に稼働している環境があるのかどうか自体、未確認のまま残る。
+**将来的にConoHa VPSへのデプロイを想定している。** 同VPS上には既に`keiba-web`・`eiyokeikaku_app`が同居運用されており、waka-collectorを追加する際は同様のマルチアプリ運用（ポート分離・Nginx別server block・nftables開放・systemd化等）を踏まえる想定である。
 
-**したがって、今回（其の六十五）の「かりね」「かりふし」ユーザー辞書対応は、現時点ではローカル（Mac mini development環境）での反映のみを保証範囲とする。** 本番環境（の有無を含め）への反映が必要かどうか、必要な場合の手順は、別途人間が確認・判断する未解決事項として残す。
+参考資料として`docs/eiyokeikaku_conoha_deploy_procedure_v1.0.docx`（栄養計画アプリのConoHa VPSデプロイ手順書）を配置している。これは他プロジェクト（eiyokeikaku_app）の手順書であり、waka-collector自身のデプロイ記録ではないが、同一VPSへの将来デプロイ時にそのまま参考になるノウハウが含まれる：
+
+- Unixソケット接続のPeer認証回避（`database.yml`に`host: 127.0.0.1`を明示する必要）
+- `bin/rails server`がPuma設定の`bind`を無視し`0.0.0.0`で待受してしまう問題（`bundle exec puma -C config/puma.rb`を直接使う）
+- 非標準ポートでのCSRF Origin不一致（Nginxの`proxy_set_header Host`に`$http_host`を使う必要、`$host`ではポート番号が欠落する）
+- ホスト側nftablesとConoHaセキュリティグループの二重ファイアウォール（両方の開放が必要）
+- 複数アプリ同居時のポート分離・Nginx server block分離・systemdサービス個別化
+
+**したがって、今回（其の六十五）の「かりね」「かりふし」ユーザー辞書対応は、現時点ではローカル（Mac mini development環境）での反映のみを保証範囲とする。** 将来waka-collectorをConoHa VPSへデプロイする際は、上記の参考資料を踏まえつつ、本ドキュメントのローカル反映手順（Homebrew版mecab前提）をLinux環境（Debian、上記docx記載のOS）向けに読み替える必要がある点に注意する。
 
 ## 未解決事項
 
-- waka-collectorが本番環境にデプロイされているかどうか自体が未確認（ローカルMac mini上でのみ動作している可能性もある）
-- デプロイされている場合、そこでの環境（OS・mecabのインストール方法・`dict/user.dic`の配置パス等）がこのMac mini（Homebrew版mecab）と同じ前提で反映できるかは未確認
-- `docs/aws_deploy_guide.md`の内容が現状と整合するかどうかも未確認（2026-04-15付の記録という以上のことは分からない）
+- waka-collectorのConoHa VPSへの具体的なデプロイ計画（時期・ポート番号・ドメイン等）は本ドキュメント作成時点では未確定
+- デプロイ先のLinux環境（Debian等）でのmecab導入方法・`mecab-dict-index`のパス・`dict/user.dic`の配置は、Homebrew前提の本手順とは異なるため、実際のデプロイ時に別途手順を整備する必要がある
+- `docs/eiyokeikaku_conoha_deploy_procedure_v1.0.docx`はeiyokeikaku_app固有の設定（DBロール名・systemdサービス名・ポート番号等）を含むため、waka-collector用にそのまま流用はできない。ノウハウ（落とし穴の回避策）の参考として読むこと
 
 ---
 
-*関連：`docs/phase1a_tabi_report.md`（其の六十五、C1〜C3・T0を含む）、`docs/handover_20260626.md`（旧手順の記載元）、`dict/user_entries.csv`*
+*関連：`docs/phase1a_tabi_report.md`（其の六十五、C1〜C3・T0を含む）、`docs/handover_20260626.md`（旧手順の記載元）、`dict/user_entries.csv`、`docs/eiyokeikaku_conoha_deploy_procedure_v1.0.docx`（参考：他プロジェクトのConoHa VPSデプロイ手順書）*
