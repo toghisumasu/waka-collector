@@ -1081,6 +1081,54 @@ puts "試験15：#{p15} pass / #{f15} fail"
 total_pass += p15; total_fail += f15
 puts
 
+# ─────────────────────────────────────────────────────────────
+#  試験16：build_mecab のuserdicフォールバック監視（其の六十七 D-67-1）
+#   RengaGenerator/RengasController/KuValidator#build_mecabは
+#   Natto::MeCab.new(userdic: USER_DIC)が失敗した場合、
+#   Rails.logger.warnのみでNatto::MeCab.new（無引数）へ黙って
+#   フォールバックする設計（其の六十七 Phase0調査 docs/phase0_mecab_userdic_report.md
+#   で確認）。本試験はUSER_DIC（dict/user.dic）の読み込みが実際に成功し、
+#   フォールバック分岐に落ちないことをゲートで固定する。
+#   dict/user.dicの破損・削除・パス変更が起きた場合、本試験がfailすることで検知できる。
+# ─────────────────────────────────────────────────────────────
+puts "═" * 56
+puts "試験16：build_mecab のuserdicフォールバック監視（其の六十七 D-67-1）"
+puts "─" * 56
+
+p16 = 0; f16 = 0
+def r16(r, p, f) = r ? [p+1, f] : [p, f+1]
+
+user_dic_path = File.expand_path("../dict/user.dic", __dir__)
+
+# (16a) USER_DICファイルが実在する（production側 USER_DIC 定数と同一パス）
+res16a = check("dict/user.dic が実在する（USER_DIC定数の実体）",
+               File.exist?(user_dic_path), true)
+p16, f16 = r16(res16a, p16, f16)
+
+# (16b) build_mecab相当の呼び出し（production同一パターン）がフォールバックせず成功する
+fell_back_16b = false
+nm16 = begin
+  Natto::MeCab.new(userdic: user_dic_path)
+rescue => e
+  fell_back_16b = true
+  Natto::MeCab.new
+end
+res16b = check("build_mecab相当呼び出しがuserdic読み込みに成功（フォールバック未発火）",
+               fell_back_16b, false)
+p16, f16 = r16(res16b, p16, f16)
+
+# (16c) 実際にユーザー辞書由来の読みが反映されている（フォールバック検知の直接証拠）
+#   フォールバック（無引数）だった場合、紅葉は標準辞書の読み「コウヨウ」になる。
+reading_16c = nil
+nm16.parse("紅葉") { |n| reading_16c = n.feature.split(",")[7] if n.surface == "紅葉" }
+res16c = check("「紅葉」の読みがユーザー辞書由来「モミジ」（標準辞書のコウヨウではない）",
+               reading_16c, "モミジ")
+p16, f16 = r16(res16c, p16, f16)
+
+puts "試験16：#{p16} pass / #{f16} fail"
+total_pass += p16; total_fail += f16
+puts
+
 puts "═" * 56
 puts "総合：#{total_pass} pass / #{total_fail} fail"
 exit(total_fail.zero? ? 0 : 1)
