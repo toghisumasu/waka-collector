@@ -47,3 +47,10 @@ patch_*.py
 docs/reference/*.pdf
 docs/kiyo_r2_7.pdf
 docs/kiyo_r3_5.pdf
+
+# UniDic和歌版（CC BY-NC-SA 4.0、非営利限定・容量大）はリポジトリに同梱しない（其の六十九）
+# 通常配置はリポジトリ外またはtmp/配下（/tmp/*で既存カバー済み）。
+# dict/配下に置く運用も想定した予防的除外。
+dict/unidic-waka*
+dict/unidic_user_entries.csv
+dict/unidic_user.dic
