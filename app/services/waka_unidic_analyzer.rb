@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "csv"
+
 # UniDic和歌版（CC BY-NC-SA 4.0、非営利限定）を用いた形態素解析の並行運用サービス。
 # ku_validator.rb（IPA辞書ベースのモーラ判定）とは独立しており、双方に影響を与えない。
 # 辞書本体はリポジトリに同梱せず、環境変数WAKA_UNIDIC_DICDIRで参照する（其の六十九）。
@@ -53,7 +55,11 @@ class WakaUnidicAnalyzer
   private
 
   def build_morpheme(node)
-    features = node.feature.split(",")
+    # UniDicのfeature文字列は、アクセント型欄等の値がカンマを含む引用符付き
+    # CSVフィールドとして格納されている場合がある（例："0,2,3"）。素朴な
+    # split(",")だとこの引用符を無視して分割してしまい列数がぶれるため、
+    # 引用符を正しく解釈するCSV.parse_lineを使う（Phase 0 D-XX 其の七十）。
+    features = CSV.parse_line(node.feature)
     layout = FEATURE_LAYOUTS[features.size]
     unless layout
       raise UnsupportedFeatureFormatError,

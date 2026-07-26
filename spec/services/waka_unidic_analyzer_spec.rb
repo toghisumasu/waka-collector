@@ -55,6 +55,35 @@ RSpec.describe WakaUnidicAnalyzer do
     end
   end
 
+  describe "素性列のCSVパース修正（Phase 0 D-XX 其の七十）" do
+    # アクセント型欄等がカンマを含む引用符付きCSVフィールドになっている単語。
+    # 修正前は node.feature.split(",") で列数が29→30/31にずれ、例外が発生していた。
+    [
+      ["面影", "面影"],
+      ["て", "手"],
+      ["しのぶ", "偲ぶ"],
+      ["人目", "人目"],
+      ["きぬぎぬ", "後朝"],
+    ].each do |surface, expected_lemma|
+      it "「#{surface}」を例外なく解析でき、lemmaが「#{expected_lemma}」になる" do
+        morphemes = analyzer.analyze(surface)
+        expect(morphemes.length).to eq(1)
+        expect(morphemes.first.lemma).to eq(expected_lemma)
+      end
+    end
+
+    it "35句「おもふなよわすれむもこそこころなれ」を例外なく解析できる" do
+      expect { analyzer.analyze("おもふなよわすれむもこそこころなれ") }.not_to raise_error
+    end
+
+    it "96句「しぬるくすりはこひにえまほし」で「こひ」が1トークン・lemma=恋として取得できる" do
+      morphemes = analyzer.analyze("しぬるくすりはこひにえまほし")
+      koi = morphemes.find { |m| m.surface == "こひ" }
+      expect(koi).not_to be_nil
+      expect(koi.lemma).to eq("恋")
+    end
+  end
+
   describe ".instance" do
     it "WAKA_UNIDIC_DICDIRが設定されていればインスタンスを返す" do
       expect(described_class.instance).to be_a(described_class)
