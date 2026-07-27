@@ -225,6 +225,10 @@ catch(:attempt_cap_reached) do
     next_constraints = checker.next_constraints(history)
     controller.send(:log_season_hint, next_constraints, verse_no: verse_no)
 
+    stage         = "fetch_used_waka_ids"
+    used_waka_ids = controller.send(:fetch_used_waka_ids, previous_renga_id)
+    used_seed_waka_id = nil
+
     begin
       MAX_RETRY.times do |i|
         attempt_no = i + 1
@@ -233,14 +237,16 @@ catch(:attempt_cap_reached) do
 
         verse_history = controller.send(:fetch_verse_history, previous_renga_id)
         begin
-          tsugeku = RengaGenerator.new(
+          generator = RengaGenerator.new(
             maeku, [], next_verse_type,
             constraints: {
               verse_history: verse_history,
               forbidden_bui: next_constraints[:forbidden_bui],
-              season_hint:   next_constraints[:season_hint]
+              season_hint:   next_constraints[:season_hint],
+              used_waka_ids: used_waka_ids
             }
-          ).generate_tsugeku
+          )
+          tsugeku = generator.generate_tsugeku
         rescue RuntimeError, Net::ReadTimeout => conn_err
           # RengasController#createと同じ例外クラス（OllamaClient側はNet::ReadTimeout
           # を含め全てRuntimeErrorに正規化して再raiseする）。単発の一時的タイムアウト
@@ -314,8 +320,9 @@ catch(:attempt_cap_reached) do
           next
         end
 
-        final_text  = tsugeku
-        final_action = "create"
+        final_text        = tsugeku
+        final_action      = "create"
+        used_seed_waka_id = generator.used_seed_waka_id
         log_line(log_file, {
           verse_no: verse_no, attempt: attempt_no, text: tsugeku, mora_result: mora_check[:result],
           shikimoku_result: "ok", violations: [], action: "create"
@@ -392,7 +399,7 @@ catch(:attempt_cap_reached) do
       tsugeku_author:     "メンタムさん",
       generated_by_model: OllamaClient::MODEL,
       style_check_result: style_result,
-      honka_reference:    [],
+      honka_reference:    [used_seed_waka_id].compact,
       previous_renga_id:  previous_renga_id,
       observation_batch:  BATCH_NAME
     )

@@ -3,6 +3,8 @@ require "natto"
 require "yaml"
 
 class RengaGenerator
+  attr_reader :used_seed_waka_id
+
   USER_DIC = Rails.root.join("dict", "user.dic").to_s
 
   YOUON = %w[ゃ ゅ ょ].freeze
@@ -16,6 +18,14 @@ class RengaGenerator
   ].freeze
 
   ECHO_AFTERS = EXAMPLES.map { |e| e[:after] }.freeze
+
+  # 其の七十二 D-72-4: 和歌形式抽出パイプラインで生成させる和歌一首の
+  # 目標モーラ数（五・七・五・七・七＝31音）と許容誤差。実地確認では
+  # extract_mora_segmentが偶然non-nilを返しても、総モーラ数が31から
+  # 大きく外れていると句境界と無関係な断片になることが判明したため、
+  # 誤差±2音を超える場合は成功扱いにしない。
+  WAKA_TOTAL_MORA           = 31
+  WAKA_TOTAL_MORA_TOLERANCE = 2
 
   # 其の三十二 Step B-3: 字足らず時、不足モーラ数に応じて句末に足す
   # 連歌的文末表現の候補（LLMへの具体的な調整手段の提示に使う）
@@ -88,6 +98,7 @@ class RengaGenerator
     @constraints      = constraints
     @bui_dict         = BuiDictionary.new
     @verse_history    = constraints[:verse_history] || []
+    @strategy         = constraints[:generation_strategy] || :direct
   end
 
   def generate_tsugeku
@@ -134,29 +145,67 @@ class RengaGenerator
 
         # 字余り方向はstreak>=2、字足らず方向はstreak>=3で発動
         # （其の三十二 Step B-3改：字足らず側は閾値を1段引き上げている）
+        season_label = if season_hint && season_hint[:must_switch]
+          seed[:season] || "雑"
+        else
+          season_hint&.dig(:current) || SEASON_JP[m_season] || "雑"
+        end
+
         if mora_error_streak >= 2 && (last_mora_count > target_mora || mora_error_streak >= 3)
           raw = OllamaClient.chat(
             socratic_mora_messages(last_mora_count, target_mora, past_mora_error_words),
             think: false, timeout: 300
           )
+          ku = first_line(raw)
         elsif repeat_streak >= 2
           raw = OllamaClient.chat(
             socratic_repeat_messages(past_repeat_words, target_mora),
             think: false, timeout: 300
           )
-        else
-          season_label = if season_hint && season_hint[:must_switch]
-            seed[:season] || "雑"
-          else
-            season_hint&.dig(:current) || SEASON_JP[m_season] || "雑"
+          ku = first_line(raw)
+        elsif @strategy == :waka_extraction
+          prompt    = build_waka_extraction_prompt(seed, feedback, season_label, forbidden_label)
+          gen_start = Time.now
+          raw       = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: temperature)
+          Rails.logger.info "[RengaGenerator] attempt: #{Time.now - gen_start}s"
+
+          waka_text             = first_line(raw)
+          waka_ms               = morphemes_of(waka_text, nm)
+          waka_total_mora       = waka_ms.sum { |m| m[:mora] }
+          skip_mora, take_mora  = waka_extraction_bounds
+          seg                   = extract_mora_segment(waka_ms, skip_mora, take_mora)
+
+          echoes_maeku   = maeku_echo?(waka_text) || (seg && maeku_echo?(seg[:surface]))
+          over_tolerance = !waka_total_mora_within_tolerance?(waka_total_mora)
+          seg            = nil if echoes_maeku || over_tolerance
+
+          if seg.nil?
+            wrong_streak += 1
+            if wrong_streak >= 3
+              seed         = pool.sample
+              wrong_streak = 0
+              feedback     = nil
+            elsif echoes_maeku
+              feedback = { ku: waka_text, issue: "前句エコー",
+                            message: "前句をそのまま繰り返さず、新しい言葉で三十一音の和歌を詠み直してください" }
+            elsif over_tolerance
+              feedback = { ku: waka_text, issue: "#{waka_total_mora}音（三十一音から#{WAKA_TOTAL_MORA_TOLERANCE}音を超えて逸脱）",
+                            message: "五・七・五・七・七、計三十一音を超えず、かつ短すぎないよう詠み直してください" }
+            else
+              feedback = { ku: waka_text, issue: "区切り不一致",
+                            message: "五・七・五・七・七の音数の区切りで詠み直してください" }
+            end
+            next
           end
+          ku = seg[:surface]
+        else
           prompt    = build_full_prompt(seed, example, feedback, season_label, forbidden_label)
           gen_start = Time.now
           raw       = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: temperature)
           Rails.logger.info "[RengaGenerator] attempt: #{Time.now - gen_start}s"
+          ku = first_line(raw)
         end
 
-        ku    = raw.to_s.strip.lines.map(&:strip).reject(&:empty?).first.to_s
         ku_ms = morphemes_of(ku, nm)
         mora  = ku_ms.sum { |m| m[:mora] }
 
@@ -195,7 +244,8 @@ class RengaGenerator
         end
 
         if !is_echo && !is_rep && !is_sticky && !is_history_repeat
-          result_ku = ku
+          result_ku           = ku
+          @used_seed_waka_id  = seed[:waka_id]
           used_afters << ku
           break
         end
@@ -221,6 +271,10 @@ class RengaGenerator
   end
 
   private
+
+  def first_line(raw)
+    raw.to_s.strip.lines.map(&:strip).reject(&:empty?).first.to_s
+  end
 
   def build_mecab
     Natto::MeCab.new(userdic: USER_DIC)
@@ -309,7 +363,7 @@ class RengaGenerator
       upper_ms = morphemes_of(w.upper_phrase_text.strip, nm)
       lower_ms = morphemes_of(w.lower_phrase_text.strip, nm)
       stag     = compute_season_tag(w.upper_phrase_text, w.lower_phrase_text)
-      base     = { waka_upper: w.upper_phrase_text.to_s, waka_lower: w.lower_phrase_text.to_s, season: stag }
+      base     = { waka_upper: w.upper_phrase_text.to_s, waka_lower: w.lower_phrase_text.to_s, season: stag, waka_id: w.id }
       upper_total = upper_ms.sum { |m| m[:mora] }
       lower_total = lower_ms.sum { |m| m[:mora] }
       if upper_total == 17
@@ -343,6 +397,16 @@ class RengaGenerator
     # bui: nil は「部立なし」として通過させる
     if forbidden_bui.any?
       filtered = pool.reject { |s| s[:bui] && forbidden_bui.include?(s[:bui]) }
+      pool = filtered.any? ? filtered : pool
+    end
+
+    # 使用済み和歌フィルタ：一巻内で既に連想元として使われた和歌（waka_id単位、
+    # 二句・四句・結句の3シード全て）を除外し、同じ和歌への反復依存による
+    # 類想（DUPチェーン）を避ける。除外すると空になる場合は既存ロジックと
+    # 同じくフィルタ前のpoolにフォールバックする。
+    used_waka_ids = @constraints[:used_waka_ids]
+    if used_waka_ids && used_waka_ids.any?
+      filtered = pool.reject { |s| used_waka_ids.include?(s[:waka_id]) }
       pool = filtered.any? ? filtered : pool
     end
 
@@ -382,9 +446,9 @@ class RengaGenerator
     parts.empty? ? nil : parts.join(" / ")
   end
 
-  def build_full_prompt(seed, example, feedback, season_label, forbidden_label)
-    feedback_line = feedback ? "前回「#{feedback[:ku]}」は#{feedback[:issue]}。#{feedback[:message]}\n" : ""
-    target_desc   = (@verse_type == :chouku) ? "五七五（17音）" : "七七（14音）"
+  # forbidden_bui（禁じ手）の注記行・季語指定/季の情趣を詠ませる行を返す。
+  # build_full_prompt・build_waka_extraction_promptの両方で使う共通部分。
+  def directive_lines(season_label)
     forbidden_bui = @constraints[:forbidden_bui] || []
     kinshi = if forbidden_bui.any?
       desc = forbidden_bui.map { |b| BUI_EXAMPLE_WORDS[b] || b }.join("・")
@@ -400,15 +464,118 @@ class RengaGenerator
     else
       ""
     end
+    [kigo_line, kinshi]
+  end
+
+  def build_full_prompt(seed, example, feedback, season_label, forbidden_label)
+    feedback_line       = feedback ? "前回「#{feedback[:ku]}」は#{feedback[:issue]}。#{feedback[:message]}\n" : ""
+    target_desc          = (@verse_type == :chouku) ? "五七五（17音）" : "七七（14音）"
+    kigo_line, kinshi    = directive_lines(season_label)
 
     <<~PROMPT
-      前の句と合わせて短歌一首になるような続きを作れ。
+      あなたは連歌の宗匠です。
+      以下の前句を受け、その情景や情趣をふまえて、前句と合わせて短歌一首になるような新しい付け句を一句詠んでください（既存の句の再現は不可）。
       前句：#{@maeku}
       連想：#{seed[:surface]}
       季節：#{season_label}
-      #{kigo_line}#{kinshi}#{feedback_line}#{target_desc}を一行だけ出力せよ。説明不要。
+      #{kigo_line}#{kinshi}#{feedback_line}#{target_desc}を一行だけ出力してください。説明や前置きは不要です。
       続き：
     PROMPT
+  end
+
+  # 其の七十二 D-72-2: 短句（tanku）側でモデルが「連想」欄の短い句をそのまま
+  # 出力してしまい（31音に展開されない）extract_mora_segmentが毎回nilになる
+  # 問題が実地確認で判明。few-shot例で「連想語は五句のうち一句として、
+  # 五句すべてを省略せず詠む」構造を明示することで矯正する。
+  # D-72-3: 例文の和歌に／区切りを入れると、モデルがその記号ごと自分の出力に
+  # 複写してしまう（extract_mora_segmentのモーラ数を狂わせる）ことが実地確認で
+  # 判明したため、例文は区切りなしの一続きテキストのみを示す。
+  # 例文はmorphemes_of経由のモーラ計算で5-7-5-7-7=31を検算済み
+  # （検算値は各waka_partsの要素をこの順に足すと5,7,5,7,7）。
+  WAKA_EXTRACTION_EXAMPLES = [
+    {
+      maeku:       "うぐいすのねに",
+      association: "はるをよぶこえ",
+      waka:        "うぐいすのはるをよぶこえきこゆなりのべのわかくさもえいづるころ"
+    },
+    {
+      maeku:       "かすみたなびく",
+      association: "ゆくはるのそら",
+      waka:        "かすみたつゆくはるのそらながむればやまべのさくらちりもこそすれ"
+    }
+  ].freeze
+
+  def waka_extraction_examples_block
+    WAKA_EXTRACTION_EXAMPLES.map do |ex|
+      "前句：#{ex[:maeku]}\n連想：#{ex[:association]}\n和歌：#{ex[:waka]}"
+    end.join("\n\n")
+  end
+
+  # 其の七十二: 和歌形式抽出パイプライン（constraints[:generation_strategy] == :waka_extraction）。
+  # 14/17音のピンポイント生成の代わりに、LLMには制約の緩い和歌一首（31音）を
+  # 詠ませ、extract_mora_segmentで必要な部分を機械的に切り出す。
+  # D-72-3: 前句を五句のうちの1句目としてそのまま複写する誤りも実地確認で
+  # 判明したため、「前句の語句を和歌に含めない」旨を明示的に禁止する。
+  # D-72-4: ／複写・前句複写を防いだ後も、実地では31音を大きく超過する
+  # （34〜42音）傾向が残り、固定位置（skip_mora）での切り出しが実際の句境界と
+  # ズレて不自然な断片を生む問題が判明。「三十一音を超えないこと」を明示し、
+  # generate_tsugeku側の総モーラ数ガード（waka_total_mora_within_tolerance?）と
+  # 二段構えで対処する。
+  def build_waka_extraction_prompt(seed, feedback, season_label, forbidden_label)
+    feedback_line    = feedback ? "前回「#{feedback[:ku]}」は#{feedback[:issue]}。#{feedback[:message]}\n" : ""
+    kigo_line, kinshi = directive_lines(season_label)
+
+    <<~PROMPT
+      あなたは連歌の宗匠です。
+      前句の情趣をふまえ、下の連想語を五句のうちどこか一句に必ず織り込みながら、
+      五・七・五・七・七（合計三十一音）の和歌をまったく新しく一首詠んでください。
+      前句の言葉をそのまま和歌に含めてはいけません。前句は情趣を引き継ぐための参考であり、
+      和歌の一部として複写しないこと。
+      和歌は五音・七音・五音・七音・七音の五句すべてを省略せず出力すること。
+      三十一音を超えないこと。三十一音より長い和歌は誤りです。短すぎるのも誤りです。
+      連想語だけを単独で出力してはいけません。必ず五句すべてを含む三十一音の和歌にすること。
+      出力は和歌の本文のみとし、／や・などの区切り記号は使わず、一続きの文として書くこと。
+
+      #{waka_extraction_examples_block}
+
+      前句：#{@maeku}
+      連想：#{seed[:surface]}
+      季節：#{season_label}
+      #{kigo_line}#{kinshi}#{feedback_line}上の例にならい、前句の言葉を繰り返さず、三十一音を超えず、区切り記号を入れず一続きの文として、五句すべてを含む三十一音の和歌を一行だけ出力してください。説明や前置きは不要です。
+      和歌：
+    PROMPT
+  end
+
+  # chouku（長句・五七五＝17音）は先頭17音、tanku（短句・七七＝14音）は
+  # 17音スキップして残り14音を、31音の和歌テキストから切り出す。
+  def waka_extraction_bounds
+    @verse_type == :chouku ? [0, 17] : [17, 14]
+  end
+
+  # 其の七十二 D-72-4: extract_mora_segmentがnon-nilを返しても、和歌全体の
+  # 総モーラ数が31音から大きく外れていれば句境界と無関係な断片である可能性が
+  # 高いため、別途総モーラ数レベルでの妥当性を検証する。
+  def waka_total_mora_within_tolerance?(total_mora)
+    (total_mora - WAKA_TOTAL_MORA).abs <= WAKA_TOTAL_MORA_TOLERANCE
+  end
+
+  # 其の七十二 D-72-5: 「前句をそのまま和歌に含めてはいけません」という
+  # プロンプト指示を無視し、前句を複写する「前句エコー」が実地確認で
+  # 判明（例：前句「かすみたなびく」→生成和歌が同じ文言で始まる）。
+  # is_rep（direct方式でのseed[:yomi]完全一致）と同種の失敗として扱い、
+  # 完全一致・部分一致（textが前句を含む）・冒頭の高い前方一致
+  # （levenshtein距離が閾値以内、history_repeat?と同じ閾値式）のいずれかで
+  # 検出する。textには生成された和歌全体・抽出後のseg[:surface]の両方を渡す。
+  def maeku_echo?(text)
+    return false if text.nil? || text.strip.empty?
+    return false if @maeku.nil? || @maeku.strip.empty?
+    return true if text.include?(@maeku)
+
+    prefix = text[0, @maeku.length]
+    return false if prefix.nil? || prefix.empty?
+
+    threshold = [(@maeku.length * 0.3).ceil, 3].max
+    levenshtein(prefix, @maeku) <= threshold
   end
 
   def kigo_hint(season_label)
@@ -499,10 +666,10 @@ class RengaGenerator
                                   "理解できましたか？" },
         { role: "assistant", content: "はい、理解しました。雑の句とは季語を含まない句で、" \
                                        "季節に縛られず詠むことができます。" },
-        { role: "user", content: "では局面打開のため、雑の句として全く新しい言葉で" \
+        { role: "user", content: "では局面打開のため、雑の句として、これまでの候補にない語を用いて" \
                                   "#{target_mora}音の付け句を詠んでください。\n" \
                                   "前句：#{@maeku}\n" \
-                                  "これまでの候補（再使用禁止）：#{past_words.join('、')}\n" \
+                                  "これまでの候補（使用不可）：#{past_words.join('、')}\n" \
                                   "#{target_mora}音を一行だけ出力してください。説明不要。" }
       ]
     else
@@ -524,10 +691,10 @@ class RengaGenerator
                                   "理解できましたか？" },
         { role: "assistant", content: "はい、理解しました。句末に文末表現を加えて" \
                                        "#{target_mora}音に整えます。" },
-        { role: "user", content: "では句末に文末表現を加えて、全く新しい言葉で" \
+        { role: "user", content: "では句末に文末表現を加えて、これまでの候補にない語を用いて" \
                                   "#{target_mora}音の付け句を詠んでください。\n" \
                                   "前句：#{@maeku}\n" \
-                                  "これまでの候補（再使用禁止）：#{past_words.join('、')}\n" \
+                                  "これまでの候補（使用不可）：#{past_words.join('、')}\n" \
                                   "#{target_mora}音を一行だけ出力してください。説明不要。" }
       ]
     end
@@ -545,13 +712,13 @@ class RengaGenerator
       { role: "assistant", content: "はい、行き詰まっています。既に詠まれた句と同じか似た句を" \
                                      "繰り返しており、局面を打開する必要があります。" },
       { role: "user", content: "連歌では、一巻の中で既出の語句を繰り返すことは避けるべきとされています。" \
-                                "既出の語から離れ、全く異なる語彙・言い回しを選ぶことが" \
+                                "既出の語から離れ、これまでの候補にない語彙・言い回しを選ぶことが" \
                                 "局面打開に有効です。理解できましたか？" },
-      { role: "assistant", content: "はい、理解しました。既出の語句を避け、全く新しい語彙で詠みます。" },
-      { role: "user", content: "では既出の表現を避け、全く新しい言葉で" \
+      { role: "assistant", content: "はい、理解しました。既出の語句を避け、これまでの候補にない語彙で詠みます。" },
+      { role: "user", content: "では既出の表現を避け、これまでの候補にない語を用いて" \
                                 "#{target_mora}音の付け句を詠んでください。\n" \
                                 "前句：#{@maeku}\n" \
-                                "これまでの候補（再使用禁止）：#{past_words.join('、')}\n" \
+                                "これまでの候補（使用不可）：#{past_words.join('、')}\n" \
                                 "#{target_mora}音を一行だけ出力してください。説明不要。" }
     ]
   end

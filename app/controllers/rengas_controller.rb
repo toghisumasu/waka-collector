@@ -61,14 +61,16 @@ class RengasController < ApplicationController
     next_constraints = checker.next_constraints(history)
     log_season_hint(next_constraints, verse_no: history.size + 1)
 
-    tsugeku = RengaGenerator.new(
+    generator = RengaGenerator.new(
       maeku, honkas, next_verse_type,
       constraints: {
         verse_history: fetch_verse_history(previous_renga_id),
         forbidden_bui: next_constraints[:forbidden_bui],
-        season_hint:   next_constraints[:season_hint]
+        season_hint:   next_constraints[:season_hint],
+        used_waka_ids: fetch_used_waka_ids(previous_renga_id)
       }
-    ).generate_tsugeku
+    )
+    tsugeku = generator.generate_tsugeku
 
     tsugeku_word = bui_dict.detect_word(tsugeku, nm)
     candidate = {
@@ -108,7 +110,7 @@ class RengasController < ApplicationController
       tsugeku_author:     "メンタムさん",
       generated_by_model: OllamaClient::MODEL,
       style_check_result: style_result,
-      honka_reference:    honka_ids,
+      honka_reference:    (honka_ids + [generator.used_seed_waka_id]).compact.uniq,
       previous_renga_id:  previous_renga_id
     )
 
@@ -139,16 +141,16 @@ class RengasController < ApplicationController
 
     sql = Renga.sanitize_sql_array([<<~SQL, previous_renga_id])
       WITH RECURSIVE verse_chain AS (
-        SELECT id, tsugeku, previous_renga_id, 0 AS depth
+        SELECT id, tsugeku, previous_renga_id, honka_reference, 0 AS depth
         FROM rengas
         WHERE id = ?
         UNION ALL
-        SELECT r.id, r.tsugeku, r.previous_renga_id, verse_chain.depth + 1
+        SELECT r.id, r.tsugeku, r.previous_renga_id, r.honka_reference, verse_chain.depth + 1
         FROM rengas r
         INNER JOIN verse_chain ON r.id = verse_chain.previous_renga_id
         #{depth_guard}
       )
-      SELECT id, tsugeku, previous_renga_id FROM verse_chain ORDER BY depth DESC
+      SELECT id, tsugeku, previous_renga_id, honka_reference FROM verse_chain ORDER BY depth DESC
     SQL
 
     Renga.connection.select_all(sql).to_a
@@ -157,6 +159,20 @@ class RengasController < ApplicationController
   # 其の三十六 案C: 逆戻り検知に使うtsugeku本文のみ、履歴の深さを制限せず取得。
   def fetch_verse_history(previous_renga_id)
     fetch_verse_chain(previous_renga_id).map { |row| row["tsugeku"] }
+  end
+
+  # 其の七十二: 使用済みオミット機能。一巻内でこれまで連想元（honka_reference、
+  # 自動サンプリング分・ユーザー選択分の両方）として使われた和歌のwaka_idを
+  # 集め、RengaGenerator#filter_poolで除外するための集合として渡す。
+  # honka_referenceはjsonb列だがselect_all経由ではJSON文字列で返るためparseする。
+  def fetch_used_waka_ids(previous_renga_id)
+    fetch_verse_chain(previous_renga_id).each_with_object([]) do |row, ids|
+      raw = row["honka_reference"]
+      next if raw.blank?
+      ids.concat(Array(JSON.parse(raw)))
+    rescue JSON::ParserError
+      next
+    end.uniq
   end
 
   def build_verse_history(previous_renga_id, maeku, maeku_type, nm: build_mecab, bui_dict: BuiDictionary.new)
