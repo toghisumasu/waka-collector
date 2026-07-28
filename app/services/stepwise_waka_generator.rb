@@ -7,10 +7,12 @@
 # タスクだけを与える。式目・内容面のチェック（Step2）と機械抽出（Step4）は
 # Ruby側で行い、モデルへの重い書き換え依頼はStep2を通過した候補に限定する。
 #
-#   Step1 自由詠み  … 音数制約なしで前句に連なる和歌をLLMに詠ませる
-#   Step2 内容判定  … 前句エコー・既出表現・禁じ手の語をRuby側でチェック
-#   Step3 形式整形  … Step2通過後のテキストを31音に書き換えさせる
-#   Step4 機械抽出  … 31音のテキストから必要な短句/長句をextract_mora_segmentで切り出す
+#   Step1   自由詠み    … 音数制約なしで前句に連なる和歌をLLMに詠ませる
+#   Step1.5 音数調整    … Step1出力が長すぎ/短すぎる場合、核心への凝縮または
+#                         遠景の追加で31音前後に近づける推敲を挟む
+#   Step2   内容判定    … 前句エコー・既出表現・禁じ手の語をRuby側でチェック
+#   Step3   形式整形    … Step2通過後のテキストを31音に書き換えさせる
+#   Step4   機械抽出    … 31音のテキストから必要な短句/長句をextract_mora_segmentで切り出す
 #
 # RengaGenerator#generate_tsugekuからconstraints[:generation_strategy] == :waka_extraction
 # の場合に委譲される。pool（filter_pool済み）・nm（MeCabインスタンス）・bui_dictは
@@ -18,12 +20,25 @@
 #
 # 其の七十四: constraints[:persona]（:youth/:hermit/:woman/:random/未指定）で
 # Step1に注入するペルソナ（視座）を指定できる。詳細はWakaPersonaを参照。
+#
+# 其の七十五: ペルソナ注入後、Step1の出力音数が両極端（201音の詞書風長文、
+# 14音の閉塞した手元描写など）に振れる実地事例が確認された。一発のプロンプトで
+# 31音ぴったりに収めようとするとモデルの創造性を殺すため、Step1とStep3の間に
+# 音数に応じた動的推敲（Step1.5）を挟み、収束するまで（上限付きで）繰り返す。
 class StepwiseWakaGenerator
   include VerseTextAnalysis
 
   MAX_DRAFT_ATTEMPTS   = 5 # Step1やり直し（新しいseedで最初から）
   MAX_CONTENT_RETRIES  = 3 # Step1→Step2内容チェックの往復（同じseed）
   MAX_REWRITE_ATTEMPTS = 5 # Step3→Step4整形・抽出の往復（同じfree_text）
+
+  # 其の七十五 D-75-1: Step1.5（音数調整）の往復上限と、長すぎ/短すぎの
+  # 判定閾値。Step1の目標は「三十一音程度（三十〜三十五音前後）」なので、
+  # 閾値はそれより外側に余裕を持たせ、実地確認済みの極端な事例
+  # （201音・14音）を包含する範囲で設定する。
+  MAX_LENGTH_ADJUST_ATTEMPTS      = 3
+  FREE_VERSE_MORA_LONG_THRESHOLD  = 50 # これを超えたら核心の情景に絞る推敲を指示
+  FREE_VERSE_MORA_SHORT_THRESHOLD = 25 # これを下回ったら遠景を加える推敲を指示
 
   # 其の七十二 D-72-4: 目標モーラ数（五・七・五・七・七＝31音）と許容誤差。
   # extract_mora_segmentが偶然non-nilを返しても、総モーラ数が31から
@@ -52,6 +67,7 @@ class StepwiseWakaGenerator
       free_text = generate_free_verse(seed, persona)
       next if free_text.nil? # Step1〜2の往復を使い切った→新しいseed・ペルソナへ
 
+      free_text = adjust_free_verse_length(free_text)
       ku = rewrite_and_extract(free_text)
       if ku
         @used_seed_waka_id = seed[:waka_id]
@@ -79,6 +95,35 @@ class StepwiseWakaGenerator
       feedback = violation.merge(ku: free_text)
     end
     nil
+  end
+
+  # Step1.5（音数調整）: Step2通過後のfree_textの総モーラ数が両極端な場合、
+  # 核心への凝縮（長すぎ）または遠景の追加（短すぎ）を指示する推敲を挟む。
+  # 適正範囲（FREE_VERSE_MORA_SHORT_THRESHOLD〜FREE_VERSE_MORA_LONG_THRESHOLD）に
+  # 収まるか、上限回数に達するまで繰り返す（収束しなくてもfree_textは返す。
+  # 最終的な31音への精密な書き換えはStep3が担うため、ここでは大きな振れ幅の
+  # 補正に留める）。
+  def adjust_free_verse_length(free_text)
+    text = free_text
+    MAX_LENGTH_ADJUST_ATTEMPTS.times do
+      total_mora = total_mora_of(text)
+      direction  =
+        if total_mora > FREE_VERSE_MORA_LONG_THRESHOLD
+          :condense
+        elsif total_mora < FREE_VERSE_MORA_SHORT_THRESHOLD
+          :expand
+        end
+      return text if direction.nil?
+
+      prompt = build_length_adjust_prompt(text, direction)
+      raw    = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5)
+      text   = first_line(raw)
+    end
+    text
+  end
+
+  def total_mora_of(text)
+    morphemes_of(text, @nm).sum { |m| m[:mora] }
   end
 
   # Step3（31音への書き換え） ⇄ Step4（機械抽出）の往復
@@ -258,6 +303,31 @@ class StepwiseWakaGenerator
       【出力形式】
       書き換えた和歌だけを一行で出力してください。見出し・説明・前置き・引用符は不要です。
       書き換え：
+    PROMPT
+  end
+
+  # Step1.5用プロンプト。direction: :condense（長すぎ）/ :expand（短すぎ）
+  def build_length_adjust_prompt(text, direction)
+    instruction =
+      case direction
+      when :condense
+        "描いた情景の中から「一番残したい核心の情景」に焦点を絞り、余分な状況説明を削ぎ落として、" \
+        "三十一音前後の密度の高い和歌へ要約・凝縮してください。"
+      when :expand
+        "手元の描写に留まっています。ふっと顔を上げて見上げた遠くの情景（空、光、風、市井の気配など）を加え、" \
+        "手元の静けさと遠くの広がり（対比）を意識して三十一音の和歌へ押し広げてください。"
+      end
+
+    <<~PROMPT
+      以下の和歌の下書きを推敲してください。
+      #{instruction}
+
+      【下書き】
+      #{text}
+
+      【出力形式】
+      推敲した和歌だけを一行で出力してください。見出し・説明・前置き・引用符は不要です。
+      推敲：
     PROMPT
   end
 end

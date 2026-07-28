@@ -116,6 +116,86 @@ RSpec.describe StepwiseWakaGenerator do
     end
   end
 
+  describe "#total_mora_of (private、Step1.5)" do
+    let(:nm) { Natto::MeCab.new }
+
+    it "テキストの総モーラ数を返す" do
+      generator = build("まえく", :tanku, constraints: {})
+      generator.instance_variable_set(:@nm, nm)
+      expect(generator.send(:total_mora_of, "つきかげ")).to eq(4)
+    end
+  end
+
+  describe "#adjust_free_verse_length (private、Step1.5)" do
+    let(:nm) { Natto::MeCab.new }
+
+    def build_with_nm(nm)
+      generator = build("まえく", :tanku, constraints: {})
+      generator.instance_variable_set(:@nm, nm)
+      generator
+    end
+
+    it "適正範囲（25〜50音）ならOllamaを呼ばずそのまま返す" do
+      generator = build_with_nm(nm)
+      expect(OllamaClient).not_to receive(:generate)
+      text = "つきかげやたなびくくものしろたへにあきかぜぞふくこひしかりけり" # 30音
+      expect(generator.send(:adjust_free_verse_length, text)).to eq(text)
+    end
+
+    it "50音を超える場合は凝縮方向の推敲プロンプトでOllamaを呼び、結果を返す" do
+      generator = build_with_nm(nm)
+      long_text = "つ" * 60
+      expect(OllamaClient).to receive(:generate) do |prompt, **_opts|
+        expect(prompt).to include("核心の情景")
+        "つきかげやたなびくくものしろたへにあきかぜぞふくこひしかりけり"
+      end
+      result = generator.send(:adjust_free_verse_length, long_text)
+      expect(result).to eq("つきかげやたなびくくものしろたへにあきかぜぞふくこひしかりけり")
+    end
+
+    it "25音未満の場合は遠景を加える推敲プロンプトでOllamaを呼び、結果を返す" do
+      generator = build_with_nm(nm)
+      short_text = "つきかげ" # 4音
+      expect(OllamaClient).to receive(:generate) do |prompt, **_opts|
+        expect(prompt).to include("遠くの情景")
+        "つきかげやたなびくくものしろたへにあきかぜぞふくこひしかりけり"
+      end
+      result = generator.send(:adjust_free_verse_length, short_text)
+      expect(result).to eq("つきかげやたなびくくものしろたへにあきかぜぞふくこひしかりけり")
+    end
+
+    it "上限回数内で収まらない場合、上限で打ち切り最後の結果を返す（無限ループしない）" do
+      generator = build_with_nm(nm)
+      short_text = "つきかげ"
+      call_count = 0
+      allow(OllamaClient).to receive(:generate) do
+        call_count += 1
+        "つきかげ" # 常に短いまま→毎回expand方向のまま
+      end
+      result = generator.send(:adjust_free_verse_length, short_text)
+      expect(call_count).to eq(StepwiseWakaGenerator::MAX_LENGTH_ADJUST_ATTEMPTS)
+      expect(result).to eq("つきかげ")
+    end
+  end
+
+  describe "#build_length_adjust_prompt (private、Step1.5)" do
+    it "condense方向は核心への凝縮を指示し、下書きを含む" do
+      generator = build("まえく", :tanku)
+      prompt = generator.send(:build_length_adjust_prompt, "ながいしたがき", :condense)
+      expect(prompt).to include("核心の情景")
+      expect(prompt).to include("要約・凝縮")
+      expect(prompt).to include("ながいしたがき")
+    end
+
+    it "expand方向は遠景の追加を指示し、下書きを含む" do
+      generator = build("まえく", :tanku)
+      prompt = generator.send(:build_length_adjust_prompt, "みじかいしたがき", :expand)
+      expect(prompt).to include("遠くの情景")
+      expect(prompt).to include("押し広げて")
+      expect(prompt).to include("みじかいしたがき")
+    end
+  end
+
   describe "#content_violation (private、Step2)" do
     it "前句エコーを検出する" do
       generator = build("かすみたなびく", :tanku)
