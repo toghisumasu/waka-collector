@@ -1,0 +1,242 @@
+# frozen_string_literal: true
+
+# 其の七十三: 其の七十二の一発生成方式（:waka_extraction）は「文脈継承」
+# 「前句非重複」「31音厳守」を1回のプロンプトで同時に要求しており、qwen3:8b
+# では3条件を同時に満たす確率が低かった。生成を4ステップに分割し、LLMには
+# 「自由な文脈生成（Step1）」と「形式への書き換え（Step3）」という単純な
+# タスクだけを与える。式目・内容面のチェック（Step2）と機械抽出（Step4）は
+# Ruby側で行い、モデルへの重い書き換え依頼はStep2を通過した候補に限定する。
+#
+#   Step1 自由詠み  … 音数制約なしで前句に連なる和歌をLLMに詠ませる
+#   Step2 内容判定  … 前句エコー・既出表現・禁じ手の語をRuby側でチェック
+#   Step3 形式整形  … Step2通過後のテキストを31音に書き換えさせる
+#   Step4 機械抽出  … 31音のテキストから必要な短句/長句をextract_mora_segmentで切り出す
+#
+# RengaGenerator#generate_tsugekuからconstraints[:generation_strategy] == :waka_extraction
+# の場合に委譲される。pool（filter_pool済み）・nm（MeCabインスタンス）・bui_dictは
+# 呼び出し側で構築済みのものを注入する。
+class StepwiseWakaGenerator
+  include VerseTextAnalysis
+
+  MAX_DRAFT_ATTEMPTS   = 5 # Step1やり直し（新しいseedで最初から）
+  MAX_CONTENT_RETRIES  = 3 # Step1→Step2内容チェックの往復（同じseed）
+  MAX_REWRITE_ATTEMPTS = 5 # Step3→Step4整形・抽出の往復（同じfree_text）
+
+  # 其の七十二 D-72-4: 目標モーラ数（五・七・五・七・七＝31音）と許容誤差。
+  # extract_mora_segmentが偶然non-nilを返しても、総モーラ数が31から
+  # 大きく外れていると句境界と無関係な断片になることが実地確認で判明したため、
+  # 誤差±2音を超える場合は成功扱いにしない。
+  WAKA_TOTAL_MORA           = 31
+  WAKA_TOTAL_MORA_TOLERANCE = 2
+
+  attr_reader :used_seed_waka_id
+
+  def initialize(maeku, verse_type, constraints:, pool:, nm:, bui_dict:)
+    @maeku         = maeku
+    @verse_type    = verse_type
+    @constraints   = constraints
+    @verse_history = constraints[:verse_history] || []
+    @pool          = pool
+    @nm            = nm
+    @bui_dict      = bui_dict
+  end
+
+  def generate
+    MAX_DRAFT_ATTEMPTS.times do
+      seed      = @pool.sample
+      free_text = generate_free_verse(seed)
+      next if free_text.nil? # Step1〜2の往復を使い切った→新しいseedへ
+
+      ku = rewrite_and_extract(free_text)
+      if ku
+        @used_seed_waka_id = seed[:waka_id]
+        return ku
+      end
+    end
+    nil
+  end
+
+  private
+
+  # Step1（自由詠み） ⇄ Step2（内容判定）の往復
+  def generate_free_verse(seed)
+    feedback = nil
+    MAX_CONTENT_RETRIES.times do
+      season_label = season_label_for(seed)
+      prompt       = build_free_verse_prompt(seed, feedback, season_label)
+      raw          = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.6)
+      free_text    = first_line(raw)
+
+      violation = content_violation(free_text)
+      return free_text if violation.nil?
+
+      feedback = violation.merge(ku: free_text)
+    end
+    nil
+  end
+
+  # Step3（31音への書き換え） ⇄ Step4（機械抽出）の往復
+  def rewrite_and_extract(free_text)
+    feedback = nil
+    MAX_REWRITE_ATTEMPTS.times do
+      prompt    = build_mora_rewrite_prompt(free_text, feedback)
+      raw       = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5)
+      mora_text = first_line(raw)
+
+      seg, failure = extract_and_validate(mora_text)
+      return seg[:surface] if seg
+
+      feedback = failure.merge(ku: mora_text)
+    end
+    nil
+  end
+
+  # Step2: 内容判定（LLM呼び出しなし）。前句エコー・一巻内の既出表現・
+  # forbidden_buiの語を検出した場合、Step1への詠み直し理由として返す。
+  # 季語の必須化（季節ヒントの語が本文に無ければ違反、とする）は挙動変更の
+  # 影響が読みにくいため今回は含めない（プロンプト側の指示止まり）。
+  def content_violation(free_text)
+    if maeku_echo?(free_text)
+      return { issue: "前句エコー", message: "前句をそのまま繰り返さず、新しい言葉で詠み直してください" }
+    end
+
+    if history_repeat?(free_text)
+      return { issue: "既出", message: "この一巻で既に詠まれた表現に近いため、別の言葉で詠み直してください" }
+    end
+
+    forbidden_bui = @constraints[:forbidden_bui] || []
+    if forbidden_bui.any?
+      hit = @bui_dict.detect_all(free_text, @nm) & forbidden_bui
+      return { issue: "禁じ手（#{hit.join('・')}）", message: "その部立の語を避けて詠み直してください" } if hit.any?
+    end
+
+    nil
+  end
+
+  # Step4: 機械抽出。其の七十二 D-72-4（総モーラ数許容誤差）・D-72-5（前句エコー
+  # 再検出）のガードをそのまま踏襲する（Step3の書き換えでも同じ問題が再発し得るため）。
+  def extract_and_validate(mora_text)
+    ms         = morphemes_of(mora_text, @nm)
+    total_mora = ms.sum { |m| m[:mora] }
+    skip, take = waka_extraction_bounds
+    seg        = extract_mora_segment(ms, skip, take)
+
+    echoes = maeku_echo?(mora_text) || (seg && maeku_echo?(seg[:surface]))
+    over   = !waka_total_mora_within_tolerance?(total_mora)
+    seg    = nil if echoes || over
+
+    return [seg, nil] if seg
+
+    failure =
+      if echoes
+        { issue: "前句エコー", message: "前句をそのまま繰り返さず、新しい言葉で三十一音に書き換えてください" }
+      elsif over
+        { issue: "#{total_mora}音（三十一音から#{WAKA_TOTAL_MORA_TOLERANCE}音超逸脱）",
+          message: "五・七・五・七・七、計三十一音を超えず、かつ短すぎないよう書き換えてください" }
+      else
+        { issue: "区切り不一致", message: "五・七・五・七・七の音数の区切りで書き換えてください" }
+      end
+    [nil, failure]
+  end
+
+  # chouku（長句・五七五＝17音）は先頭17音、tanku（短句・七七＝14音）は
+  # 17音スキップして残り14音を、31音の和歌テキストから切り出す。
+  def waka_extraction_bounds
+    @verse_type == :chouku ? [0, 17] : [17, 14]
+  end
+
+  def waka_total_mora_within_tolerance?(total_mora)
+    (total_mora - WAKA_TOTAL_MORA).abs <= WAKA_TOTAL_MORA_TOLERANCE
+  end
+
+  def season_label_for(seed)
+    season_hint = @constraints[:season_hint]
+    if season_hint && season_hint[:must_switch]
+      seed[:season] || "雑"
+    else
+      season_hint&.dig(:current) || RengaGenerator::SEASON_JP[maeku_season] || "雑"
+    end
+  end
+
+  def maeku_season
+    RengaGenerator::SEASON_WORDS.find { |_, words| words.any? { |w| @maeku.include?(w) } }&.first
+  end
+
+  # forbidden_bui（禁じ手）の注記行・季語指定/季の情趣を詠ませる行を返す。
+  # RengaGenerator#directive_linesと同等ロジック（静的データはRengaGenerator::の定数を参照）。
+  def directive_lines(season_label)
+    forbidden_bui = @constraints[:forbidden_bui] || []
+    kinshi = if forbidden_bui.any?
+      desc = forbidden_bui.map { |b| RengaGenerator::BUI_EXAMPLE_WORDS[b] || b }.join("・")
+      "禁：#{desc}の語は避けること。\n"
+    else
+      ""
+    end
+    kigo_words = kigo_hint(season_label)
+    kigo_line  = if kigo_words.any?
+      "季語「#{kigo_words.join('・')}」のいずれかを必ず詠み込むこと。\n"
+    elsif season_label != "雑"
+      "#{season_label}の情趣を詠むこと。\n"
+    else
+      ""
+    end
+    [kigo_line, kinshi]
+  end
+
+  def kigo_hint(season_label)
+    season_key = RengaGenerator::SEASON_JP.invert[season_label]
+    return [] unless season_key
+    forbidden_bui = @constraints[:forbidden_bui] || []
+    candidates = RengaGenerator::SEASON_WORDS[season_key].reject do |w|
+      bui = RengaGenerator::KIGO_BUI[w]
+      bui && forbidden_bui.include?(bui)
+    end
+    candidates.reject { |w| @maeku.include?(w) }.shuffle.first(2)
+  end
+
+  # 其の七十三 D-73-1: 音数制約を外しただけでは、モデルが7〜25音程度の
+  # 短いフレーズで終わらせてしまい、Step3で31音まで伸ばしきれない問題が
+  # 実地確認で判明。「三十一音程度・短いフレーズで終わらせない」という
+  # 下限の目安を明示する。
+  def build_free_verse_prompt(seed, feedback, season_label)
+    feedback_note      = feedback ? "※前回の「#{feedback[:ku]}」は#{feedback[:issue]}でした。#{feedback[:message]}\n" : ""
+    kigo_line, kinshi = directive_lines(season_label)
+
+    <<~PROMPT
+      あなたは連歌の宗匠です。
+      前句の情趣をふまえ、下の連想語も参考にしながら、新しい和歌を自由に詠んでください。
+      三十一音程度（目安として三十〜三十五音前後）を目指し、情景を詳しく描写してください。
+      短いフレーズだけで終わらせないこと。
+      前句の言葉をそのまま和歌に含めてはいけません。連想語だけを単独で出力してはいけません。
+      #{kigo_line}#{kinshi}#{feedback_note}
+      前句：#{@maeku}
+      連想：#{seed[:surface]}
+      季節：#{season_label}
+
+      和歌の本文だけを一行で出力してください。説明や前置きは不要です。
+      和歌：
+    PROMPT
+  end
+
+  # 其の七十三 D-73-2: フィードバック文言を書き換え対象の直後（和歌：free_text
+  # の次の行）に置くと、モデルがフィードバック文をそのまま出力に複写してしまう
+  # （前回の書き換え「X」は7音…といった文言ごと出力に混入する）ことが
+  # 実地確認で判明。フィードバックを指示ブロック側（対象テキストより前）に
+  # 移し、対象テキストと出力形式指示を見出し（【】）で明確に区切ることで
+  # 「テキストの続きとして指示文を複写する」誤りを防ぐ。
+  def build_mora_rewrite_prompt(free_text, feedback)
+    feedback_note = feedback ? "※前回の書き換え「#{feedback[:ku]}」は#{feedback[:issue]}でした。#{feedback[:message]}\n" : ""
+
+    <<~PROMPT
+      以下の和歌の意味や情景のニュアンスを保ったまま、五・七・五・七・七（合計三十一音）の形に書き換えてください。
+      三十一音を超えないこと。短すぎるのも誤りです。区切り記号（／や・など）は使わず、一続きの文として書くこと。
+      #{feedback_note}
+      【書き換え対象】
+      #{free_text}
+
+      【出力形式】
+      書き換えた和歌だけを一行で出力してください。見出し・説明・前置き・引用符は不要です。
+      書き換え：
+    PROMPT
+  end
+end
