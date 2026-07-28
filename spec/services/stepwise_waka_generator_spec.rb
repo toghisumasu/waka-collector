@@ -36,11 +36,12 @@ RSpec.describe StepwiseWakaGenerator do
   end
 
   describe "#build_free_verse_prompt (private、Step1)" do
-    let(:seed) { { surface: "つきかげ", season: "秋" } }
+    let(:seed)    { { surface: "つきかげ", season: "秋" } }
+    let(:persona) { WakaPersona::PERSONAS[:hermit] }
 
     it "前句・連想・季節を含み、三十一音程度を目安に短く終わらせないよう指示する" do
       generator = build("しぐれふるなり", :tanku)
-      prompt = generator.send(:build_free_verse_prompt, seed, nil, "秋")
+      prompt = generator.send(:build_free_verse_prompt, seed, nil, "秋", persona)
       expect(prompt).to include("しぐれふるなり")
       expect(prompt).to include("つきかげ")
       expect(prompt).to include("秋")
@@ -50,7 +51,7 @@ RSpec.describe StepwiseWakaGenerator do
 
     it "前句の複写・連想語単独出力を禁止する" do
       generator = build("しぐれふるなり", :tanku)
-      prompt = generator.send(:build_free_verse_prompt, seed, nil, "秋")
+      prompt = generator.send(:build_free_verse_prompt, seed, nil, "秋", persona)
       expect(prompt).to include("前句の言葉をそのまま和歌に含めてはいけません")
       expect(prompt).to include("連想語だけを単独で出力してはいけません")
     end
@@ -59,9 +60,32 @@ RSpec.describe StepwiseWakaGenerator do
       generator = build("しぐれふるなり", :tanku)
       feedback  = { ku: "しぐれふるなりけり", issue: "前句エコー",
                     message: "前句をそのまま繰り返さず、新しい言葉で詠み直してください" }
-      prompt = generator.send(:build_free_verse_prompt, seed, feedback, "秋")
+      prompt = generator.send(:build_free_verse_prompt, seed, feedback, "秋", persona)
       expect(prompt).to include("前句エコー")
       expect(prompt).to include("前句をそのまま繰り返さず、新しい言葉で詠み直してください")
+    end
+
+    it "指定されたペルソナの名前・立ち位置・視線移動・ネガティブ指示を含む" do
+      generator = build("しぐれふるなり", :tanku)
+      prompt = generator.send(:build_free_verse_prompt, seed, nil, "秋", persona)
+      expect(prompt).to include("【ペルソナ】")
+      expect(prompt).to include(persona[:name])
+      expect(prompt).to include(persona[:stance])
+      expect(prompt).to include("【視座の移動】")
+      expect(prompt).to include(persona[:gaze_path][0])
+      expect(prompt).to include(persona[:gaze_path][1])
+      expect(prompt).to include(persona[:gaze_path][2])
+      expect(prompt).to include("【描写の注意】")
+      expect(prompt).to include(WakaPersona::NEGATIVE_INSTRUCTION)
+    end
+
+    it "ペルソナが変われば視座の記述も変わる" do
+      generator = build("しぐれふるなり", :tanku)
+      hermit_prompt = generator.send(:build_free_verse_prompt, seed, nil, "秋", WakaPersona::PERSONAS[:hermit])
+      youth_prompt  = generator.send(:build_free_verse_prompt, seed, nil, "秋", WakaPersona::PERSONAS[:youth])
+      expect(hermit_prompt).not_to eq(youth_prompt)
+      expect(hermit_prompt).to include(WakaPersona::PERSONAS[:hermit][:name])
+      expect(youth_prompt).to include(WakaPersona::PERSONAS[:youth][:name])
     end
   end
 

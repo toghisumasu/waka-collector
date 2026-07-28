@@ -15,6 +15,9 @@
 # RengaGenerator#generate_tsugekuからconstraints[:generation_strategy] == :waka_extraction
 # の場合に委譲される。pool（filter_pool済み）・nm（MeCabインスタンス）・bui_dictは
 # 呼び出し側で構築済みのものを注入する。
+#
+# 其の七十四: constraints[:persona]（:youth/:hermit/:woman/:random/未指定）で
+# Step1に注入するペルソナ（視座）を指定できる。詳細はWakaPersonaを参照。
 class StepwiseWakaGenerator
   include VerseTextAnalysis
 
@@ -39,13 +42,15 @@ class StepwiseWakaGenerator
     @pool          = pool
     @nm            = nm
     @bui_dict      = bui_dict
+    @persona_key   = constraints[:persona]
   end
 
   def generate
     MAX_DRAFT_ATTEMPTS.times do
       seed      = @pool.sample
-      free_text = generate_free_verse(seed)
-      next if free_text.nil? # Step1〜2の往復を使い切った→新しいseedへ
+      persona   = WakaPersona.resolve(@persona_key, @maeku)
+      free_text = generate_free_verse(seed, persona)
+      next if free_text.nil? # Step1〜2の往復を使い切った→新しいseed・ペルソナへ
 
       ku = rewrite_and_extract(free_text)
       if ku
@@ -58,12 +63,13 @@ class StepwiseWakaGenerator
 
   private
 
-  # Step1（自由詠み） ⇄ Step2（内容判定）の往復
-  def generate_free_verse(seed)
+  # Step1（自由詠み） ⇄ Step2（内容判定）の往復。ペルソナはこの往復の間は
+  # 固定し、outer draft attempt（generateの5回ループ）ごとに再選択する。
+  def generate_free_verse(seed, persona)
     feedback = nil
     MAX_CONTENT_RETRIES.times do
       season_label = season_label_for(seed)
-      prompt       = build_free_verse_prompt(seed, feedback, season_label)
+      prompt       = build_free_verse_prompt(seed, feedback, season_label, persona)
       raw          = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.6)
       free_text    = first_line(raw)
 
@@ -198,15 +204,30 @@ class StepwiseWakaGenerator
   # 短いフレーズで終わらせてしまい、Step3で31音まで伸ばしきれない問題が
   # 実地確認で判明。「三十一音程度・短いフレーズで終わらせない」という
   # 下限の目安を明示する。
-  def build_free_verse_prompt(seed, feedback, season_label)
+  # 其の七十四: 抽象的・平板な描写に留まりがちな傾向への対策として、
+  # 「誰が・どこから詠むか」というペルソナ（WakaPersona）を注入し、
+  # 手元→目の前→遠景の視線移動を具体的に指示する。
+  def build_free_verse_prompt(seed, feedback, season_label, persona)
     feedback_note      = feedback ? "※前回の「#{feedback[:ku]}」は#{feedback[:issue]}でした。#{feedback[:message]}\n" : ""
     kigo_line, kinshi = directive_lines(season_label)
 
     <<~PROMPT
       あなたは連歌の宗匠です。
-      前句の情趣をふまえ、下の連想語も参考にしながら、新しい和歌を自由に詠んでください。
-      三十一音程度（目安として三十〜三十五音前後）を目指し、情景を詳しく描写してください。
-      短いフレーズだけで終わらせないこと。
+      これから、次のペルソナになりきって前句に情趣で連なる和歌を一首、自由に詠んでください。
+
+      【ペルソナ】
+      #{persona[:name]}。#{persona[:stance]}という立ち位置です。
+
+      【視座の移動】
+      次の順で視線を移し、それぞれを丁寧に描写すること。
+      一、手元・身近：#{persona[:gaze_path][0]}
+      二、目の前の対象：#{persona[:gaze_path][1]}
+      三、遠くの景色：#{persona[:gaze_path][2]}
+
+      【描写の注意】
+      #{WakaPersona::NEGATIVE_INSTRUCTION}
+
+      三十一音程度（目安として三十〜三十五音前後）を目指し、短いフレーズだけで終わらせないこと。
       前句の言葉をそのまま和歌に含めてはいけません。連想語だけを単独で出力してはいけません。
       #{kigo_line}#{kinshi}#{feedback_note}
       前句：#{@maeku}
