@@ -129,19 +129,44 @@ Step 1.5 は「大きな振れ幅の補正」に留め、31音への精密な収
 | `:hermit` | 世を捨てた庵の主 | 山深き草庵の軒端に座す隠者 |
 | `:woman` | 日々を営む女 | 格子窓のそばで手仕事をする女 |
 
-### gaze_path（視線移動）
+### 視座の与え方（gaze_mode）
 
-各ペルソナは3段の `gaze_path` を持ち、プロンプトで「この順に視線を移し、それぞれを丁寧に描写せよ」と指示する。
+`constraints[:gaze_mode]` で2方式を切り替える。既定は `:abstract`。
+
+| 値 | 内容 |
+|----|------|
+| `:abstract`（既定） | `GAZE_ZONES` から距離帯を **1つだけ** 選び、「どこを見るか・どの感覚で捉えるか」のみを渡す。景物の語はプロンプトに置かず、何を見つけるかはモデルに委ねる |
+| `:literal` | 其の七十四方式。ペルソナの `gaze_path` 3段をプロンプトへ直接埋め込む。効果比較専用 |
 
 ```
-一、手元・身近   … 例（:hermit）手にした冷たい茶碗や経机の木目
-二、目の前の対象 … 例（:hermit）軒端に落ちる雫や苔むした庭石
-三、遠くの景色   … 例（:hermit）谷間にたなびく霧や遠い山の稜線
+GAZE_ZONES
+  :near   手元・身近 … あなたの手や肌が触れているもの   （手触り・重み・温度）
+  :middle 目の前     … 視界の中で動いているもの         （音・色・移ろい）
+  :far    遠く       … 顔を上げた先に広がっているもの   （光・かすみ・奥行き）
 ```
 
-併せて `NEGATIVE_INSTRUCTION`（「客観的な状況説明や形容詞だけに頼らず、色・光・音・肌触りといった主体の身体感覚で描写すること」）を毎回添える。`gaze_path` の語彙が出力へ直接反映され、描写の質感が向上することを実地確認済み。
+距離帯は Step 1 の詠み直し（`MAX_CONTENT_RETRIES`）ごとに再抽選されるため、ペルソナが同じでも別の距離帯へ移って詠み直せる。`constraints[:gaze_zone]` で固定も可能。
 
-`keywords` は前句との一致数によるペルソナ自動選択（`WakaPersona.best_match`）にのみ使用し、プロンプトには含めない。
+`:literal` から `:abstract` へ改めた理由（其の七十七 D-77-2）：`gaze_path` はそのまま和歌に使える完成した名詞句であったため、qwen3:8b が創作ではなく**転記**を選んでいた。其の七十六 Phase A の診断では Step 1 出力9件中6件が `PERSONAS[:youth][:gaze_path][0]` と一字一句同じ句で始まり、その出力が次句の前句になることで `maeku_echo?` 違反となり、詠み直しても同じペルソナ・同じ `gaze_path` のため脱出できず nil に落ちていた。また3段すべてを「丁寧に描写」させる要求が31音の目標と両立せず、出力が長文と断片に二極化していた。
+
+併せて `NEGATIVE_INSTRUCTION`（「客観的な状況説明や形容詞だけに頼らず、色・光・音・肌触りといった主体の身体感覚で描写すること」）を毎回添える。
+
+`gaze_path` は `:literal` 専用の遺産データとして残している。`keywords` は前句との一致数によるペルソナ自動選択（`WakaPersona.best_match`）にのみ使用し、プロンプトには含めない。
+
+### ステップログ（StepwiseStepLogger）
+
+各ステップの入出力を `log/stepwise_steps_<YYYYMMDD>.jsonl` へ1行ずつ恒久記録する（`app/services/stepwise_step_logger.rb`）。プロンプト改善の効果測定に必要な実記録を残すのが目的で、生成ロジックには影響しない。
+
+| 記録される step | 内容 |
+|----------------|------|
+| `step1` / `step1.5` / `step3` | LLM呼び出し（出力テキスト・音数・所要秒数・プロンプトのdigest・失敗理由） |
+| `step2` / `step4` | Ruby側判定の結果（`verdict` / `issue`。LLM呼び出しなし） |
+
+`step1.5` は発動率を集計できるよう、閾値内でスキップした場合も `direction: "skip"` として記録する。
+
+`constraints[:log_context]` に `{batch:, verse_no:, attempt:}` を渡すと各行に載り、既存の `log/observation_*.jsonl` と突合できる（省略可）。`full_prompt: true` を加えるとプロンプト全文も記録する（既定は digest のみ）。
+
+計装は生成を止めない方針で、書き込み失敗・モーラ計算失敗はすべて飲み込み `Rails.logger` へ警告するだけに留める。テスト環境では既定の出力先を持たない（実ログを汚染しないため）。
 
 ---
 
@@ -162,6 +187,7 @@ app/
 │   ├── renga_generator.rb                # 付句生成（:direct 方式本体・方式振り分け）
 │   ├── stepwise_waka_generator.rb        # :waka_extraction 方式の4ステップ（+Step1.5）
 │   ├── waka_persona.rb                   # ペルソナ（視座）定義・選択
+│   ├── stepwise_step_logger.rb           # 各ステップ入出力のJSONL恒久記録
 │   ├── verse_text_analysis.rb            # 両方式共通のテキスト解析（モーラ計算・抽出）
 │   ├── shikimoku_checker.rb              # 式目ガードレール（純 Ruby・A層）
 │   ├── renga_checker.rb                  # 字数・去嫌の簡易チェック
@@ -208,9 +234,9 @@ bundle exec rspec                # 全体
 bundle exec rspec spec/services  # サービス層のみ
 ```
 
-現状：**108 examples / 5 failures / 20 pending**
+現状：**135 examples / 5 failures / 20 pending**
 
-- `spec/services` のみなら **83 examples / 0 failures / 14 pending**（green）
+- `spec/services` のみなら **110 examples / 0 failures / 14 pending**（green）
 - 残る 5 failures は `spec/models/waka_spec.rb`・`spec/requests/wakas_spec.rb` の **Waka ファクトリの既知バグ**によるもので、生成パイプラインとは無関係。
 
 主なサービス層 spec：
@@ -218,7 +244,8 @@ bundle exec rspec spec/services  # サービス層のみ
 | ファイル | 対象 |
 |----------|------|
 | `spec/services/stepwise_waka_generator_spec.rb` | 4ステップ + Step 1.5 パイプライン |
-| `spec/services/waka_persona_spec.rb` | ペルソナ定義・`resolve` / `best_match` |
+| `spec/services/waka_persona_spec.rb` | ペルソナ定義・`resolve` / `resolve_zone` / `best_match` |
+| `spec/services/stepwise_step_logger_spec.rb` | ステップログの記録内容・配線・失敗時の非停止 |
 | `spec/services/verse_text_analysis_spec.rb` | モーラ計算・`extract_mora_segment` |
 | `spec/services/ku_validator_spec.rb` / `waka_unidic_analyzer_spec.rb` | 読み解析・UniDic |
 
@@ -273,9 +300,10 @@ curl http://localhost:11434/api/generate \
 
 ## 既知の課題
 
-- **Step 3 の31音収束** — 31音（±2）へ安定収束しない。ペルソナ導入後にむしろ悪化した観測もある。
-- **`WakaPersona.best_match` の表記ゆれ** — `keywords` がひらがな/漢字の表記ゆれを吸収できず、ペルソナ自動選択が取りこぼす。
-- **Step 1.5 の閾値根拠** — 50音 / 25音は実データ不足のため、実地確認済みの極端事例（201音・14音）と既存目標値から暫定採用したもの。実運用データでの再検証が必要。
+- **Step 3 の31音収束** — 31音（±2）へ安定収束しない。其の七十六 Phase A（10句）では Step 3 が653回呼ばれて成功5回（0.8%）。`extract_mora_segment` が「累積モーラがちょうど17の位置に形態素境界が存在すること」を要求する点が構造的要因である可能性があり、実在の古典和歌を同ロジックへ通す検証が未実施。
+- **A層到達率** — 同 Phase A では生成試行35回のうち ShikimokuChecker へ到達したのは6回（17%）。残りは A層到達前の生成失敗・タイムアウト。`:waka_extraction` 方式は式目整合性を評価できる段階に達していない。
+- **`WakaPersona.best_match` の自己強化ループ** — youth が出力した「若草・露・光」を含む句が次句の前句になり、`best_match` が再び youth を選ぶ循環が実データで確認された（Phase A では10句中6句が youth）。`keywords` の表記ゆれ・語彙被覆不足（「糸」「指先」が woman に未登録など）も併存。前句からの推定をやめ輪番にする等の対策が未着手。
+- **Step 1.5 の閾値根拠と発動率** — 50音 / 25音は実データ不足のため暫定採用したもの。`:literal` 方式での Step 1 出力音数は 7〜67 に二極化し発動率67%（n=9）だったが、`:abstract` 方式では 15〜18 に収束する一方で下限25音を下回るため expand がほぼ毎回発動する見込み（n=4、要再計測）。閾値の再設定が必要。
 - **句数：秋の偏り** — 百韻通し観測で秋の比率が高止まりしており、`next_constraints` 配線後も改善していない。
 - **UniDic ユーザー辞書** — モデルファイル不足によりコンパイル未実現（MeCab 標準辞書側のみ対応済み）。
 

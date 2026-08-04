@@ -25,8 +25,12 @@
 # 14音の閉塞した手元描写など）に振れる実地事例が確認された。一発のプロンプトで
 # 31音ぴったりに収めようとするとモデルの創造性を殺すため、Step1とStep3の間に
 # 音数に応じた動的推敲（Step1.5）を挟み、収束するまで（上限付きで）繰り返す。
+#
+# 其の七十七: 各ステップの入出力をJSONLへ恒久記録する（StepwiseStepLogger）。
+# 記録専用であり、生成ロジックには影響しない。
 class StepwiseWakaGenerator
   include VerseTextAnalysis
+  include StepwiseStepLogger
 
   MAX_DRAFT_ATTEMPTS   = 5 # Step1やり直し（新しいseedで最初から）
   MAX_CONTENT_RETRIES  = 3 # Step1→Step2内容チェックの往復（同じseed）
@@ -58,12 +62,18 @@ class StepwiseWakaGenerator
     @nm            = nm
     @bui_dict      = bui_dict
     @persona_key   = constraints[:persona]
+    # 其の七十七 D-77-2: :abstract（既定、視座カテゴリのみ）/ :literal（其の七十四方式、比較用）
+    @gaze_mode     = constraints[:gaze_mode] || :abstract
   end
 
   def generate
-    MAX_DRAFT_ATTEMPTS.times do
+    MAX_DRAFT_ATTEMPTS.times do |draft_i|
       seed      = @pool.sample
       persona   = WakaPersona.resolve(@persona_key, @maeku)
+      # 其の七十七 D-77-1: ログ相関用。記録専用で生成ロジックからは参照しない。
+      @draft_attempt   = draft_i + 1
+      @current_seed    = seed
+      @current_persona = persona
       free_text = generate_free_verse(seed, persona)
       next if free_text.nil? # Step1〜2の往復を使い切った→新しいseed・ペルソナへ
 
@@ -83,13 +93,20 @@ class StepwiseWakaGenerator
   # 固定し、outer draft attempt（generateの5回ループ）ごとに再選択する。
   def generate_free_verse(seed, persona)
     feedback = nil
-    MAX_CONTENT_RETRIES.times do
+    MAX_CONTENT_RETRIES.times do |retry_i|
       season_label = season_label_for(seed)
-      prompt       = build_free_verse_prompt(seed, feedback, season_label, persona)
-      raw          = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.6)
-      free_text    = first_line(raw)
+      # 詠み直しごとに距離帯を再抽選する（同じペルソナのまま別の情景へ移れる）。
+      zone         = @gaze_mode == :literal ? nil : WakaPersona.resolve_zone(@constraints[:gaze_zone])
+      prompt       = build_free_verse_prompt(seed, feedback, season_label, persona, zone)
+      log_extra    = { content_retry: retry_i + 1, season_label: season_label,
+                       gaze_mode: @gaze_mode, gaze_zone: zone && zone[:key],
+                       feedback_issue: feedback && feedback[:issue] }
+      free_text    = log_step("step1", prompt: prompt, extra: log_extra) do
+        first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.6))
+      end
 
       violation = content_violation(free_text)
+      log_step_verdict("step2", text: free_text, issue: violation && violation[:issue], extra: log_extra)
       return free_text if violation.nil?
 
       feedback = violation.merge(ku: free_text)
@@ -105,7 +122,7 @@ class StepwiseWakaGenerator
   # 補正に留める）。
   def adjust_free_verse_length(free_text)
     text = free_text
-    MAX_LENGTH_ADJUST_ATTEMPTS.times do
+    MAX_LENGTH_ADJUST_ATTEMPTS.times do |adjust_i|
       total_mora = total_mora_of(text)
       direction  =
         if total_mora > FREE_VERSE_MORA_LONG_THRESHOLD
@@ -113,11 +130,17 @@ class StepwiseWakaGenerator
         elsif total_mora < FREE_VERSE_MORA_SHORT_THRESHOLD
           :expand
         end
-      return text if direction.nil?
+      # 発動率（其の七十六 6-5）を集計できるよう、スキップも1行記録する。
+      if direction.nil?
+        log_step_verdict("step1.5", text: text, extra: { adjust_attempt: adjust_i + 1, direction: "skip" })
+        return text
+      end
 
       prompt = build_length_adjust_prompt(text, direction)
-      raw    = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5)
-      text   = first_line(raw)
+      text   = log_step("step1.5", prompt: prompt, input_text: text,
+                        extra: { adjust_attempt: adjust_i + 1, direction: direction }) do
+        first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5))
+      end
     end
     text
   end
@@ -129,12 +152,17 @@ class StepwiseWakaGenerator
   # Step3（31音への書き換え） ⇄ Step4（機械抽出）の往復
   def rewrite_and_extract(free_text)
     feedback = nil
-    MAX_REWRITE_ATTEMPTS.times do
+    MAX_REWRITE_ATTEMPTS.times do |rewrite_i|
       prompt    = build_mora_rewrite_prompt(free_text, feedback)
-      raw       = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5)
-      mora_text = first_line(raw)
+      log_extra = { rewrite_attempt: rewrite_i + 1, feedback_issue: feedback && feedback[:issue] }
+      mora_text = log_step("step3", prompt: prompt, input_text: free_text, extra: log_extra) do
+        first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5))
+      end
 
+      # 其の七十六 未検証事項1（Step3失敗理由の内訳が不明）をここで埋める。
       seg, failure = extract_and_validate(mora_text)
+      log_step_verdict("step4", text: mora_text, issue: failure && failure[:issue],
+                       extra: log_extra.merge(extracted: seg && seg[:surface]))
       return seg[:surface] if seg
 
       feedback = failure.merge(ku: mora_text)
@@ -250,9 +278,10 @@ class StepwiseWakaGenerator
   # 実地確認で判明。「三十一音程度・短いフレーズで終わらせない」という
   # 下限の目安を明示する。
   # 其の七十四: 抽象的・平板な描写に留まりがちな傾向への対策として、
-  # 「誰が・どこから詠むか」というペルソナ（WakaPersona）を注入し、
-  # 手元→目の前→遠景の視線移動を具体的に指示する。
-  def build_free_verse_prompt(seed, feedback, season_label, persona)
+  # 「誰が・どこから詠むか」というペルソナ（WakaPersona）を注入する。
+  # 其の七十七 D-77-2: 視座の与え方はgaze_blockへ切り出した（既定は距離帯1つのみを
+  # 渡す:abstract方式。手元→目の前→遠景を一度に指示する其の七十四方式は:literal）。
+  def build_free_verse_prompt(seed, feedback, season_label, persona, zone = nil)
     feedback_note      = feedback ? "※前回の「#{feedback[:ku]}」は#{feedback[:issue]}でした。#{feedback[:message]}\n" : ""
     kigo_line, kinshi = directive_lines(season_label)
 
@@ -263,12 +292,7 @@ class StepwiseWakaGenerator
       【ペルソナ】
       #{persona[:name]}。#{persona[:stance]}という立ち位置です。
 
-      【視座の移動】
-      次の順で視線を移し、それぞれを丁寧に描写すること。
-      一、手元・身近：#{persona[:gaze_path][0]}
-      二、目の前の対象：#{persona[:gaze_path][1]}
-      三、遠くの景色：#{persona[:gaze_path][2]}
-
+      #{gaze_block(persona, zone)}
       【描写の注意】
       #{WakaPersona::NEGATIVE_INSTRUCTION}
 
@@ -282,6 +306,30 @@ class StepwiseWakaGenerator
       和歌の本文だけを一行で出力してください。説明や前置きは不要です。
       和歌：
     PROMPT
+  end
+
+  # 其の七十七 D-77-2: 視座ブロック。既定（:abstract）は距離帯と感覚チャネルのみを
+  # 渡し、何を見つけるかはモデルに委ねる。プロンプト中にコピー可能な完成句を
+  # 置かないことが目的なので、ここに具体的な景物の語を書き足してはならない。
+  # :literalは其の七十四方式（gaze_pathの直接埋め込み）で、効果比較専用。
+  def gaze_block(persona, zone)
+    if @gaze_mode == :literal
+      <<~BLOCK
+        【視座の移動】
+        次の順で視線を移し、それぞれを丁寧に描写すること。
+        一、手元・身近：#{persona[:gaze_path][0]}
+        二、目の前の対象：#{persona[:gaze_path][1]}
+        三、遠くの景色：#{persona[:gaze_path][2]}
+      BLOCK
+    else
+      zone ||= WakaPersona.resolve_zone
+      <<~BLOCK
+        【視座】
+        今回は「#{zone[:label]}」だけに目を向けて詠むこと。
+        #{zone[:cue]}を、その立ち位置に立ったあなた自身が見つけること。
+        何を見つけるかはあなたが決めてよい。#{zone[:sense]}で捉えること。
+      BLOCK
+    end
   end
 
   # 其の七十三 D-73-2: フィードバック文言を書き換え対象の直後（和歌：free_text

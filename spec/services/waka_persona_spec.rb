@@ -29,6 +29,30 @@ RSpec.describe WakaPersona do
     end
   end
 
+  describe ".resolve_zone（其の七十七 D-77-2）" do
+    it "キー指定は該当する距離帯を返す" do
+      expect(described_class.resolve_zone(:near)[:label]).to eq("手元・身近")
+      expect(described_class.resolve_zone(:far)[:label]).to eq("遠く")
+    end
+
+    it "未指定（nil）はいずれかの距離帯を返す" do
+      expect(WakaPersona::GAZE_ZONES).to include(described_class.resolve_zone)
+    end
+
+    it "未知のキーはArgumentErrorを送出する" do
+      expect { described_class.resolve_zone(:nowhere) }.to raise_error(ArgumentError)
+    end
+
+    it "距離帯は具体的な景物の語を含まない（丸写しの原因を作らない）" do
+      # 「若草」「露」など、そのまま和歌に使える名詞をcueに入れてはならない
+      concrete_words = WakaPersona::PERSONAS.values.flat_map { |p| p[:gaze_path] }
+      WakaPersona::GAZE_ZONES.each do |zone|
+        text = "#{zone[:label]}#{zone[:cue]}#{zone[:sense]}"
+        concrete_words.each { |w| expect(text).not_to include(w) }
+      end
+    end
+  end
+
   describe ".best_match" do
     it "hermitのキーワードを含む前句はhermitと一致する" do
       expect(described_class.best_match("山深き草庵にひとり住む")).to eq(WakaPersona::PERSONAS[:hermit])

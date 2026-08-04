@@ -65,18 +65,49 @@ RSpec.describe StepwiseWakaGenerator do
       expect(prompt).to include("前句をそのまま繰り返さず、新しい言葉で詠み直してください")
     end
 
-    it "指定されたペルソナの名前・立ち位置・視線移動・ネガティブ指示を含む" do
+    it "指定されたペルソナの名前・立ち位置・視座・ネガティブ指示を含む" do
       generator = build("しぐれふるなり", :tanku)
       prompt = generator.send(:build_free_verse_prompt, seed, nil, "秋", persona)
       expect(prompt).to include("【ペルソナ】")
       expect(prompt).to include(persona[:name])
       expect(prompt).to include(persona[:stance])
+      expect(prompt).to include("【視座】")
+      expect(prompt).to include("【描写の注意】")
+      expect(prompt).to include(WakaPersona::NEGATIVE_INSTRUCTION)
+    end
+
+    # 其の七十七 D-77-2: 丸写しの原因（完成した詩句のプロンプト埋め込み）を除去したことの回帰試験
+    it "既定（:abstract）ではgaze_pathの完成句をプロンプトに含めない" do
+      generator = build("しぐれふるなり", :tanku)
+      prompt = generator.send(:build_free_verse_prompt, seed, nil, "秋", persona)
+      persona[:gaze_path].each { |phrase| expect(prompt).not_to include(phrase) }
+      expect(prompt).not_to include("【視座の移動】")
+    end
+
+    it "既定（:abstract）では距離帯を1つだけ指定する（3点同時描写を要求しない）" do
+      generator = build("しぐれふるなり", :tanku)
+      zone   = WakaPersona.resolve_zone(:near)
+      prompt = generator.send(:build_free_verse_prompt, seed, nil, "秋", persona, zone)
+      expect(prompt).to include(zone[:label])
+      expect(prompt).to include(zone[:cue])
+      other_labels = WakaPersona::GAZE_ZONES.reject { |z| z[:key] == :near }.map { |z| z[:label] }
+      other_labels.each { |label| expect(prompt).not_to include(label) }
+    end
+
+    it "何を見つけるかをモデルに委ねる指示を含む" do
+      generator = build("しぐれふるなり", :tanku)
+      prompt = generator.send(:build_free_verse_prompt, seed, nil, "秋", persona, WakaPersona.resolve_zone(:far))
+      expect(prompt).to include("あなた自身が見つける")
+      expect(prompt).to include("何を見つけるかはあなたが決めてよい")
+    end
+
+    it "gaze_mode: :literalなら其の七十四方式（gaze_path埋め込み）に戻る（比較用）" do
+      generator = build("しぐれふるなり", :tanku, constraints: { gaze_mode: :literal })
+      prompt = generator.send(:build_free_verse_prompt, seed, nil, "秋", persona)
       expect(prompt).to include("【視座の移動】")
       expect(prompt).to include(persona[:gaze_path][0])
       expect(prompt).to include(persona[:gaze_path][1])
       expect(prompt).to include(persona[:gaze_path][2])
-      expect(prompt).to include("【描写の注意】")
-      expect(prompt).to include(WakaPersona::NEGATIVE_INSTRUCTION)
     end
 
     it "ペルソナが変われば視座の記述も変わる" do
