@@ -45,26 +45,59 @@ module PromptTemplates
   end
 end
 
-# 完結性チェック（T3）: LLMを介さない機械的判定。
-# Phase 0で観測された失敗（断片のまま出力終了）を検出する。
+# 完結性チェック（T3・T6・T7改訂版）: LLMを介さない機械的判定。
 # 判定はモデルの自己申告に頼らない（モデルは誤った結果にも自信満々に「✅」を付ける傾向が
 # 一貫して観測されているため、Ruby側の機械的チェックに判定を一元化する）。
+#
+# T6改訂: 初版の「助詞終端の検出」では体言止め（助詞で終わらないが短い断片）を
+# 検出できず、条件B/Cの全件が complete: true になり比較実験が機能しなかった。
+# 体言止めは連歌の付句として正当な表現形式であり、終端の品詞では判定しない。
+# 代わりに、担当パート（五音／七音）に紐づけた文字数下限のみで足切りする。
+#
+# T7改訂: T6の文字数閾値だけでは、prompt_redesign_v2_results.jsonl（T6改訂後の
+# 再実行分）で観測された「山の露に秋風の音」等の断片を素通りさせてしまうことが
+# 判明した。この断片群に共通するのは、プロンプトの「今回の情景の手がかり」
+# （concrete_theme_phrase）に列挙した語句を、モデルがほぼそのまま出力に
+# 転写しているだけで、独自の句として構成し直していない点である。
+# そこで、テーマ語句のうち何割が出力に部分文字列としてそのまま含まれているかを
+# 検出し、全語句が転写されている場合は「テーマ語句の丸ごと転写」として不完全と
+# 判定する（自然な創作の結果テーマ語が1語だけ現れるのは許容し、全語一致のみを
+# 検出条件とすることで誤検出を避ける）。
 module CompletenessChecker
-  # Phase 0で観測された断片出力は5〜10文字程度だった（例:「山の露秋風」5文字）。
-  # ここでは閾値を厳しくしすぎて正当な短い句を誤検出するリスクを避けるため、
-  # 明確に異常な極端な短さ（1文字以下）のみを検出する暫定値とする。
-  SHORT_LENGTH_THRESHOLD = 2
+  # 担当パートごとの最低文字数（Rubyの String#length による機械的な文字数、
+  # モデルへの自己申告要求は行わない）。五音・七音それぞれで現実的に
+  # 成立しうる最短の文字数を暫定値として置く（例:「秋風」2文字で五音相当）。
+  PART_LENGTH_THRESHOLDS = {
+    five: 2,
+    seven: 3
+  }.freeze
 
-  # 「に」「て」「で」「が」「を」「の」「と」で終わる場合、接続助詞・格助詞で文が途切れ、
-  # 後続が省略されたまま出力が終わっている可能性が高いと判断する簡易ルール。
-  INCOMPLETE_ENDING_PARTICLES = %w[に て で が を の と].freeze
+  def self.part_key(part_label)
+    part_label.to_s.include?('7音') ? :seven : :five
+  end
 
-  def self.check(output)
+  # concrete_theme_phrase（例:「山の露、秋風」）を「、」「,」区切りで語句に分解する。
+  def self.theme_segments(concrete_theme_phrase)
+    concrete_theme_phrase.to_s.split(/[、,]/).map(&:strip).reject(&:empty?)
+  end
+
+  # テーマの全語句が出力にそのまま部分文字列として含まれているかどうか。
+  def self.theme_echo?(text, concrete_theme_phrase)
+    segments = theme_segments(concrete_theme_phrase)
+    return false if segments.empty?
+
+    segments.all? { |segment| text.include?(segment) }
+  end
+
+  def self.check(output, part_label = '5音', concrete_theme_phrase = nil)
     text = output.to_s.strip
     return { complete: false, reason: :empty } if text.empty?
-    return { complete: false, reason: :too_short } if text.length < SHORT_LENGTH_THRESHOLD
-    if INCOMPLETE_ENDING_PARTICLES.any? { |particle| text.end_with?(particle) }
-      return { complete: false, reason: :ends_with_particle }
+
+    threshold = PART_LENGTH_THRESHOLDS.fetch(part_key(part_label))
+    return { complete: false, reason: :too_short_for_part } if text.length < threshold
+
+    if concrete_theme_phrase && theme_echo?(text, concrete_theme_phrase)
+      return { complete: false, reason: :theme_echo }
     end
 
     { complete: true, reason: nil }
@@ -72,10 +105,20 @@ module CompletenessChecker
 end
 
 # 実験実行（T4・T5）
+# T8: 前句・concrete_theme・出力先を差し替え可能にした（追試用）。
+# デフォルト値はT4・T6・T7で使用した固定値のままとし、既存の実行結果との
+# 再現性を壊さない。
 class PromptRedesignV2Experiment
-  def initialize
+  DEFAULT_MAEKU = "玉なす月に鹿の声あり野辺の雪"
+  DEFAULT_CONCRETE_THEME = "山の露、秋風"
+  DEFAULT_OUTPUT_PATH = File.expand_path('../../../tmp/experiments/prompt_redesign_v2_results.jsonl', __FILE__)
+
+  def initialize(maeku: DEFAULT_MAEKU, concrete_theme: DEFAULT_CONCRETE_THEME, output_path: DEFAULT_OUTPUT_PATH)
     @client = OllamaExperimentClient.new('qwen3:8b')
     @results = []
+    @maeku = maeku
+    @concrete_theme = concrete_theme
+    @output_path = output_path
   end
 
   def run
@@ -107,13 +150,15 @@ class PromptRedesignV2Experiment
   end
 
   def generate(condition:, attempt_no:, prompt_builder:)
-    maeku = PromptTemplates.sample_maeku
+    maeku = @maeku
     persona = "世を捨てた庵の主として"
-    concrete_theme = "山の露、秋風"
+    concrete_theme = @concrete_theme
     part = "5音（第1句）"
 
     prompt = PromptTemplates.public_send(prompt_builder, maeku, persona, concrete_theme, part)
-    output = @client.generate(prompt, temperature: 0.6)
+    # 実測: 平均310秒/句・最大800秒/句のため、既定値(180秒)では正常なケースでも
+    # 打ち切られる。安全マージンを取り1200秒とする。
+    output = @client.generate(prompt, temperature: 0.6, timeout: 1200)
 
     {
       condition: condition,
@@ -123,7 +168,7 @@ class PromptRedesignV2Experiment
       concrete_theme: concrete_theme,
       prompt_type: prompt_builder.to_s,
       output: output,
-      completeness: CompletenessChecker.check(output),
+      completeness: CompletenessChecker.check(output, part, concrete_theme),
       timestamp: Time.now.iso8601(3)
     }
   rescue StandardError => e
@@ -141,7 +186,7 @@ class PromptRedesignV2Experiment
   end
 
   def save_results
-    path = File.expand_path('../../../tmp/experiments/prompt_redesign_v2_results.jsonl', __FILE__)
+    path = @output_path
     File.open(path, 'w') do |f|
       @results.each do |result|
         if result[:output]
