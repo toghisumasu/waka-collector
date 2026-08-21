@@ -102,7 +102,7 @@ class StepwiseWakaGenerator
                        gaze_mode: @gaze_mode, gaze_zone: zone && zone[:key],
                        feedback_issue: feedback && feedback[:issue] }
       free_text    = log_step("step1", prompt: prompt, extra: log_extra) do
-        first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.6))
+        first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.6, model: "qwen3:14b"))
       end
 
       violation = content_violation(free_text)
@@ -139,7 +139,7 @@ class StepwiseWakaGenerator
       prompt = build_length_adjust_prompt(text, direction)
       text   = log_step("step1.5", prompt: prompt, input_text: text,
                         extra: { adjust_attempt: adjust_i + 1, direction: direction }) do
-        first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5))
+        first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5, model: "qwen3:14b"))
       end
     end
     text
@@ -156,7 +156,7 @@ class StepwiseWakaGenerator
       prompt    = build_mora_rewrite_prompt(free_text, feedback)
       log_extra = { rewrite_attempt: rewrite_i + 1, feedback_issue: feedback && feedback[:issue] }
       mora_text = log_step("step3", prompt: prompt, input_text: free_text, extra: log_extra) do
-        first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5))
+        first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5, model: "qwen3:14b"))
       end
 
       # 其の七十六 未検証事項1（Step3失敗理由の内訳が不明）をここで埋める。

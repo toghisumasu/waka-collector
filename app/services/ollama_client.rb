@@ -13,7 +13,7 @@ class OllamaClient
   # 60秒より大幅に短く固定する（其の四十 D-40-1）。
   OPEN_TIMEOUT = 5
 
-  def self.generate(prompt, timeout: 300, think: true, temperature: nil)
+  def self.generate(prompt, timeout: 300, think: true, temperature: nil, model: MODEL)
     uri  = URI(API_URL)
     http = Net::HTTP.new(uri.host, uri.port)
     http.open_timeout = OPEN_TIMEOUT
@@ -21,7 +21,7 @@ class OllamaClient
 
     req = Net::HTTP::Post.new(uri.path)
     req["Content-Type"] = "application/json"
-    body = { model: MODEL, prompt: prompt, stream: false, think: think }
+    body = { model: model, prompt: prompt, stream: false, think: think }
     body[:temperature] = temperature if temperature
     req.body = body.to_json
 

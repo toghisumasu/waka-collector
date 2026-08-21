@@ -122,7 +122,7 @@ module OllamaProbe
   end
 
   # OllamaClient.generate / .chat をラップする。引数はzsuperでそのまま透過させる。
-  def generate(prompt, timeout: 300, think: true, temperature: nil)
+  def generate(prompt, timeout: 300, think: true, temperature: nil, model: OllamaClient::MODEL)
     OllamaProbe.record("generate", OllamaProbe.kind_of_prompt(prompt), timeout) { super }
   end
 
