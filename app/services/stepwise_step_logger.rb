@@ -70,6 +70,7 @@ module StepwiseStepLogger
       batch:         ctx[:batch],
       verse_no:      ctx[:verse_no],
       attempt:       ctx[:attempt],
+      maeku:         @maeku,
       verse_type:    @verse_type,
       step:          step,
       draft_attempt: @draft_attempt,
