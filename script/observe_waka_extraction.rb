@@ -313,7 +313,9 @@ catch(:attempt_cap_reached) do
               season_hint:   next_constraints[:season_hint],
               used_waka_ids: used_waka_ids,
               # ここが本スクリプトの唯一の本質的な差分（其の七十六 Phase A）
-              generation_strategy: :waka_extraction
+              generation_strategy: :waka_extraction,
+              # 其の七十八 Phase2: stepwise_stepsログのverse_noをnullにしないための紐付け
+              log_context: { batch: BATCH_NAME, verse_no: verse_no, attempt: attempt_no }
             }
           )
           tsugeku = generator.generate_tsugeku
