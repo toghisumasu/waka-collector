@@ -118,6 +118,13 @@ class RengaGenerator
     all_attempts = []
     result_ku   = nil
 
+    # 其の七十九 Step 0: 前句の核（情景・感覚・転換）を宗匠役のLLMに言語化させ、
+    # Step1（build_full_prompt）の生成コンテキストへ渡す。「前句に続けよ」という
+    # 接続指示だけでは前句の何が優れているかが伝わらないという其の七十八の
+    # 考察を受けた実験（褒め実験）。失敗時は例外を伝播させ、既存の
+    # attempt単位のリトライ（呼び出し側のMAX_RETRYループ）に委ねる。
+    @step0_note = step0_miitate
+
     m_season = maeku_season
     maeku_stems = KuValidator.new(@maeku).yomi_string.scan(/[ぁ-んゕゖ]{3,}/)
     m_nature = maeku_nature
@@ -387,16 +394,33 @@ class RengaGenerator
     feedback_line       = feedback ? "前回「#{feedback[:ku]}」は#{feedback[:issue]}。#{feedback[:message]}\n" : ""
     target_desc          = (@verse_type == :chouku) ? "五七五（17音）" : "七七（14音）"
     kigo_line, kinshi    = directive_lines(season_label)
+    step0_line           = @step0_note.present? ? "（#{@step0_note}）\n" : ""
 
     <<~PROMPT
       あなたは連歌の宗匠です。
       以下の前句を受け、その情景や情趣をふまえて、前句と合わせて短歌一首になるような新しい付け句を一句詠んでください（既存の句の再現は不可）。
       前句：#{@maeku}
-      連想：#{seed[:surface]}
+      #{step0_line}連想：#{seed[:surface]}
       季節：#{season_label}
       #{kigo_line}#{kinshi}#{feedback_line}#{target_desc}を一行だけ出力してください。説明や前置きは不要です。
       続き：
     PROMPT
+  end
+
+  # 其の七十九 Step 0: 前句の詩的な核（情景・感覚・転換）を1〜2文で言語化する。
+  # 「〇〇から〇〇へ転じること」の形で締めくくらせ、Step1が前句の何を
+  # 受け止めて転じるべきかを具体的に把握できるようにする。
+  def step0_miitate
+    prompt = <<~PROMPT
+      以下の句を読み、付句を作る宗匠として
+      この句の核にある情景・感覚・転換を1〜2文で言語化せよ。
+      出力は「〇〇から〇〇へ転じること」の形で締めくくること。
+      説明・解説は不要。
+
+      句：#{@maeku}
+    PROMPT
+    raw = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5)
+    raw.to_s.strip.lines.map(&:strip).reject(&:empty?).join
   end
 
   def kigo_hint(season_label)
