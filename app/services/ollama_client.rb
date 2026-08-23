@@ -6,7 +6,7 @@ require "json"
 class OllamaClient
   API_URL      = "http://localhost:11434/api/generate"
   API_URL_CHAT = "http://localhost:11434/api/chat"
-  MODEL = "qwen3:8b"
+  MODEL = ENV.fetch("WAKA_OLLAMA_MODEL", "qwen3:8b")
   MAX_TOOL_LOOPS = 5
 
   # localhostへの接続確立は通常ミリ秒単位で完了するため、Rubyデフォルトの
