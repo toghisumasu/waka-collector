@@ -46,6 +46,12 @@ class RengaGenerator
   FUKA_GETSU = %w[花 鳥 風 月 雪 霞 波 雲 雨 山 川 海 野 里 露 松 竹 草 水 煙 霧].freeze
   SEASON_JP  = { spring: "春", summer: "夏", autumn: "秋", winter: "冬" }.freeze
 
+  # 其の七十九 Step 0案A: 転換先の感覚ドメインをモデルの自由判断に委ねず、
+  # Ruby側でローテーションさせて決め打ちする。Step0に「〇〇から〇〇へ」の
+  # 転換先を自己判断させると「情景→心情（心が揺れる、等）」に収束する傾向が
+  # sono79観測で確認されたための対策。
+  SENSORY_DOMAINS = ["身体感覚（肌触り・重さ・温度）", "音", "光・色彩", "匂い"].freeze
+
   KIGO_BUI = {
     "霞" => "聳物", "かすみ" => "聳物", "霧" => "聳物", "きり" => "聳物",
     "月" => "光物", "朧" => "光物",
@@ -407,20 +413,23 @@ class RengaGenerator
     PROMPT
   end
 
-  # 其の七十九 Step 0: 前句の詩的な核（情景・感覚・転換）を1〜2文で言語化する。
-  # 「〇〇から〇〇へ転じること」の形で締めくくらせ、Step1が前句の何を
-  # 受け止めて転じるべきかを具体的に把握できるようにする。
+  # 其の七十九 Step 0（案A）: 前句の詩的な核（情景・感覚）を1文で言語化した上で、
+  # 転換先の感覚ドメインはモデルに選ばせず、SENSORY_DOMAINSからローテーションで
+  # 決め打ちする。転換先の自己判断を許すと「情景→心情」に収束しがちだったため。
   def step0_miitate
     prompt = <<~PROMPT
       以下の句を読み、付句を作る宗匠として
-      この句の核にある情景・感覚・転換を1〜2文で言語化せよ。
-      出力は「〇〇から〇〇へ転じること」の形で締めくくること。
-      説明・解説は不要。
+      この句の核にある情景・感覚を1文で言語化せよ。
+      説明・解説は不要、結論の1文のみを出力すること。
 
       句：#{@maeku}
     PROMPT
-    raw = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5)
-    raw.to_s.strip.lines.map(&:strip).reject(&:empty?).join
+    raw  = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5)
+    core = raw.to_s.strip.lines.map(&:strip).reject(&:empty?).join
+    return core if core.blank?
+
+    domain = SENSORY_DOMAINS[@verse_history.size % SENSORY_DOMAINS.size]
+    "#{core}この情景を受け、今度は#{domain}へ転じること"
   end
 
   def kigo_hint(season_label)
