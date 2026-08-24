@@ -182,19 +182,19 @@ class RengaGenerator
             socratic_mora_messages(last_mora_count, target_mora, past_mora_error_words),
             think: false, timeout: 300
           )
-          ku = first_line(raw)
+          ku = first_line(raw, maeku: @maeku)
         elsif repeat_streak >= 2
           raw = OllamaClient.chat(
             socratic_repeat_messages(past_repeat_words, target_mora),
             think: false, timeout: 300
           )
-          ku = first_line(raw)
+          ku = first_line(raw, maeku: @maeku)
         else
           prompt    = build_full_prompt(seed, example, feedback, season_label, forbidden_label)
           gen_start = Time.now
           raw       = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: temperature)
           Rails.logger.info "[RengaGenerator] attempt: #{Time.now - gen_start}s"
-          ku = first_line(raw)
+          ku = first_line(raw, maeku: @maeku)
         end
 
         ku_ms = morphemes_of(ku, nm)

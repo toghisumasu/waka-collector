@@ -6,8 +6,14 @@
 module VerseTextAnalysis
   YOUON = %w[ゃ ゅ ょ].freeze
 
-  def first_line(raw)
-    raw.to_s.strip.lines.map(&:strip).reject(&:empty?).first.to_s
+  def first_line(raw, maeku: nil)
+    lines = raw.to_s.strip.lines.map(&:strip).reject(&:empty?)
+    maeku_stripped = maeku&.strip
+    lines.each do |line|
+      next if maeku_stripped && line == maeku_stripped
+      return line
+    end
+    ""
   end
 
   def mora_from_yomi(yomi)
