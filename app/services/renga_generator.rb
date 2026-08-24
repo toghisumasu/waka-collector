@@ -90,13 +90,16 @@ class RengaGenerator
 
 
   def initialize(maeku, honka_candidates = [], verse_type = :tanku, constraints: {})
-    @maeku            = maeku
-    @honka_candidates = honka_candidates
-    @verse_type       = constraints[:verse_type] || verse_type
-    @constraints      = constraints
-    @bui_dict         = BuiDictionary.new
-    @verse_history    = constraints[:verse_history] || []
-    @strategy         = constraints[:generation_strategy] || :direct
+    @maeku              = maeku
+    @honka_candidates   = honka_candidates
+    @verse_type         = constraints[:verse_type] || verse_type
+    @constraints        = constraints
+    @bui_dict           = BuiDictionary.new
+    @verse_history      = constraints[:verse_history] || []
+    @strategy           = constraints[:generation_strategy] || :direct
+    @verse_no           = constraints[:verse_no]
+    @internal_log_batch = constraints[:batch_name] || "default"
+    @internal_log_date  = constraints[:date] || Time.zone.now.strftime("%Y%m%d")
   end
 
   def generate_tsugeku
@@ -154,12 +157,15 @@ class RengaGenerator
     repeat_streak     = 0
     past_repeat_words = []
 
+    internal_attempt_no = 0
+
     5.times do
       seed         = pool.sample
       feedback     = nil
       wrong_streak = 0
 
       5.times do |attempt|
+        internal_attempt_no += 1
         example     = EXAMPLES[attempt % EXAMPLES.size]
         temperature = wrong_streak >= 2 ? 0.8 : 0.5
 
@@ -195,6 +201,12 @@ class RengaGenerator
         mora  = ku_ms.sum { |m| m[:mora] }
 
         if (mora - target_mora).abs > 1
+          log_internal_attempt(
+            internal_attempt: internal_attempt_no, raw_output: raw, first_line_result: ku,
+            mora_count: mora, target_mora: target_mora,
+            rejection_reason: ku.to_s.strip.empty? ? "empty" : "mora_mismatch"
+          )
+
           mora_error_streak += 1
           past_mora_error_words << ku
           past_mora_error_words.shift while past_mora_error_words.size > 3
@@ -228,7 +240,14 @@ class RengaGenerator
           repeat_streak = 0
         end
 
-        if !is_echo && !is_rep && !is_sticky && !is_history_repeat
+        accepted = !is_echo && !is_rep && !is_sticky && !is_history_repeat
+        log_internal_attempt(
+          internal_attempt: internal_attempt_no, raw_output: raw, first_line_result: ku,
+          mora_count: mora, target_mora: target_mora,
+          rejection_reason: accepted ? nil : internal_rejection_reason(is_echo, is_rep, is_sticky, is_history_repeat)
+        )
+
+        if accepted
           result_ku           = ku
           @used_seed_waka_id  = seed[:waka_id]
           used_afters << ku
@@ -256,6 +275,33 @@ class RengaGenerator
   end
 
   private
+
+  # 其の八十一: :direct戦略の内部生成ループ（5×5=25回）の各試行を、
+  # raw出力・first_line抽出後テキスト・モーラ数・不採用理由付きで
+  # 記録する（sono80の説明文混入調査でこの内部ループが完全に
+  # ブラックボックス化していたことが判明したための計装）。
+  def log_internal_attempt(internal_attempt:, raw_output:, first_line_result:, mora_count:, target_mora:, rejection_reason:)
+    path = Rails.root.join("log", "renga_internal_#{@internal_log_batch}_#{@internal_log_date}.jsonl")
+    File.open(path, "a") do |f|
+      f.puts({
+        verse_no:          @verse_no,
+        internal_attempt:  internal_attempt,
+        raw_output:        raw_output.to_s,
+        first_line_result: first_line_result,
+        mora_count:        mora_count,
+        target_mora:       target_mora,
+        rejection_reason:  rejection_reason
+      }.to_json)
+    end
+  rescue => e
+    Rails.logger.warn "[RengaGenerator] internal log書き込み失敗: #{e.message}"
+  end
+
+  def internal_rejection_reason(is_echo, is_rep, is_sticky, is_history_repeat)
+    return "echo" if is_echo || is_rep
+    return "content_violation" if is_sticky || is_history_repeat
+    "other"
+  end
 
   def build_mecab
     Natto::MeCab.new(userdic: USER_DIC)

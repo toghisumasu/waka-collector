@@ -243,7 +243,10 @@ catch(:attempt_cap_reached) do
               verse_history: verse_history,
               forbidden_bui: next_constraints[:forbidden_bui],
               season_hint:   next_constraints[:season_hint],
-              used_waka_ids: used_waka_ids
+              used_waka_ids: used_waka_ids,
+              batch_name:    BATCH_NAME,
+              date:          RUN_DATE,
+              verse_no:      verse_no
             }
           )
           tsugeku = generator.generate_tsugeku
