@@ -450,15 +450,10 @@ class RengaGenerator
     if mora > target_mora
       "#{target_mora}音になるよう、もっと短くしてください"
     else
-      deficit    = target_mora - mora
-      candidates = ENDING_BY_MORA[deficit] || []
-      if candidates.any?
-        "#{mora}音で#{deficit}音足りません。" \
-        "句末に#{candidates.map { |c| "「#{c}」" }.join("、")}などを" \
-        "足すと#{target_mora}音になります。"
-      else
-        "#{target_mora}音になるよう、もっと長くしてください"
-      end
+      deficit = target_mora - mora
+      "#{mora}音で#{deficit}音足りません。" \
+      "助詞・助動詞の追加で補うのではなく、情景・感覚を保ちながら" \
+      "句全体を別の言葉で詠み直し、#{target_mora}音にしてください。"
     end
   end
 
@@ -489,11 +484,7 @@ class RengaGenerator
                                   "#{target_mora}音を一行だけ出力してください。説明不要。" }
       ]
     else
-      deficit     = target_mora - last_mora_count
-      candidates  = ENDING_BY_MORA[deficit] || []
-      ending_hint = candidates.any? ?
-        "句末に#{candidates.map { |c| "「#{c}」" }.join("、")}などを足すと自然です。" :
-        "句末に文末表現を加えて長くしてください。"
+      deficit = target_mora - last_mora_count
 
       [
         { role: "user", content: "あなたはいま、同じような句を繰り返しています。" \
@@ -502,12 +493,13 @@ class RengaGenerator
                                   "#{deficit}音足りません。行き詰まっていることを認識してください。" },
         { role: "assistant", content: "はい、行き詰まっています。#{deficit}音足りず、" \
                                        "同じような句を繰り返しています。局面を打開する必要があります。" },
-        { role: "user", content: "連歌では句の末尾に文末表現を加えて音数を整えます。" \
-                                  "#{deficit}音足りない場合、#{ending_hint}" \
+        { role: "user", content: "音数が足りないとき、助詞や助動詞を句末に足して補う方法がありますが、" \
+                                  "それでは句が似通ってしまいます。助詞・助動詞の追加で補うのではなく、" \
+                                  "情景・感覚を保ちながら句全体を新たな言葉で詠み直すことが有効です。" \
                                   "理解できましたか？" },
-        { role: "assistant", content: "はい、理解しました。句末に文末表現を加えて" \
-                                       "#{target_mora}音に整えます。" },
-        { role: "user", content: "では句末に文末表現を加えて、これまでの候補にない語を用いて" \
+        { role: "assistant", content: "はい、理解しました。助詞・助動詞を足すのではなく、" \
+                                       "句全体を別の言葉で詠み直して#{target_mora}音に整えます。" },
+        { role: "user", content: "では句全体を新たな言葉で詠み直し、これまでの候補にない語を用いて" \
                                   "#{target_mora}音の付け句を詠んでください。\n" \
                                   "前句：#{@maeku}\n" \
                                   "これまでの候補（使用不可）：#{past_words.join('、')}\n" \
