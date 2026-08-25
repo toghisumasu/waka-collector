@@ -244,6 +244,7 @@ catch(:attempt_cap_reached) do
               forbidden_bui: next_constraints[:forbidden_bui],
               season_hint:   next_constraints[:season_hint],
               used_waka_ids: used_waka_ids,
+              forbidden_nanaku_words: next_constraints[:forbidden_nanaku_words],
               batch_name:    BATCH_NAME,
               date:          RUN_DATE,
               verse_no:      verse_no

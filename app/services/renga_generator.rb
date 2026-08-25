@@ -98,6 +98,7 @@ class RengaGenerator
     @verse_history      = constraints[:verse_history] || []
     @strategy           = constraints[:generation_strategy] || :direct
     @verse_no           = constraints[:verse_no]
+    @forbidden_nanaku_words = constraints[:forbidden_nanaku_words] || []
     @internal_log_batch = constraints[:batch_name] || "default"
     @internal_log_date  = constraints[:date] || Time.zone.now.strftime("%Y%m%d")
   end
@@ -177,15 +178,19 @@ class RengaGenerator
           season_hint&.dig(:current) || SEASON_JP[m_season] || "雑"
         end
 
+        tenji_hint = nil
+
         if mora_error_streak >= 2 && (last_mora_count > target_mora || mora_error_streak >= 3)
+          tenji_hint = tenji_kata_hint(@forbidden_nanaku_words)
           raw = OllamaClient.chat(
-            socratic_mora_messages(last_mora_count, target_mora, past_mora_error_words),
+            socratic_mora_messages(last_mora_count, target_mora, past_mora_error_words, tenji_hint),
             think: false, timeout: 300
           )
           ku = first_line(raw, maeku: @maeku)
         elsif repeat_streak >= 2
+          tenji_hint = tenji_kata_hint(@forbidden_nanaku_words)
           raw = OllamaClient.chat(
-            socratic_repeat_messages(past_repeat_words, target_mora),
+            socratic_repeat_messages(past_repeat_words, target_mora, tenji_hint),
             think: false, timeout: 300
           )
           ku = first_line(raw, maeku: @maeku)
@@ -204,7 +209,8 @@ class RengaGenerator
           log_internal_attempt(
             internal_attempt: internal_attempt_no, raw_output: raw, first_line_result: ku,
             mora_count: mora, target_mora: target_mora,
-            rejection_reason: ku.to_s.strip.empty? ? "empty" : "mora_mismatch"
+            rejection_reason: ku.to_s.strip.empty? ? "empty" : "mora_mismatch",
+            tenji_hint: tenji_hint
           )
 
           mora_error_streak += 1
@@ -244,7 +250,8 @@ class RengaGenerator
         log_internal_attempt(
           internal_attempt: internal_attempt_no, raw_output: raw, first_line_result: ku,
           mora_count: mora, target_mora: target_mora,
-          rejection_reason: accepted ? nil : internal_rejection_reason(is_echo, is_rep, is_sticky, is_history_repeat)
+          rejection_reason: accepted ? nil : internal_rejection_reason(is_echo, is_rep, is_sticky, is_history_repeat),
+          tenji_hint: tenji_hint
         )
 
         if accepted
@@ -280,7 +287,7 @@ class RengaGenerator
   # raw出力・first_line抽出後テキスト・モーラ数・不採用理由付きで
   # 記録する（sono80の説明文混入調査でこの内部ループが完全に
   # ブラックボックス化していたことが判明したための計装）。
-  def log_internal_attempt(internal_attempt:, raw_output:, first_line_result:, mora_count:, target_mora:, rejection_reason:)
+  def log_internal_attempt(internal_attempt:, raw_output:, first_line_result:, mora_count:, target_mora:, rejection_reason:, tenji_hint: nil)
     path = Rails.root.join("log", "renga_internal_#{@internal_log_batch}_#{@internal_log_date}.jsonl")
     File.open(path, "a") do |f|
       f.puts({
@@ -290,7 +297,8 @@ class RengaGenerator
         first_line_result: first_line_result,
         mora_count:        mora_count,
         target_mora:       target_mora,
-        rejection_reason:  rejection_reason
+        rejection_reason:  rejection_reason,
+        tenji_hint:        tenji_hint
       }.to_json)
     end
   rescue => e
@@ -478,6 +486,22 @@ class RengaGenerator
     "#{core}この情景を受け、今度は#{domain}へ転じること"
   end
 
+  # 其の八十三: Socratic再詠み（socratic_mora_messages / socratic_repeat_messages）の
+  # 前段で、局面打開の方向性を先にLLMへ提案させる。七句去物のうち現時点で
+  # 実際に句去制限にかかっている語（forbidden_nanaku_words、ShikimokuChecker#
+  # next_constraints経由）を提案から除外させることで、夢/月への語彙偏重
+  # （sono82分析で発見）を打開段階から避ける狙い。
+  def tenji_kata_hint(forbidden_words)
+    ban_line = forbidden_words.any? ? "ただし以下の語は使用済みのため提案に含めないこと：#{forbidden_words.join('、')}\n" : ""
+    prompt = <<~PROMPT
+      前句：#{@maeku}
+      連歌の付け句として、この句から転じる方向を3つ提案してください。
+      #{ban_line}
+    PROMPT
+    raw = OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5)
+    raw.to_s.strip
+  end
+
   def kigo_hint(season_label)
     season_key = SEASON_JP.invert[season_label]
     return [] unless season_key
@@ -507,7 +531,8 @@ class RengaGenerator
   # 閾値に達したときのSocratic三段階対話（自己認識→概念確認→詠み直し）。
   # 字余り方向は「雑（無季）への転換」、字足らず方向は「文末表現の追加」で
   # 局面打開を促す（季を強制するのは字余り方向のみ）。
-  def socratic_mora_messages(last_mora_count, target_mora, past_words)
+  def socratic_mora_messages(last_mora_count, target_mora, past_words, hint = nil)
+    hint_line = hint.present? ? "転じ方のヒント：#{hint}\n" : ""
     if last_mora_count > target_mora
       [
         { role: "user", content: "あなたはいま、同じような句を繰り返しています。" \
@@ -527,6 +552,7 @@ class RengaGenerator
                                   "#{target_mora}音の付け句を詠んでください。\n" \
                                   "前句：#{@maeku}\n" \
                                   "これまでの候補（使用不可）：#{past_words.join('、')}\n" \
+                                  "#{hint_line}" \
                                   "#{target_mora}音を一行だけ出力してください。説明不要。" }
       ]
     else
@@ -549,6 +575,7 @@ class RengaGenerator
                                   "#{target_mora}音の付け句を詠んでください。\n" \
                                   "前句：#{@maeku}\n" \
                                   "これまでの候補（使用不可）：#{past_words.join('、')}\n" \
+                                  "#{hint_line}" \
                                   "#{target_mora}音を一行だけ出力してください。説明不要。" }
       ]
     end
@@ -557,7 +584,8 @@ class RengaGenerator
   # 其の三十六: 履歴（一巻全体）との一致・類似がverse_no内で連続した際の
   # Socratic三段階対話。socratic_mora_messagesの字余り方向と同じ構造を流用し、
   # 内容を「雑（無季）へ」から「既出表現を避けよ」に差し替えている。
-  def socratic_repeat_messages(past_words, target_mora)
+  def socratic_repeat_messages(past_words, target_mora, hint = nil)
+    hint_line = hint.present? ? "転じ方のヒント：#{hint}\n" : ""
     [
       { role: "user", content: "あなたはいま、この百韻の中で既に詠まれた句と同じか、" \
                                 "非常によく似た句を繰り返しています。" \
@@ -573,6 +601,7 @@ class RengaGenerator
                                 "#{target_mora}音の付け句を詠んでください。\n" \
                                 "前句：#{@maeku}\n" \
                                 "これまでの候補（使用不可）：#{past_words.join('、')}\n" \
+                                "#{hint_line}" \
                                 "#{target_mora}音を一行だけ出力してください。説明不要。" }
     ]
   end

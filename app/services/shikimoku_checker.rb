@@ -454,13 +454,14 @@ class ShikimokuChecker
   # -------------------------------------------------------
   # next_constraints: 次句生成のための制約サマリーを返す
   # @param history [Array<Hash>]  verse Hash の配列（候補句は含まない）
-  # @return [Hash] { verse_type:, forbidden_bui:, season_hint: }
+  # @return [Hash] { verse_type:, forbidden_bui:, season_hint:, forbidden_nanaku_words: }
   # -------------------------------------------------------
   def next_constraints(history, bui_dict: nil)
     {
       verse_type:    next_verse_type(history),
       forbidden_bui: compute_forbidden_bui(history),
-      season_hint:   compute_season_hint(history)
+      season_hint:   compute_season_hint(history),
+      forbidden_nanaku_words: compute_forbidden_nanaku_words(history)
     }
   end
 
@@ -483,6 +484,23 @@ class ShikimokuChecker
       forbidden << bui if (n - j) < interval - 1
     end
     forbidden.uniq
+  end
+
+  # 其の八十三: 「転じ方ヒント」LLM呼び出し（RengaGenerator#tenji_kata_hint）が
+  # 使用不可語として渡すため、七句去物のうち現時点で実際に句去制限にかかって
+  # いる語（candidateを仮定せずhistoryのみから判定）を返す。判定ロジックは
+  # nanaku_gomono_violationsのlast_seen走査と同一（interval < NANAKU_GOMONO_INTERVAL）。
+  def compute_forbidden_nanaku_words(history)
+    n = history.size
+    last_seen = {}
+    history.each_with_index do |verse, i|
+      text = verse.is_a?(Hash) ? (verse[:text] || verse[:word]).to_s : verse.to_s
+      Array(@nanaku_words).each { |nw| last_seen[nw] = i + 1 if text.include?(nw) }
+    end
+    Array(@nanaku_words).select do |nw|
+      pos = last_seen[nw]
+      pos && (n + 1 - pos) < NANAKU_GOMONO_INTERVAL
+    end
   end
 
   def compute_season_hint(history)

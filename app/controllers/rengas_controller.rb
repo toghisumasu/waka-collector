@@ -67,7 +67,8 @@ class RengasController < ApplicationController
         verse_history: fetch_verse_history(previous_renga_id),
         forbidden_bui: next_constraints[:forbidden_bui],
         season_hint:   next_constraints[:season_hint],
-        used_waka_ids: fetch_used_waka_ids(previous_renga_id)
+        used_waka_ids: fetch_used_waka_ids(previous_renga_id),
+        forbidden_nanaku_words: next_constraints[:forbidden_nanaku_words]
       }
     )
     tsugeku = generator.generate_tsugeku
