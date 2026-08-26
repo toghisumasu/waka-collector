@@ -447,13 +447,19 @@ class RengaGenerator
     else
       ""
     end
-    [kigo_line, kinshi]
+    season_hint  = @constraints[:season_hint]
+    continue_line = if season_hint && season_hint[:must_continue]
+      "まだ#{season_label}を続けるべき局面です。他の季節や無季（雑）に転じないこと。\n"
+    else
+      ""
+    end
+    [kigo_line, kinshi, continue_line]
   end
 
   def build_full_prompt(seed, example, feedback, season_label, forbidden_label)
     feedback_line       = feedback ? "前回「#{feedback[:ku]}」は#{feedback[:issue]}。#{feedback[:message]}\n" : ""
     target_desc          = (@verse_type == :chouku) ? "五七五（17音）" : "七七（14音）"
-    kigo_line, kinshi    = directive_lines(season_label)
+    kigo_line, kinshi, continue_line = directive_lines(season_label)
     step0_line           = @step0_note.present? ? "（#{@step0_note}）\n" : ""
 
     <<~PROMPT
@@ -462,7 +468,7 @@ class RengaGenerator
       前句：#{@maeku}
       #{step0_line}連想：#{seed[:surface]}
       季節：#{season_label}
-      #{kigo_line}#{kinshi}#{feedback_line}#{target_desc}を一行だけ出力してください。説明や前置きは不要です。
+      #{kigo_line}#{kinshi}#{continue_line}#{feedback_line}#{target_desc}を一行だけ出力してください。説明や前置きは不要です。
       続き：
     PROMPT
   end
