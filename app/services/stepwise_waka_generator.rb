@@ -98,7 +98,12 @@ class StepwiseWakaGenerator
       # 詠み直しごとに距離帯を再抽選する（同じペルソナのまま別の情景へ移れる）。
       zone         = @gaze_mode == :literal ? nil : WakaPersona.resolve_zone(@constraints[:gaze_zone])
       prompt       = build_free_verse_prompt(seed, feedback, season_label, persona, zone)
+      sh           = @constraints[:season_hint] || {}
       log_extra    = { content_retry: retry_i + 1, season_label: season_label,
+                       # 其の八十五 must_continue Phase0: 季ヒントを構造化ログへ載せる（計装のみ）。
+                       season_current: sh[:current], season_count: sh[:count],
+                       must_switch: sh[:must_switch], must_continue: sh[:must_continue],
+                       seed_season: seed[:season],
                        gaze_mode: @gaze_mode, gaze_zone: zone && zone[:key],
                        feedback_issue: feedback && feedback[:issue] }
       free_text    = log_step("step1", prompt: prompt, extra: log_extra) do

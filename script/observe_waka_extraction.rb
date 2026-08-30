@@ -288,6 +288,14 @@ catch(:attempt_cap_reached) do
     stage            = "next_constraints"
     next_constraints = checker.next_constraints(history)
     controller.send(:log_season_hint, next_constraints, verse_no: verse_no)
+    # 其の八十五 must_continue Phase0: 観測 jsonl を自己完結させる（時刻突合を不要にする）。
+    sh = next_constraints[:season_hint] || {}
+    log_line(log_file, {
+      verse_no: verse_no, attempt: 0, text: nil, mora_result: nil,
+      shikimoku_result: nil, violations: [], action: "season_hint",
+      season_current: sh[:current], season_count: sh[:count],
+      must_switch: sh[:must_switch], must_continue: sh[:must_continue]
+    })
 
     stage             = "fetch_used_waka_ids"
     used_waka_ids     = controller.send(:fetch_used_waka_ids, previous_renga_id)
