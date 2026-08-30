@@ -219,13 +219,21 @@ class StepwiseWakaGenerator
 
     echoes = maeku_echo?(mora_text) || (seg && maeku_echo?(seg[:surface]))
     over   = !waka_total_mora_within_tolerance?(total_mora)
-    seg    = nil if echoes || over
+    # 其の八十四 案1補修: ±1音許容で切り出した句が、句頭助詞・句末宙ぶらりんの
+    # ように語のまとまりとして破れていないか検査する（厳密==17要求が偶然担って
+    # いたフィルタの明示化。:direct の open_phrase? に相当）。
+    broken = seg && !clean_phrase_edges?(seg[:morphemes])
+    seg    = nil if echoes || over || broken
 
     return [seg, nil] if seg
 
     failure =
       if echoes
         { issue: "前句エコー", message: "前句をそのまま繰り返さず、新しい言葉で三十一音に書き換えてください" }
+      elsif broken
+        { issue: "句切れ不自然",
+          message: "句のはじめが助詞や読点、または句の終わりが「の・に・を・て」などで" \
+                   "終わっています。はじめと終わりが語のまとまりで切れるように書き換えてください。" }
       elsif over
         # 其の八十四 案5: 方向（増/減）と量を明示した操作型フィードバックにする。
         need = WAKA_TOTAL_MORA - total_mora
@@ -239,6 +247,20 @@ class StepwiseWakaGenerator
                    "十七音めに語の切れ目が来るよう言葉を選び直してください。" }
       end
     [nil, failure]
+  end
+
+  # 抽出句の先頭・末尾が語のまとまりとして自然か。
+  # 先頭が助詞／助動詞／記号（読点など）、末尾が格助詞・接続助詞・係助詞・
+  # 連体化・並立助詞 で終わる場合は「破れ」とみなす（MeCab標準辞書のfeature列）。
+  def clean_phrase_edges?(morphemes)
+    return false if morphemes.nil? || morphemes.empty?
+
+    head = morphemes.first[:feature].split(",")
+    tail = morphemes.last[:feature].split(",")
+    return false if %w[助詞 助動詞 記号].include?(head[0])
+    return false if tail[0] == "助詞" && %w[格助詞 接続助詞 係助詞 連体化 並立助詞].include?(tail[1])
+
+    true
   end
 
   # chouku（長句・五七五＝17音）は先頭17音、tanku（短句・七七＝14音）は
