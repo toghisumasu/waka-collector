@@ -151,12 +151,25 @@ class StepwiseWakaGenerator
 
   # Step3（31音への書き換え） ⇄ Step4（機械抽出）の往復
   def rewrite_and_extract(free_text)
-    feedback = nil
+    # 其の八十四 案2: free_text が既に抽出可能なら Step3 を回さずそのまま採用する
+    # （其の八十四調査：適正音数 29–33 の free_text 22件中 20件を Step3 が破壊していた）。
+    pre_seg, = extract_and_validate(free_text)
+    if pre_seg
+      log_step_verdict("step4", text: free_text, issue: nil,
+                       extra: { rewrite_attempt: 0, feedback_issue: nil,
+                                extracted: pre_seg[:surface], step3_skipped: true })
+      return pre_seg[:surface]
+    end
+
+    feedback  = nil
+    prev_text = nil
+    temp      = 0.5
     MAX_REWRITE_ATTEMPTS.times do |rewrite_i|
       prompt    = build_mora_rewrite_prompt(free_text, feedback)
-      log_extra = { rewrite_attempt: rewrite_i + 1, feedback_issue: feedback && feedback[:issue] }
+      log_extra = { rewrite_attempt: rewrite_i + 1, feedback_issue: feedback && feedback[:issue],
+                    temperature: temp }
       mora_text = log_step("step3", prompt: prompt, input_text: free_text, extra: log_extra) do
-        first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5, model: "qwen3:14b"))
+        first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: temp, model: "qwen3:14b"))
       end
 
       # 其の七十六 未検証事項1（Step3失敗理由の内訳が不明）をここで埋める。
@@ -165,7 +178,10 @@ class StepwiseWakaGenerator
                        extra: log_extra.merge(extracted: seg && seg[:surface]))
       return seg[:surface] if seg
 
-      feedback = failure.merge(ku: mora_text)
+      # 其の八十四 案5: 同一出力の反復（deflock）を検知したら次 attempt の温度を上げる
+      temp      = [temp + 0.3, 1.1].min if mora_text.present? && mora_text == prev_text
+      prev_text = mora_text
+      feedback  = failure.merge(ku: mora_text)
     end
     nil
   end
@@ -198,7 +214,8 @@ class StepwiseWakaGenerator
     ms         = morphemes_of(mora_text, @nm)
     total_mora = ms.sum { |m| m[:mora] }
     skip, take = waka_extraction_bounds
-    seg        = extract_mora_segment(ms, skip, take)
+    # 其の八十四 案1: 十七音めに形態素境界が無い和歌を ±1音の近傍境界で救済する。
+    seg        = extract_mora_segment(ms, skip, take, tolerance: 1)
 
     echoes = maeku_echo?(mora_text) || (seg && maeku_echo?(seg[:surface]))
     over   = !waka_total_mora_within_tolerance?(total_mora)
@@ -210,10 +227,16 @@ class StepwiseWakaGenerator
       if echoes
         { issue: "前句エコー", message: "前句をそのまま繰り返さず、新しい言葉で三十一音に書き換えてください" }
       elsif over
+        # 其の八十四 案5: 方向（増/減）と量を明示した操作型フィードバックにする。
+        need = WAKA_TOTAL_MORA - total_mora
+        op   = need.positive? ? "あと#{need}音、言葉を補って増やして" : "#{need.abs}音、説明的な部分を削って減らして"
         { issue: "#{total_mora}音（三十一音から#{WAKA_TOTAL_MORA_TOLERANCE}音超逸脱）",
-          message: "五・七・五・七・七、計三十一音を超えず、かつ短すぎないよう書き換えてください" }
+          message: "現在#{total_mora}音です。#{op}、合計三十一音（三十〜三十二音）に収めてください。" \
+                   "助詞を削って字を詰め込みすぎないこと。" }
       else
-        { issue: "区切り不一致", message: "五・七・五・七・七の音数の区切りで書き換えてください" }
+        { issue: "区切り不一致",
+          message: "はじめの十七音で言葉がひとつ切れ、そのあと十四音が続くように、" \
+                   "十七音めに語の切れ目が来るよう言葉を選び直してください。" }
       end
     [nil, failure]
   end

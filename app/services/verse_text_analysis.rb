@@ -32,39 +32,48 @@ module VerseTextAnalysis
     result
   end
 
-  def extract_mora_segment(morphemes, skip_mora, take_mora)
+  # tolerance: 0（既定）で従来どおり「ちょうど skip/take 音」の形態素境界のみ許容。
+  # 其の八十四 案1: :waka_extraction の Step4 は tolerance: 1 を渡し、十七音めに
+  # 形態素境界が無い和歌（区切り不一致で全棄却されていた 29%）を ±1音の
+  # 近傍境界で切り出せるようにする。:direct（seed pool 構築）は引数を渡さない
+  # ため挙動不変。
+  def extract_mora_segment(morphemes, skip_mora, take_mora, tolerance: 0)
     start_idx = 0
     if skip_mora > 0
-      acc = 0
-      found = false
-      morphemes.each_with_index do |m, i|
-        acc += m[:mora]
-        if acc == skip_mora
-          start_idx = i + 1
-          found = true
-          break
-        end
-        return nil if acc > skip_mora
-      end
-      return nil unless found
+      b = boundary_index_near(morphemes, skip_mora, tolerance)
+      return nil if b.nil?
+      start_idx = b + 1
     end
     remaining = morphemes[start_idx..]
     return nil if remaining.nil? || remaining.empty?
+    e = boundary_index_near(remaining, take_mora, tolerance)
+    return nil if e.nil?
+    phrase = remaining[0..e]
+    {
+      surface:    phrase.map { |x| x[:surface] }.join,
+      yomi:       phrase.map { |x| x[:yomi].tr("ァ-ヴー", "ぁ-ゔー") }.join,
+      last_morph: phrase.last,
+      morphemes:  phrase
+    }
+  end
+
+  # 累積モーラが target に最も近い形態素境界の添字を返す。
+  # tolerance=0 なら「ちょうど target」の境界のみ（従来と完全一致）。
+  # 候補が複数あれば target との差が小さい方（同点なら手前）を優先する。
+  def boundary_index_near(morphemes, target, tolerance)
     acc = 0
-    remaining.each_with_index do |m, i|
+    best_idx = nil
+    best_diff = nil
+    morphemes.each_with_index do |m, i|
       acc += m[:mora]
-      if acc == take_mora
-        phrase = remaining[0..i]
-        return {
-          surface:    phrase.map { |x| x[:surface] }.join,
-          yomi:       phrase.map { |x| x[:yomi].tr("ァ-ヴー", "ぁ-ゔー") }.join,
-          last_morph: phrase.last,
-          morphemes:  phrase
-        }
+      diff = (acc - target).abs
+      if diff <= tolerance && (best_diff.nil? || diff < best_diff)
+        best_idx  = i
+        best_diff = diff
       end
-      return nil if acc > take_mora
+      break if acc >= target + tolerance
     end
-    nil
+    best_idx
   end
 
   # 其の三十六: 一巻の履歴（verse_history、tsugeku本文の配列）との
