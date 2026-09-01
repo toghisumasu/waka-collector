@@ -51,6 +51,14 @@ class StepwiseWakaGenerator
   WAKA_TOTAL_MORA           = 31
   WAKA_TOTAL_MORA_TOLERANCE = 2
 
+  # 其の八十五 案C: 雑の局面で「季語を含む和歌由来の seed」を選ぶ確率。
+  # 1.0 に近いほど幻の季セグメント（investigation_must_continue_phase0 §2-2）を
+  # 抑制するが、季の自然な開始も減る。連歌コーパス（湯山三吟・遺誡百韻）の
+  # 雑連続長 ≒5〜8句から逆算した「この句で季を起こす確率 ≒0.15〜0.2」を目安に
+  # 0.75 を初期値とする。seed_season フィールド（其の八十五計装）で発火分布を
+  # 観測し、後日調整する。
+  ZATSU_SEED_BIAS = 0.75
+
   attr_reader :used_seed_waka_id
 
   def initialize(maeku, verse_type, constraints:, pool:, nm:, bui_dict:)
@@ -68,7 +76,7 @@ class StepwiseWakaGenerator
 
   def generate
     MAX_DRAFT_ATTEMPTS.times do |draft_i|
-      seed      = @pool.sample
+      seed      = sample_seed
       persona   = WakaPersona.resolve(@persona_key, @maeku)
       # 其の七十七 D-77-1: ログ相関用。記録専用で生成ロジックからは参照しない。
       @draft_attempt   = draft_i + 1
@@ -221,6 +229,10 @@ class StepwiseWakaGenerator
     skip, take = waka_extraction_bounds
     # 其の八十四 案1: 十七音めに形態素境界が無い和歌を ±1音の近傍境界で救済する。
     seg        = extract_mora_segment(ms, skip, take, tolerance: 1)
+    # 其の八十五 案F: 季継続局面で、既定窓に対象季の季語が入らず本文全体には在る場合、
+    # 季語を含む窓へ寄せた候補を優先する（Step1 は季を詠めているのに Step4 の
+    # 位置固定抽出で季語が切り落とされる経路＝phase0 §4-2 の是正）。
+    seg        = shift_window_to_kigo(ms, seg, take) || seg
 
     echoes = maeku_echo?(mora_text) || (seg && maeku_echo?(seg[:surface]))
     over   = !waka_total_mora_within_tolerance?(total_mora)
@@ -254,6 +266,45 @@ class StepwiseWakaGenerator
     [nil, failure]
   end
 
+  # 其の八十五 案F: must_continue / must_switch 局面かつ、既定 seg に対象季の季語が
+  # 無いが本文全体には在る場合、窓の開始形態素を 0..季語位置 で走査し、季語を含み・
+  # 端が自然（clean_phrase_edges?）で・前句エコーでない候補のうち、既定窓に最も近い
+  # もの（開始 mora 最大＝七七の末尾寄り）を返す。無ければ nil＝既定 seg を維持。
+  # 返す seg は既存ガードを全通過済みで、extract_and_validate の総モーラ検査は
+  # ms 全体に対するもので不変のため、構造的妥当性を退行させることはない。
+  def shift_window_to_kigo(morphemes, default_seg, take)
+    sh = @constraints[:season_hint] || {}
+    return nil unless sh[:must_continue] || sh[:must_switch]
+
+    season_label = season_label_for(@current_seed)
+    return nil if season_label.nil? || season_label == "雑"
+    season_key = RengaGenerator::SEASON_JP.invert[season_label]
+    words      = season_key && RengaGenerator::SEASON_WORDS[season_key]
+    return nil if words.nil?
+
+    has_kigo = ->(surface) { surface && words.any? { |w| surface.include?(w) } }
+    return nil if has_kigo.call(default_seg && default_seg[:surface])
+
+    kigo_i = morphemes.index { |m| words.any? { |w| m[:surface].include?(w) } }
+    return nil if kigo_i.nil?
+
+    best = nil
+    best_start = -1
+    start_mora = 0
+    morphemes.each_with_index do |m, i|
+      if i <= kigo_i && start_mora > best_start
+        cand = extract_mora_segment(morphemes[i..], 0, take, tolerance: 1)
+        if cand && has_kigo.call(cand[:surface]) &&
+           clean_phrase_edges?(cand[:morphemes]) && !maeku_echo?(cand[:surface])
+          best = cand
+          best_start = start_mora
+        end
+      end
+      start_mora += m[:mora]
+    end
+    best
+  end
+
   # 抽出句の先頭・末尾が語のまとまりとして自然か。
   # 先頭が助詞／助動詞／記号（読点など）、末尾が格助詞・接続助詞・係助詞・
   # 連体化・並立助詞 で終わる場合は「破れ」とみなす（MeCab標準辞書のfeature列）。
@@ -276,6 +327,28 @@ class StepwiseWakaGenerator
 
   def waka_total_mora_within_tolerance?(total_mora)
     (total_mora - WAKA_TOTAL_MORA).abs <= WAKA_TOTAL_MORA_TOLERANCE
+  end
+
+  # 其の八十五 案C: seed選択を季ヒントで偏重する。filter_pool（renga_generator）は
+  # :direct と共用のため触れず、:waka_extraction 経路の抽選点でのみ効かせる。
+  #   must_switch   … 現在季以外へ（filter_pool と同義の防御的二重化）
+  #   季が続く局面  … その季の seed へ（同上）
+  #   雑の局面      … 雑 seed へ確率 ZATSU_SEED_BIAS で偏重。残余確率では全 pool
+  #                   から抽選し、季の自然な開始も残す（絶対フィルタにしない）。
+  # 対象 seed が無ければ従来どおり全 pool から抽選する。
+  def sample_seed
+    sh = @constraints[:season_hint] || {}
+    if sh[:must_switch]
+      subset = @pool.reject { |s| s[:season] == sh[:current] }
+      return (subset.presence || @pool).sample
+    elsif sh[:current]
+      subset = @pool.select { |s| s[:season] == sh[:current] }
+      return (subset.presence || @pool).sample
+    end
+
+    zatsu = @pool.select { |s| s[:season].nil? }
+    return @pool.sample if zatsu.empty?
+    (rand < ZATSU_SEED_BIAS ? zatsu : @pool).sample
   end
 
   def season_label_for(seed)
@@ -309,7 +382,19 @@ class StepwiseWakaGenerator
     else
       ""
     end
-    [kigo_line, kinshi]
+    # 其の八十五 案A: 5d4e9a6（:direct）の continue_line 相当を移植。案C・案Fで
+    # 構造的原因を解消したうえでの補助指示（単独では経路1・2いずれも解消しない）。
+    season_hint  = @constraints[:season_hint]
+    continue_line =
+      if season_hint && season_hint[:must_continue] && season_label != "雑"
+        "まだ#{season_label}を続けるべき局面です。他の季節や無季（雑）に転じないこと。\n"
+      elsif season_hint && season_hint[:must_switch]
+        to = (season_label == "雑") ? "無季（雑）" : season_label
+        "季を転じるべき局面です。前句の季を続けず、#{to}へ転じること。\n"
+      else
+        ""
+      end
+    [kigo_line, kinshi, continue_line]
   end
 
   def kigo_hint(season_label)
@@ -333,7 +418,7 @@ class StepwiseWakaGenerator
   # 渡す:abstract方式。手元→目の前→遠景を一度に指示する其の七十四方式は:literal）。
   def build_free_verse_prompt(seed, feedback, season_label, persona, zone = nil)
     feedback_note      = feedback ? "※前回の「#{feedback[:ku]}」は#{feedback[:issue]}でした。#{feedback[:message]}\n" : ""
-    kigo_line, kinshi = directive_lines(season_label)
+    kigo_line, kinshi, continue_line = directive_lines(season_label)
 
     <<~PROMPT
       あなたは連歌の宗匠です。
@@ -348,7 +433,7 @@ class StepwiseWakaGenerator
 
       三十一音程度（目安として三十〜三十五音前後）を目指し、短いフレーズだけで終わらせないこと。
       前句の言葉をそのまま和歌に含めてはいけません。連想語だけを単独で出力してはいけません。
-      #{kigo_line}#{kinshi}#{feedback_note}
+      #{kigo_line}#{kinshi}#{continue_line}#{feedback_note}
       前句：#{@maeku}
       連想：#{seed[:surface]}
       季節：#{season_label}
