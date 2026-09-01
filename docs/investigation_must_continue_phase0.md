@@ -304,6 +304,89 @@ deflock で全 draft×rewrite を消尽。[[step3_mora_phase0]] の二山・defl
 
 ---
 
+## 6. Phase 1 実装結果（案C＋案F＋案A）
+
+- 依頼書：`docs/依頼書_must_continue強化_phase1.md`
+- 承認：2026-09-01、確率バイアス版の案Cを含む3案のdiffを人間承認（D-33-1）。
+- 実装：`app/services/stepwise_waka_generator.rb` の1ファイルのみ（+89 / -4行）。
+  `:direct`（`RengaGenerator`）・`RengasController`・`VerseTextAnalysis`・保護ファイルには不接触。
+  `filter_pool` は `:direct` 共用のため触れず、`:waka_extraction` 経路の抽選点・抽出点でのみ効かせた。
+
+### 6-1. 実装内容
+
+| 案 | 追加 | 挙動 |
+|---|---|---|
+| **C** | `ZATSU_SEED_BIAS = 0.75` / `sample_seed`（`generate` の `@pool.sample` を置換） | 雑の局面（`season_hint[:current]` が nil）で、確率 0.75 で雑 seed（`season: nil`）へ偏重。残余 0.25 では全 pool から抽選し季の自然な開始も残す（絶対フィルタにしない）。`must_switch`/季継続局面は `filter_pool` と同義の防御的二重化。 |
+| **F** | `shift_window_to_kigo`（`extract_and_validate` から呼ぶ） | `must_continue`/`must_switch` 局面かつ、既定の抽出窓に対象季の季語が無いが本文全体には在る場合、窓の開始形態素を 0..季語位置 で走査し、季語を含み・端が自然（`clean_phrase_edges?`）で・前句エコーでない候補のうち既定窓に最も近いものを返す。該当なしなら nil＝既定 seg 維持（構造的妥当性は退行しない）。 |
+| **A** | `directive_lines` に continue_line / switch_line、`build_free_verse_prompt` へ配線 | `must_continue`（かつ季≠雑）で「まだ〇を続けるべき局面です。他の季節や無季（雑）に転じないこと。」、`must_switch` で「季を転じるべき局面です。前句の季を続けず、〇へ転じること。」を Step1 プロンプトへ追加。5d4e9a6（`:direct`）の移植。 |
+
+### 6-2. ゲート・spec
+
+- `bundle exec ruby script/verify_shikimoku.rb` … **116 pass / 0 fail** 維持。
+- `stepwise_waka_generator_spec` + `verse_text_analysis_spec` + `stepwise_step_logger_spec` … **62 examples / 0 failures**。
+- `:direct`・`RengasController`・既存テストに新規 failure なし。
+
+### 6-3. 10句 smoke（`observe_waka_extraction.rb 10 mcflag_p1_smoke`、2026-09-01、qwen3:14b）
+
+- 発句：**ひとりねのわひしきままにおきゐつつ**（Waka#1788）／batch `sono76_mcflag_p1_smoke_20260901`
+- 10/10 完走。**ng率 9.1%（11 試行 / 1 ng）**。**forced_zatsu 0句**。違反種別内訳：0件。
+  （Phase0 §4 の10句 smoke は ng率 23.1%・forced_zatsu 0。同一発句ではないため厳密比較は不可だが悪化はない）
+- 唯一の ng は v9 の「生成失敗」（Step3⇄Step4 の deflock、`must_continue=false` 局面、季節と無関係。
+  [[step3_mora_phase0]] の二山・deflock 課題で本 Phase のスコープ外）。
+
+#### 経路1（幻の季セグメント）— 発生したが破綻せず吸収された
+
+`action:"season_hint"` 行と最終本文の突合：
+
+| verse | 本文 | season_from_text | 次 verse への季ヒント |
+|---|---|---|---|
+| v2 | 指先に宿る露の重み見上げれ | **秋**（露） | v3: 秋 count=1 **must_continue** |
+| v3 | 耳に押し寄せて秋の夜 | 秋（秋） | v4: 秋 count=2 must_continue |
+| v4 | 萩の香り漂う露に足 | 秋（萩・露） | v5: 秋 count=3 |
+| v5 | 抜け指先触れる涼しさ | 雑 | v6: 雑（セグメント正常閉じ） |
+
+- **案C は seed 経由の季語混入を抑制した**：雑局面の step1 draft 20件中 18件が雑 seed（`seed_season=nil`）、
+  季 seed はわずか 2件。v2 の seed も「となりの方に」「うちさわかれて」等すべて非季。
+- **しかし v2 の「露」はペルソナ／gaze 語彙由来**（"草の葉先に露が垂れかかる" "指先に宿る露の重みを"）で、
+  案C の守備範囲外（Phase0 §2-2・案D/E スコープ）。幻の秋セグメントは発生した。
+- **決定的な違いは、その幻セグメントが破綻しなかったこと**：v3・v4 の Step1 が案A（continue_line）を受けて
+  強く秋へ寄り（"菊の影…" "枯葉の上で震えし露の音を…" "萩の香り漂う露に足を濡らし…"）、
+  season_from_text が秋を検出し続け、**最短3句を違反ゼロ・forced_zatsu ゼロで満たして v5 で雑へ正常復帰**した。
+  run100 では同型の幻セグメント（v61/v74/v83）がいずれも `kukazo_under` ループ → forced_zatsu を誘発していた。
+
+#### 経路2（抽出窓での季語脱落）— 今回の smoke では案Fの発火は不要だった
+
+- v3（tanku）：Step3 が末尾に「秋の夜」を付加したため既定窓（skip 17）に季語が入り、案F は早期 return。
+- v4（chouku）：既定窓（skip 0）が先頭の「萩の香り漂う露に足」を捕捉、季語入りのため案F は早期 return。
+- つまり10句 smoke では「位置の運」が良い方に転がり、案F が救済すべき局面が発生しなかった。
+  **案F の実効性は別途、直接テストで確認**：
+  ```
+  free_text  = "萩の花咲く野の道を歩みつつ遠くの空に日が沈みゆく"（tanku 想定）
+  既定窓(skip17,take14) → "遠くの空に日が沈みゆく"（無季）
+  案F shift_window_to_kigo → "萩の花咲く野の道を歩み"（萩あり・端自然）
+  非 must_* 局面では nil（no-op）
+  ```
+  → 既定窓が季語を落とす局面で、案F が季語入り・端の自然な窓へ正しくスライドすることを確認。
+
+### 6-4. Step3 側への副作用
+
+- 案F が抽出窓を動かした本番局面は smoke 中は0件（上記のとおり）。モーラ精度・`clean_phrase_edges?`・
+  総モーラ許容（±2）への影響なし。
+- 案F は候補が既存ガード（clean edges・前句エコー・総モーラ）を全通過した場合のみ seg を差し替え、
+  非該当時は既定 seg を維持するため、構造的妥当性を退行させない設計。
+
+### 6-5. 所感と次段
+
+- 10句規模では ng率・forced_zatsu ともに良好。**案A が「幻セグメントを破綻させない」主効果**を担い、
+  **案C が幻セグメントの発生頻度を下げ**、**案F は保険**として実装済み（今回は不発）。
+- 経路1 の残存要因（ペルソナ／gaze 語彙の「露・月・かすみ」）は案D/E スコープで別途。
+- `ZATSU_SEED_BIAS = 0.75` は連歌コーパスの雑連続長からの初期値。`seed_season` 計装で分布を観測し
+  100句規模で調整余地を見る。
+- **100句本番走行は次回の別依頼書として起票**（今回スコープは10句まで）。案F の実効性は100句規模で
+  初めて本番局面に当たる見込み。
+
+---
+
 ## 付録：確認コマンド
 
 ```bash
