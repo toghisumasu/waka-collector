@@ -256,12 +256,19 @@ class StepwiseWakaGenerator
           message: "句のはじめが助詞や読点、または句の終わりが「の・に・を・て」などで" \
                    "終わっています。はじめと終わりが語のまとまりで切れるように書き換えてください。" }
       elsif over
-        # 其の八十四 案5: 方向（増/減）と量を明示した操作型フィードバックにする。
+        # 其の八十四 案5 / 案6（docs/phase1_deflock_run100_report.md too_long35.9%）:
+        # 方向・量を明示し、Step4の実受理域（29-33音）を数値でそのまま提示する。
+        # too_short方向には「削れ」の語を含めない（Phase0報告書§1-1で指摘の副作用是正）。
         need = WAKA_TOTAL_MORA - total_mora
-        op   = need.positive? ? "あと#{need}音、言葉を補って増やして" : "#{need.abs}音、説明的な部分を削って減らして"
+        if need.positive?
+          op   = "#{need}音増やして"
+          note = ""
+        else
+          op   = "#{need.abs}音減らして"
+          note = "助詞を削って字を詰め込みすぎないこと。"
+        end
         { issue: "#{total_mora}音（三十一音から#{WAKA_TOTAL_MORA_TOLERANCE}音超逸脱）",
-          message: "現在#{total_mora}音です。#{op}、合計三十一音（三十〜三十二音）に収めてください。" \
-                   "助詞を削って字を詰め込みすぎないこと。" }
+          message: "現在#{total_mora}音です。#{op}、二十九〜三十三音（目安三十一音）に収めてください。#{note}" }
       else
         { issue: "区切り不一致",
           message: "はじめの十七音で言葉がひとつ切れ、そのあと十四音が続くように、" \
@@ -499,7 +506,7 @@ class StepwiseWakaGenerator
 
     <<~PROMPT
       以下の和歌の意味や情景のニュアンスを保ったまま、五・七・五・七・七（合計三十一音）の形に書き換えてください。
-      三十一音を超えないこと。短すぎるのも誤りです。区切り記号（／や・など）は使わず、一続きの文として書くこと。
+      二十九音以上、三十三音以内に書き換えること（目安は三十一音）。区切り記号（／や・など）は使わず、一続きの文として書くこと。
       #{feedback_note}
       【書き換え対象】
       #{free_text}
