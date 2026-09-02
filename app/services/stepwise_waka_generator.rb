@@ -37,12 +37,16 @@ class StepwiseWakaGenerator
   MAX_REWRITE_ATTEMPTS = 5 # Step3→Step4整形・抽出の往復（同じfree_text）
 
   # 其の七十五 D-75-1: Step1.5（音数調整）の往復上限と、長すぎ/短すぎの
-  # 判定閾値。Step1の目標は「三十一音程度（三十〜三十五音前後）」なので、
-  # 閾値はそれより外側に余裕を持たせ、実地確認済みの極端な事例
-  # （201音・14音）を包含する範囲で設定する。
+  # 判定閾値。
+  # 其の◯◯ 案3（docs/phase0_deflock_report.md §1-4・§3）: 閾値は元々
+  # [25,50]（Step1の目標「三十一音程度」より外側に余裕を持たせた値）だったが、
+  # Step4受理域（WAKA_TOTAL_MORA±TOLERANCE＝29-33）との間に25-49音という
+  # 広大な無補正ゾーン（デッドゾーン）が生じ、run100実測でfree_textの98.8%が
+  # ここに該当してStep3へ無補正で流入していた。Step4受理域と一致させ、
+  # Step1.5が「Step4が通せないものすべて」を補正対象にする。
   MAX_LENGTH_ADJUST_ATTEMPTS      = 3
-  FREE_VERSE_MORA_LONG_THRESHOLD  = 50 # これを超えたら核心の情景に絞る推敲を指示
-  FREE_VERSE_MORA_SHORT_THRESHOLD = 25 # これを下回ったら遠景を加える推敲を指示
+  FREE_VERSE_MORA_LONG_THRESHOLD  = 33 # これを超えたら核心の情景に絞る推敲を指示
+  FREE_VERSE_MORA_SHORT_THRESHOLD = 29 # これを下回ったら遠景を加える推敲を指示
 
   # 其の七十二 D-72-4: 目標モーラ数（五・七・五・七・七＝31音）と許容誤差。
   # extract_mora_segmentが偶然non-nilを返しても、総モーラ数が31から
@@ -149,7 +153,7 @@ class StepwiseWakaGenerator
         return text
       end
 
-      prompt = build_length_adjust_prompt(text, direction)
+      prompt = build_length_adjust_prompt(text, direction, total_mora)
       text   = log_step("step1.5", prompt: prompt, input_text: text,
                         extra: { adjust_attempt: adjust_i + 1, direction: direction }) do
         first_line(OllamaClient.generate(prompt, timeout: 180, think: false, temperature: 0.5, model: "qwen3:14b"))
@@ -490,15 +494,20 @@ class StepwiseWakaGenerator
   end
 
   # Step1.5用プロンプト。direction: :condense（長すぎ）/ :expand（短すぎ）
-  def build_length_adjust_prompt(text, direction)
+  # 案3（docs/phase0_deflock_report.md §3）: Step3の案5（方向・量を明示）と
+  # 同じ設計思想で、現在音数・過不足量・目標範囲を数値で渡す。
+  def build_length_adjust_prompt(text, direction, current_mora)
+    need = (WAKA_TOTAL_MORA - current_mora).abs
     instruction =
       case direction
       when :condense
         "描いた情景の中から「一番残したい核心の情景」に焦点を絞り、余分な状況説明を削ぎ落として、" \
-        "三十一音前後の密度の高い和歌へ要約・凝縮してください。"
+        "三十一音前後の密度の高い和歌へ要約・凝縮してください。" \
+        "現在#{current_mora}音です。#{need}音減らして二十九〜三十三音（目安三十一音）に整えてください。"
       when :expand
         "手元の描写に留まっています。ふっと顔を上げて見上げた遠くの情景（空、光、風、市井の気配など）を加え、" \
-        "手元の静けさと遠くの広がり（対比）を意識して三十一音の和歌へ押し広げてください。"
+        "手元の静けさと遠くの広がり（対比）を意識して三十一音の和歌へ押し広げてください。" \
+        "現在#{current_mora}音です。#{need}音増やして二十九〜三十三音（目安三十一音）に整えてください。"
       end
 
     <<~PROMPT
