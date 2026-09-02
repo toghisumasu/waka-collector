@@ -225,6 +225,86 @@ POSフィルタが実装できる。**新規の解析基盤は不要**、既存�
 
 ---
 
+## 7. 案α実装結果（「しも」誤検出修正）
+
+- 依頼書：`docs/依頼書_season_from_text_shimo_fix.md`
+- 実装：`app/controllers/rengas_controller.rb`の1ファイルのみ（`season_from_text`にPOSチェック分岐＋
+  `shimo_kigo?`ヘルパー追加、内部3呼び出し箇所へ`nm:`引き渡しを追加）。`RengaGenerator`・
+  `StepwiseWakaGenerator`・他のSEASON_WORDS語彙は無改修（§6の推奨どおり「しも」のみに限定）。
+- D-33-1に従い実装前にdiffを人間へ提示し、承認を得たうえで実装した。
+
+### 7-1. MeCab事前検証結果（依頼書§4-1）
+
+「しも」を含む文13パターン（依頼書指定2文＋既知バグ再現＋追加の古典的用例・名詞用例）を
+`RengasController#build_mecab`と同一のMeCabインスタンスで解析した。
+
+- **IPA辞書は「しも」を単体では一度も`名詞`と判定しなかった**（13文すべてで`助詞,副助詞`）。
+  「しもの降る朝」「庭にしも置きて」「しも白く置く葉の上」のように文脈上は霜（名詞）を意図した
+  文でも同様で、辞書に「しも」の名詞エントリ自体が存在しないと判断できる。
+- 一方、漢字「霜」は文脈によらず常に`名詞,一般`と正しく解析される（「霜の降る朝」「庭に霜置きて」
+  いずれも確認）。
+- **依頼書の想定と異なる点を1つ発見**：依頼書は「しもやけ・しもつきは1形態素として解析されるため
+  対象外」としていたが、実際は`しも[助詞]+やけ[名詞]`のように**分割される**（「しもふり」も同様）。
+  この想定は誤りだったが、今回の実装方式（「しも」トークン単体のPOS判定）はこれらの複合語にも
+  正しく機能するため実装上の問題にはならなかった。
+
+### 7-2. 実装方針の最終形（フォールバックは不採用）
+
+事前検証13例中「MeCabが名詞と判定したケース」が0件だったため、**依頼書§2 step5のフォールバック
+（隣接形態素からの推定）は不採用とした**。既存の全パターンで「助詞と判定されたら除外」だけで
+正しく動作しており、根拠のない分岐を追加すると検証できないコードが増えるだけと判断したため
+（実装前にこの逸脱を含めて人間承認を得た）。
+
+最終ロジック：`season_from_text(text, nm: nil)`の中で、「しも」の照合だけ`shimo_kigo?(text, nm)`へ
+委譲し、MeCabで対象トークンが明示的に`名詞`と判定された場合のみ季語として扱う。`nm:`はキーワード引数
+＋デフォルト`nil`のため、外部スクリプト（`script/observe_waka_extraction.rb`等）や
+`spec/controllers/rengas_controller_spec.rb`の既存の1引数呼び出しは無改修で動作する
+（該当ブランチに入った場合のみ内部で`build_mecab`を新規に呼ぶ）。
+
+### 7-3. ゲート・回帰確認
+
+- `bundle exec ruby script/verify_shikimoku.rb` … **116 pass / 0 fail** 維持。
+- `spec/controllers/rengas_controller_spec.rb`・`spec/services/stepwise_waka_generator_spec.rb`・
+  `spec/services/verse_text_analysis_spec.rb`・`spec/services/stepwise_step_logger_spec.rb` …
+  **73 examples / 0 failures**。
+- 全spec（`bundle exec rspec`）… 135 examples中5 failure（`spec/models/waka_spec.rb`・
+  `spec/requests/wakas_spec.rb`、Wakaファクトリの既知バグ由来で本修正と無関係、
+  [[gate_check_test_terminology]]で既知）。**本修正による新規failureはなし**。
+- 追加の振る舞い検証（`controller.send(:season_from_text, ...)`を`nm:`省略・明示渡しの両方で実行）：
+
+  | 入力文 | 期待値 | 結果 |
+  |---|---|---|
+  | 光りしも手のひらに静けさ（既知バグ文） | `nil` | OK |
+  | 花こそしも咲きにけれ（係助詞） | `nil` | OK |
+  | しもやけの手（複合語） | `nil` | OK |
+  | 霜の降る朝（漢字） | `"冬"` | OK（回帰なし） |
+  | 庭に霜置きて（漢字） | `"冬"` | OK（回帰なし） |
+
+  5ケースとも`nm:`省略時・明示渡し時の両方で一致し、誤検出の解消と真の季語検出の維持を確認した。
+
+### 7-4. 10句smoke確認
+
+`bundle exec rails runner script/observe_waka_extraction.rb 10 shimo_fix_smoke`
+（2026-09-02、qwen3:14b、発句「鴬のなくなる声は昔にて」Waka#520、batch`shimo_fix_smoke`）：
+
+- 10/10完走。**ng率9.1%（11試行/1ng）、forced_zatsu 0句**。Phase1 smoke（9.1%、
+  [[sono85_must_continue_phase1]]）と同水準で悪化なし。
+- 生成句本文・`log/stepwise_steps_20260902.jsonl`（本batch分119レコード）のいずれにも
+  「しも」の出現はなし（自然発生の再現は今回なし。10句規模ではこの語自体が稀）。
+  v10「草庵の軒に露の滴りける」で「露」を含む句が生成されたが、季セグメントの発生・解消は
+  他ケースと同様の挙動で、本修正による副作用は確認されなかった。
+- タイムアウト・300秒超過ともに0件。
+
+### 7-5. 結論
+
+- 「しも」誤検出は解消し、真の季語（漢字「霜」）検出への回帰はない。
+- 依頼書の想定（複合語は既に安全）に1件誤りがあったが、採用した実装方式はその誤りを吸収する形で
+  正しく機能した。
+- フォールバックロジックは事前検証の結果を踏まえて不採用とし、最小限の実装で完了した。
+- `:direct`戦略・`RengasController`の他ロジックへの影響なし（ゲート・回帰spec・smokeで確認）。
+
+---
+
 ## 付録：確認コマンド
 
 ```bash

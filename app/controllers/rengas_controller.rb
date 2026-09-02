@@ -76,7 +76,7 @@ class RengasController < ApplicationController
     tsugeku_word = bui_dict.detect_word(tsugeku, nm)
     candidate = {
       bui:        bui_dict.detect_all(tsugeku, nm),
-      season:     season_from_text(tsugeku),
+      season:     season_from_text(tsugeku, nm: nm),
       verse_type: next_verse_type,
       word:       tsugeku_word,
       text:       tsugeku,
@@ -183,7 +183,7 @@ class RengasController < ApplicationController
       vtype  = offset.odd? ? maeku_type : (maeku_type == :chouku ? :tanku : :chouku)
       text = r["tsugeku"]
       word = bui_dict.detect_word(text, nm)
-      { bui: bui_dict.detect_all(text, nm), season: season_from_text(text), verse_type: vtype,
+      { bui: bui_dict.detect_all(text, nm), season: season_from_text(text, nm: nm), verse_type: vtype,
         word: word, text: text, plant_type: bui_dict.plant_type(word) }
     end
     # chainが非空のとき、末尾要素（previous_renga_id自体＝maekuと同一句）は
@@ -192,7 +192,7 @@ class RengasController < ApplicationController
     # ときのみ、maeku自身の情報を補う。
     if chain.empty?
       maeku_word = bui_dict.detect_word(maeku, nm)
-      history << { bui: bui_dict.detect_all(maeku, nm), season: season_from_text(maeku), verse_type: maeku_type,
+      history << { bui: bui_dict.detect_all(maeku, nm), season: season_from_text(maeku, nm: nm), verse_type: maeku_type,
                    word: maeku_word, text: maeku, plant_type: bui_dict.plant_type(maeku_word) }
     end
     history
@@ -207,10 +207,27 @@ class RengasController < ApplicationController
     Natto::MeCab.new
   end
 
-  def season_from_text(text)
+  def season_from_text(text, nm: nil)
     return nil if text.blank?
-    key = RengaGenerator::SEASON_WORDS.find { |_, words| words.any? { |w| text.include?(w) } }&.first
+    key = RengaGenerator::SEASON_WORDS.find do |_, words|
+      words.any? { |w| w == "しも" ? shimo_kigo?(text, nm) : text.include?(w) }
+    end&.first
     key ? RengaGenerator::SEASON_JP[key] : nil
+  end
+
+  # season_from_text Phase0調査（docs/investigation_season_from_text_phase0.md）で確認した
+  # 既知バグの修正。「しも」は係助詞と同形のため単純部分一致では「光りしも」のような文でも
+  # 霜（季語）と誤検出する。IPA辞書は「しも」を名詞（霜）と解析することがなく常に助詞と
+  # 判定するため（事前検証：依頼書§4-1で13文を確認、名詞判定は0件）、MeCabで明示的に
+  # 名詞と判定された場合のみ季語として扱う。
+  def shimo_kigo?(text, nm)
+    return false unless text.include?("しも")
+
+    (nm || build_mecab).parse(text.gsub(/[\s　]+/, "")) do |node|
+      next if node.is_eos?
+      return true if node.surface == "しも" && node.feature.split(",")[0] == "名詞"
+    end
+    false
   end
 
   def renga_params
