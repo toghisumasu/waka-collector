@@ -309,16 +309,33 @@ class StepwiseWakaGenerator
     best
   end
 
+  # 其の◯◯ 案B（docs/phase0_phrase_edges_report.md §2-3・§3）: 長句（chouku）は
+  # 格助詞「に」・接続助詞「て・で・ば」で終わるのが古典連歌の常套（余情止め）で、
+  # 水無瀬三吟百韻では長句の26.0%が「て/にて」止め・12.0%が「に」止め。
+  # p3 run100実測でも長句の「に」止めが句切れ不自然14件（8.0%）を占め、
+  # 誤検出の主因と確認された。短句（tanku）にはこれらの止め型の用例が無い
+  # （水無瀬三吟で0件）ため、短句の判定は変更しない。「の」「を」は
+  # 長句・短句とも用例が無く現状維持。
+  CHOUKU_PERMITTED_TAILS = %w[に て で ば].freeze
+
+  def chouku_tail_exception?(surface)
+    @verse_type == :chouku && CHOUKU_PERMITTED_TAILS.include?(surface)
+  end
+
   # 抽出句の先頭・末尾が語のまとまりとして自然か。
   # 先頭が助詞／助動詞／記号（読点など）、末尾が格助詞・接続助詞・係助詞・
   # 連体化・並立助詞 で終わる場合は「破れ」とみなす（MeCab標準辞書のfeature列）。
+  # ただし長句の「に・て・で・ば」止めは例外として許容する（chouku_tail_exception?）。
   def clean_phrase_edges?(morphemes)
     return false if morphemes.nil? || morphemes.empty?
 
-    head = morphemes.first[:feature].split(",")
-    tail = morphemes.last[:feature].split(",")
+    head    = morphemes.first[:feature].split(",")
+    tail_m  = morphemes.last
+    tail    = tail_m[:feature].split(",")
     return false if %w[助詞 助動詞 記号].include?(head[0])
-    return false if tail[0] == "助詞" && %w[格助詞 接続助詞 係助詞 連体化 並立助詞].include?(tail[1])
+    if tail[0] == "助詞" && %w[格助詞 接続助詞 係助詞 連体化 並立助詞].include?(tail[1])
+      return false unless chouku_tail_exception?(tail_m[:surface])
+    end
 
     true
   end
