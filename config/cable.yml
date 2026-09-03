@@ -5,6 +5,8 @@ test:
   adapter: test
 
 production:
-  adapter: redis
-  url: <%= ENV.fetch("REDIS_URL") { "redis://localhost:6379/1" } %>
+  # 平野連歌会向けVPSデプロイ（方式B'、docs/phase0_async_report.md）:
+  # Action Cable組み込みのpostgresqlアダプタ（LISTEN/NOTIFY）を使い、
+  # Redis導入・別プロセス常駐を不要にする。DB接続情報はdatabase.ymlに準拠。
+  adapter: postgresql
   channel_prefix: waka_collector_production
