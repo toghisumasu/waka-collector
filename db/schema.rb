@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_07_15_215622) do
+ActiveRecord::Schema[7.2].define(version: 2026_09_03_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -26,6 +26,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_07_15_215622) do
     t.datetime "updated_at", null: false
     t.bigint "previous_renga_id"
     t.string "observation_batch"
+    t.string "status", default: "pending", null: false
   end
 
   create_table "wakas", force: :cascade do |t|
