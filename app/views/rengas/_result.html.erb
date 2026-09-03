@@ -1,0 +1,111 @@
+<% case renga.status %>
+<% when "pending", "generating" %>
+  <h1>付句を詠んでいます……</h1>
+  <p>前句：<%= renga.maeku %></p>
+  <p>しばらくお待ちください。（1分ほどかかります）</p>
+
+<% when "failed" %>
+  <h1>生成に失敗しました</h1>
+  <p>前句：<%= renga.maeku %></p>
+  <p>しばらく時間をおいてから、もう一度お試しください。</p>
+  <p>
+    <%= link_to "前句の入力からやり直す",
+          new_renga_path(previous_renga_id: renga.previous_renga_id) %>
+  </p>
+
+<% when "done" %>
+  <%
+    maeku_mora    = KuValidator.new(renga.maeku).count_mora
+    maeku_type    = KuValidator.nearest_verse_type(maeku_mora)
+    maeku_check   = KuValidator.new(renga.maeku, type: maeku_type).validate
+
+    tsugeku_type  = (maeku_type == :chouku) ? :tanku : :chouku
+    tsugeku_check = KuValidator.new(renga.tsugeku, type: tsugeku_type).validate
+
+    mora_results  = [maeku_check[:result], tsugeku_check[:result]]
+    mora_status   = if mora_results.include?("ng")
+                      :ng
+                    elsif mora_results.include?("warning")
+                      :warning
+                    else
+                      :ok
+                    end
+
+    shikimoku_result = renga.style_check_result["result"]
+    shikimoku_ok     = shikimoku_result == "ok"
+
+    heading = if mora_status == :ng
+                "字数不備"
+              elsif shikimoku_result == "ng"
+                "連歌不成立"
+              elsif mora_status == :warning
+                "連歌成立（字余り・字足らずあり）"
+              elsif shikimoku_ok
+                "連歌成立"
+              else
+                "連歌成立（式目チェック未確定）"
+              end
+  %>
+  <h1><%= heading %></h1>
+
+  <p><strong>前句：</strong><%= renga.maeku %>
+     <small>（<%= renga.maeku_author %>）</small></p>
+  <p><strong>付け句：</strong><%= renga.tsugeku %>
+     <small>（<%= renga.tsugeku_author %>）</small></p>
+
+  <h3>字数判定（KuValidator）</h3>
+  <ul>
+    <li>
+      前句（<%= maeku_type == :chouku ? "長句・17音" : "短句・14音" %>）：
+      <%= maeku_check[:mora] %>音 → <strong><%= maeku_check[:result] %></strong>
+      <% if maeku_check[:message].present? %>
+        （<%= maeku_check[:message] %>）
+      <% end %>
+    </li>
+    <li>
+      付け句（<%= tsugeku_type == :chouku ? "長句・17音" : "短句・14音" %>）：
+      <%= tsugeku_check[:mora] %>音 → <strong><%= tsugeku_check[:result] %></strong>
+      <% if tsugeku_check[:message].present? %>
+        （<%= tsugeku_check[:message] %>）
+      <% end %>
+    </li>
+  </ul>
+
+  <h3>式目チェック</h3>
+  <% res = renga.style_check_result %>
+  <p>結果：<strong><%= res["result"] %></strong></p>
+
+  <% if res["issues"].present? %>
+    <h4>違反内容</h4>
+    <ul>
+      <% res["issues"].each do |issue| %>
+        <li><%= issue %></li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <% if res["breakdown"].present? %>
+    <h4>音分解（メンタムさんの数え方）</h4>
+    <ul>
+      <% res["breakdown"].each do |b| %>
+        <li><%= b %></li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <p>
+    <%= link_to "この付句を前句として続ける",
+          new_renga_path(previous_renga_id: renga.id) %>
+  </p>
+
+  <% if renga.previous_renga_id.present? %>
+    <p>
+      <%= link_to "前の句に戻る",
+            renga_path(renga.previous_renga_id) %>
+    </p>
+  <% end %>
+
+  <p>
+    <%= link_to "新しい連歌を始める", new_renga_path %>
+  </p>
+<% end %>
