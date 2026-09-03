@@ -4,8 +4,12 @@ require "net/http"
 require "json"
 
 class OllamaClient
-  API_URL      = "http://localhost:11434/api/generate"
-  API_URL_CHAT = "http://localhost:11434/api/chat"
+  # 平野連歌会向けVPSデプロイ: Mac mini（Ollama稼働先）をTailscale経由の
+  # ホスト名/IPで指すため、OLLAMA_URLで上書きできるようにする。
+  # 未設定時は従来通りlocalhost（Mac mini単機での開発・検証用）。
+  OLLAMA_BASE_URL = ENV.fetch("OLLAMA_URL", "http://localhost:11434")
+  API_URL      = "#{OLLAMA_BASE_URL}/api/generate"
+  API_URL_CHAT = "#{OLLAMA_BASE_URL}/api/chat"
   MODEL = ENV.fetch("WAKA_OLLAMA_MODEL", "qwen3:8b")
   MAX_TOOL_LOOPS = 5
 
