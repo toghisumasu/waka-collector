@@ -37,18 +37,28 @@ module VerseTextAnalysis
   # 形態素境界が無い和歌（区切り不一致で全棄却されていた 29%）を ±1音の
   # 近傍境界で切り出せるようにする。:direct（seed pool 構築）は引数を渡さない
   # ため挙動不変。
+  # 其の◯◯（docs/phase0_boundary_report.md）: skip側は「targetに最も近い境界」を
+  # 常に第一候補にするが、それがtake側を実行不可能にする場合（総mora=29音の
+  # tanku等、残りモーラがtake±toleranceの下限に届かない）は、tolerance範囲内の
+  # 次善候補を近い順に試す。boundary_index_near自体（呼び出し規約）は変更しない。
   def extract_mora_segment(morphemes, skip_mora, take_mora, tolerance: 0)
-    start_idx = 0
     if skip_mora > 0
-      b = boundary_index_near(morphemes, skip_mora, tolerance)
-      return nil if b.nil?
-      start_idx = b + 1
+      boundary_candidates_near(morphemes, skip_mora, tolerance).each do |b|
+        remaining = morphemes[(b + 1)..]
+        next if remaining.nil? || remaining.empty?
+        e = boundary_index_near(remaining, take_mora, tolerance)
+        next if e.nil?
+        return build_phrase(remaining[0..e])
+      end
+      return nil
     end
-    remaining = morphemes[start_idx..]
-    return nil if remaining.nil? || remaining.empty?
-    e = boundary_index_near(remaining, take_mora, tolerance)
+
+    e = boundary_index_near(morphemes, take_mora, tolerance)
     return nil if e.nil?
-    phrase = remaining[0..e]
+    build_phrase(morphemes[0..e])
+  end
+
+  def build_phrase(phrase)
     {
       surface:    phrase.map { |x| x[:surface] }.join,
       yomi:       phrase.map { |x| x[:yomi].tr("ァ-ヴー", "ぁ-ゔー") }.join,
@@ -74,6 +84,22 @@ module VerseTextAnalysis
       break if acc >= target + tolerance
     end
     best_idx
+  end
+
+  # tolerance範囲内の境界インデックスを全て、targetに近い順（同点は手前優先、
+  # boundary_index_nearと同じ並び）で列挙する。extract_mora_segmentがskip側の
+  # 第一候補（boundary_index_nearの返す最良の1件）でtake側が実行不可能だった
+  # 場合に、次善候補を試すために使う。
+  def boundary_candidates_near(morphemes, target, tolerance)
+    candidates = []
+    acc = 0
+    morphemes.each_with_index do |m, i|
+      acc += m[:mora]
+      diff = (acc - target).abs
+      candidates << [diff, i] if diff <= tolerance
+      break if acc >= target + tolerance
+    end
+    candidates.sort_by { |diff, i| [diff, i] }.map { |_, i| i }
   end
 
   # 其の三十六: 一巻の履歴（verse_history、tsugeku本文の配列）との
