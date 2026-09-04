@@ -8,7 +8,11 @@
   <p style="color:#c60"><strong><%= @warning %></strong></p>
 <% end %>
 
-<%= form_with model: @renga do |f| %>
+<%# フォーム送信は通常のHTTPナビゲーションにする（data-turbo=false）。
+    Turbo Drive はフォームPOSTへの 200 レンダリング（create の字余り確認画面）を
+    描画しないため、確認フローが壊れる。結果画面のライブ更新は show 側の
+    turbo_stream_from（Action Cable）が担うので、ここで Turbo を切っても影響しない。 %>
+<%= form_with model: @renga, data: { turbo: false } do |f| %>
   <%= f.hidden_field :previous_renga_id %>
   <div>
     <%= f.label :maeku, "前句（五七五）" %><br>
