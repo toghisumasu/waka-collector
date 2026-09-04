@@ -42,14 +42,19 @@ Rails.application.configure do
   # Mount Action Cable outside main process or domain.
   # config.action_cable.mount_path = nil
   # config.action_cable.url = "wss://example.com/cable"
-  # config.action_cable.allowed_request_origins = [ "http://example.com", /http:\/\/example.*/ ]
+  # ConoHa VPS デプロイ（平野連歌会向け）: IP:ポート直アクセスのため Origin 検査を
+  # アプリのオリジン（例 http://163.44.114.31:8081）に明示許可する。SSL 化したら値を変える。
+  if ENV["WAKA_APP_ORIGIN"].present?
+    config.action_cable.allowed_request_origins = [ ENV["WAKA_APP_ORIGIN"] ]
+  end
 
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
   # Can be used together with config.force_ssl for Strict-Transport-Security and secure cookies.
   # config.assume_ssl = true
 
-  # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  config.force_ssl = true
+  # ConoHa VPS デプロイ時点では SSL/ドメインは未対応（スコープ外）。
+  # keiba-web / eiyokeikaku_app と同様に HTTP で運用する。SSL 化時に true へ戻す。
+  config.force_ssl = false
 
   # Skip http-to-https redirect for the default health check endpoint.
   # config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
