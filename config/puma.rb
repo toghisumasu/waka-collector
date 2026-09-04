@@ -23,8 +23,14 @@
 threads_count = ENV.fetch("RAILS_MAX_THREADS", 3)
 threads threads_count, threads_count
 
-# Specifies the `port` that Puma will listen on to receive requests; default is 3000.
-port ENV.fetch("PORT", 3000)
+# Specifies the address/port that Puma will listen on to receive requests.
+# 本番（ConoHa VPS）では nginx がリバースプロキシするため 127.0.0.1 のみに待受を絞る
+# （keiba-web / eiyokeikaku_app と同方針）。開発では従来どおり全インタフェースで待受。
+if ENV["RAILS_ENV"] == "production"
+  bind "tcp://127.0.0.1:#{ENV.fetch('PORT', 3000)}"
+else
+  port ENV.fetch("PORT", 3000)
+end
 
 # Allow puma to be restarted by `bin/rails restart` command.
 plugin :tmp_restart
