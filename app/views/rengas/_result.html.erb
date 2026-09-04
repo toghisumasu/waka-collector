@@ -31,7 +31,8 @@
                       :ok
                     end
 
-    shikimoku_result = renga.style_check_result["result"]
+    style_result     = renga.style_check_result || {}
+    shikimoku_result = style_result["result"]
     shikimoku_ok     = shikimoku_result == "ok"
 
     heading = if mora_status == :ng
@@ -72,7 +73,7 @@
   </ul>
 
   <h3>式目チェック</h3>
-  <% res = renga.style_check_result %>
+  <% res = style_result %>
   <p>結果：<strong><%= res["result"] %></strong></p>
 
   <% if res["issues"].present? %>
