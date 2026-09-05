@@ -33,8 +33,14 @@
   <% if @confirmed %>
     <%= hidden_field_tag :confirmed, "true" %>
     <%= f.submit "字余りのまま続ける" %>
-    <%= f.submit "差し戻す" %>
   <% else %>
     <%= f.submit "付け句を生成する" %>
   <% end %>
+<% end %>
+
+<% if @confirmed %>
+  <%# 「差し戻す」は生成エンドポイント（form_with = create）を経由させず、
+      前句再入力画面（new）へ素のGETで戻す。_result.html.erbの
+      「前句の入力からやり直す」と同じパターン。 %>
+  <p><%= link_to "差し戻す", new_renga_path(previous_renga_id: @renga.previous_renga_id) %></p>
 <% end %>
