@@ -3,8 +3,8 @@
 # 依頼書2026-09-06 百韻管理機能: renga_verses（成立句）を折ごとに一覧表示する。
 class HyakuinsController < ApplicationController
   def show
-    tip = RengaVerse.find(params[:id])
-    @verses   = fetch_chain(tip.id)
+    @tip      = RengaVerse.find(params[:id])
+    @verses   = fetch_chain(@tip.id)
     @complete = @verses.size >= RengaVerse::TOTAL_VERSES
   end
 

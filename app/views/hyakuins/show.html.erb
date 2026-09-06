@@ -24,4 +24,11 @@
   </ol>
 <% end %>
 
-<p><%= link_to "連歌トップへ戻る", root_path %></p>
+<% if @complete %>
+  <p><%= link_to "新しい連歌を始める", root_path %></p>
+<% else %>
+  <% if @tip.renga_id.present? %>
+    <p><%= link_to "続きを詠む", new_renga_path(previous_renga_id: @tip.renga_id) %></p>
+  <% end %>
+  <p><%= link_to "連歌トップへ戻る", root_path %></p>
+<% end %>
