@@ -1,0 +1,27 @@
+<h1>百韻</h1>
+
+<% if @complete %>
+  <p><strong>百韻成立（挙句まで<%= RengaVerse::TOTAL_VERSES %>句、詠み終えました）</strong></p>
+<% else %>
+  <p>現在<%= @verses.size %>句目まで成立しています。</p>
+<% end %>
+
+<% RengaVerse::FOLDS.each do |name, range| %>
+  <% verses_in_fold = @verses.select { |v| range.cover?(v["verse_no"]) } %>
+  <% next if verses_in_fold.empty? %>
+  <h2><%= name %>（<%= range.first %>〜<%= range.last %>）</h2>
+  <ol start="<%= range.first %>">
+    <% verses_in_fold.each do |v| %>
+      <li>
+        <%= v["tsugeku"] %>
+        <% if v["verse_no"] == 1 %>
+          <small>（発句）</small>
+        <% elsif v["verse_no"] == RengaVerse::TOTAL_VERSES %>
+          <small>（挙句）</small>
+        <% end %>
+      </li>
+    <% end %>
+  </ol>
+<% end %>
+
+<p><%= link_to "連歌トップへ戻る", root_path %></p>

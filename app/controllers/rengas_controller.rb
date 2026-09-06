@@ -79,6 +79,70 @@ class RengasController < ApplicationController
     @renga = Renga.find(params[:id])
   end
 
+  # 依頼書2026-09-06 百韻管理機能: 「この付句を前句として続ける」押下時に
+  # 成立句としてrenga_versesへ記録する。rengasは生成試行の全記録（差し戻し・
+  # 再試行を含む）のまま変更せず、成立句だけをrenga_versesに切り出す。
+  def confirm
+    renga = Renga.find(params[:id])
+
+    unless renga.status == "done"
+      redirect_to renga, alert: "生成が完了していないため続けられません"
+      return
+    end
+
+    if (existing = RengaVerse.find_by(renga_id: renga.id))
+      redirect_to(existing.verse_no >= RengaVerse::TOTAL_VERSES ? hyakuin_path(existing) : new_renga_path(previous_renga_id: renga.id))
+      return
+    end
+
+    maeku_mora = KuValidator.new(renga.maeku).count_mora
+    maeku_type = KuValidator.nearest_verse_type(maeku_mora)
+
+    previous_verse = renga.previous_renga_id.present? ? RengaVerse.find_by(renga_id: renga.previous_renga_id) : nil
+
+    if previous_verse.nil?
+      if renga.previous_renga_id.present?
+        redirect_to renga, alert: "前句がまだ成立していないため続けられません（内部エラー）"
+        return
+      end
+
+      # 発句（このrengaのmaeku自体）はrenga.previous_renga_idを持たないため
+      # 対応するrenga_verse行が存在しない。1句目専用の行を先に作る。
+      previous_verse = RengaVerse.create!(
+        verse_no:     1,
+        maeku:        nil,
+        tsugeku:      renga.maeku,
+        maeku_type:   nil,
+        tsugeku_type: maeku_type.to_s,
+        previous_verse_id: nil,
+        renga_id:     nil
+      )
+    end
+
+    next_verse_no = previous_verse.verse_no + 1
+    if next_verse_no > RengaVerse::TOTAL_VERSES
+      redirect_to hyakuin_path(previous_verse), alert: "百韻は既に成立しています（挙句まで詠み終えています）"
+      return
+    end
+
+    tsugeku_type = (maeku_type == :chouku) ? :tanku : :chouku
+    verse = RengaVerse.create!(
+      verse_no:          next_verse_no,
+      maeku:             renga.maeku,
+      tsugeku:           renga.tsugeku,
+      maeku_type:        maeku_type.to_s,
+      tsugeku_type:      tsugeku_type.to_s,
+      previous_verse_id: previous_verse.id,
+      renga_id:          renga.id
+    )
+
+    if verse.verse_no >= RengaVerse::TOTAL_VERSES
+      redirect_to hyakuin_path(verse), notice: "百韻が成立しました（挙句まで詠み終えました）"
+    else
+      redirect_to new_renga_path(previous_renga_id: renga.id)
+    end
+  end
+
   private
 
   def renga_params

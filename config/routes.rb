@@ -1,6 +1,11 @@
 Rails.application.routes.draw do
   resources :wakas
-  resources :rengas, only: [:new, :create, :show]        # ← この行を追加
+  resources :rengas, only: [:new, :create, :show] do        # ← この行を追加
+    member do
+      post :confirm
+    end
+  end
+  get "hyakuin/:id", to: "hyakuins#show", as: :hyakuin
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

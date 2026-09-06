@@ -95,9 +95,15 @@
   <% end %>
 
   <p>
-    <%= link_to "この付句を前句として続ける",
-          new_renga_path(previous_renga_id: renga.id) %>
+    <%= button_to "この付句を前句として続ける（成立として記録）",
+          confirm_renga_path(renga), method: :post %>
   </p>
+
+  <% if renga.previous_renga_id.present? && (current_verse = RengaVerse.find_by(renga_id: renga.previous_renga_id)) %>
+    <p>
+      <%= link_to "現在の一巻（折表示）を見る", hyakuin_path(current_verse) %>
+    </p>
+  <% end %>
 
   <% if renga.previous_renga_id.present? %>
     <p>

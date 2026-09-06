@@ -10,9 +10,24 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_09_03_000000) do
+ActiveRecord::Schema[7.2].define(version: 2026_09_06_062632) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "renga_verses", force: :cascade do |t|
+    t.integer "verse_no", null: false
+    t.text "maeku"
+    t.text "tsugeku", null: false
+    t.string "maeku_type"
+    t.string "tsugeku_type", null: false
+    t.bigint "previous_verse_id"
+    t.bigint "renga_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["previous_verse_id"], name: "index_renga_verses_on_previous_verse_id"
+    t.index ["renga_id"], name: "index_renga_verses_on_renga_id", unique: true
+    t.index ["verse_no"], name: "index_renga_verses_on_verse_no"
+  end
 
   create_table "rengas", force: :cascade do |t|
     t.text "maeku"
