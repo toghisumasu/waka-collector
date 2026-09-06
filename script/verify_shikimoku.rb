@@ -1129,6 +1129,61 @@ puts "試験16：#{p16} pass / #{f16} fail"
 total_pass += p16; total_fail += f16
 puts
 
+# ─────────────────────────────────────────────────────────────
+#  試験17：一座一句物・七句去物のひらがな表記揺れ吸収（依頼書2026-09-06 パッチB）
+#   「うぐいす」（ひらがな）は一座一句物「鶯」の登録済みyomiと一致するため、
+#   漢字表記と同一語として検出されるべき（修正前は文字列完全一致のため素通りしていた）。
+# ─────────────────────────────────────────────────────────────
+puts "═" * 56
+puts "試験17：一座一句物・七句去物のひらがな表記揺れ吸収（パッチB）"
+puts "─" * 56
+
+p17 = 0; f17 = 0
+def r17(r, p, f) = r ? [p+1, f] : [p, f+1]
+
+# (17a) 漢字→ひらがな：history「鶯」・候補「うぐいす」でichiza_duplicate検出
+hist17a = [{ text: "鶯の声すみて", word: "鶯", bui: [], season: "春" }]
+cand17a = { text: "うぐいすの初音を聞く" }
+v17a = checker.ichiza_violations(hist17a, cand17a)
+res17a = check("ichiza: history「鶯」→候補「うぐいす」で重複検出",
+               v17a.map { |v| v[:type] }, [:ichiza_duplicate])
+p17, f17 = r17(res17a, p17, f17)
+
+# (17b) ひらがな→漢字（逆方向）でも検出される
+hist17b = [{ text: "うぐいすの初音を聞く" }]
+cand17b = { text: "鶯の声すみて" }
+v17b = checker.ichiza_violations(hist17b, cand17b)
+res17b = check("ichiza: history「うぐいす」→候補「鶯」でも重複検出（逆方向）",
+               v17b.map { |v| v[:type] }, [:ichiza_duplicate])
+p17, f17 = r17(res17b, p17, f17)
+
+# (17c) 無関係語は誤検出しない（回帰確認）
+v17c = checker.ichiza_violations(hist17a, { text: "花の下にてながめくらせば" })
+res17c = check("ichiza: 無関係な候補（花）は誤検出しない", v17c, [])
+p17, f17 = r17(res17c, p17, f17)
+
+# (17d) 七句去物: 漢字「船」→ひらがな「ふね」で検出（依頼書やること：nanaku側にも適用）
+hist17d = [{ text: "船出のさまを見送りにけり" }]
+cand17d = { text: "ふねよそひして出づるあけぼの" }
+v17d = checker.nanaku_gomono_violations(hist17d, cand17d)
+res17d = check("nanaku_gomono: history「船」→候補「ふね」で重複検出",
+               v17d.map { |v| v[:type] }, [:nanaku_gomono])
+p17, f17 = r17(res17d, p17, f17)
+
+# (17e) yomiを追加していない語（田）は漢字のみ一致・ひらがな「た」では誤検出しない
+#   （「た」は過去の助動詞語尾等で高頻度に出現するため、意図的にyomi未登録。
+#    ここでの検証は「たまたま『た』を含む無関係文」で誤爆しないことの確認）
+hist17e = [{ text: "田を耕す春の朝かな" }]
+cand17e = { text: "花を見たり月を見たりして過ごしたり" }
+v17e = checker.nanaku_gomono_violations(hist17e, cand17e)
+res17e = check("nanaku_gomono: 「田」はyomi未登録のため「た」を含む無関係文で誤検出しない",
+               v17e, [])
+p17, f17 = r17(res17e, p17, f17)
+
+puts "試験17：#{p17} pass / #{f17} fail"
+total_pass += p17; total_fail += f17
+puts
+
 puts "═" * 56
 puts "総合：#{total_pass} pass / #{total_fail} fail"
 exit(total_fail.zero? ? 0 : 1)

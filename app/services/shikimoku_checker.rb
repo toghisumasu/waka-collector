@@ -63,8 +63,10 @@ class ShikimokuChecker
     @kukazo_rules = kukazo_rules || YAML.load_file(kukazo_path)
     raw_ichiza    = ichiza_words || (File.exist?(ichiza_path.to_s) ? YAML.load_file(ichiza_path) : {})
     @ichiza_words = raw_ichiza.is_a?(Hash) ? raw_ichiza.keys : Array(raw_ichiza)
+    @ichiza_yomi  = raw_ichiza.is_a?(Hash) ? raw_ichiza.transform_values { |v| v.is_a?(Hash) ? v["yomi"] : nil } : {}
     raw_nanaku    = nanaku_words || (File.exist?(nanaku_path.to_s) ? YAML.load_file(nanaku_path) : {})
     @nanaku_words = raw_nanaku.is_a?(Hash) ? raw_nanaku.keys : Array(raw_nanaku)
+    @nanaku_yomi  = raw_nanaku.is_a?(Hash) ? raw_nanaku.transform_values { |v| v.is_a?(Hash) ? v["yomi"] : nil } : {}
   end
 
   # ══════════════════════════════════════════════════════
@@ -352,12 +354,12 @@ class ShikimokuChecker
     history.each_with_index do |verse, i|
       text = verse.is_a?(Hash) ? (verse[:text] || verse[:word]).to_s : verse.to_s
       Array(ichiza_words).each do |iw|
-        hist_seen[iw] ||= i + 1 if text.include?(iw)
+        hist_seen[iw] ||= i + 1 if word_in_text?(text, iw, @ichiza_yomi)
       end
     end
     violations = []
     Array(ichiza_words).each do |iw|
-      if cand_text.include?(iw) && hist_seen.key?(iw)
+      if word_in_text?(cand_text, iw, @ichiza_yomi) && hist_seen.key?(iw)
         violations << { type: :ichiza_duplicate, word: iw, first_pos: hist_seen[iw], pos: history.size + 1 }
       end
     end
@@ -392,11 +394,11 @@ class ShikimokuChecker
     last_seen = {}
     history.each_with_index do |verse, i|
       text = verse.is_a?(Hash) ? (verse[:text] || verse[:word]).to_s : verse.to_s
-      Array(nanaku_words).each { |nw| last_seen[nw] = i + 1 if text.include?(nw) }
+      Array(nanaku_words).each { |nw| last_seen[nw] = i + 1 if word_in_text?(text, nw, @nanaku_yomi) }
     end
     violations = []
     Array(nanaku_words).each do |nw|
-      next unless cand_text.include?(nw)
+      next unless word_in_text?(cand_text, nw, @nanaku_yomi)
       pos = last_seen[nw]
       next unless pos
       interval = history.size + 1 - pos
@@ -466,6 +468,15 @@ class ShikimokuChecker
   end
 
   private
+
+  # 依頼書2026-09-06 パッチB: 一座一句物・七句去物の照合で、見出し語（漢字）だけ
+  # でなく辞書のyomi（ひらがな読み、事前登録済み）でも一致を取る。D-38-1（純Ruby）
+  # を保つため、MeCabによる動的な読み取得はここでは行わず、静的データのみ使う。
+  def word_in_text?(text, word, yomi_map)
+    return true if text.include?(word)
+    yomi = yomi_map[word]
+    !yomi.nil? && !yomi.empty? && text.include?(yomi)
+  end
 
   def next_verse_type(history)
     return :tanku if history.empty?
