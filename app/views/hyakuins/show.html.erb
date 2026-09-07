@@ -2,6 +2,8 @@
   <style>
     @media print {
       .no-print { display: none !important; }
+      h2 { break-before: page; page-break-before: always; }
+      h2:first-of-type { break-before: auto; page-break-before: auto; }
     }
   </style>
 <% end %>
