@@ -56,7 +56,7 @@ class RengaGenerationService
         forbidden_nanaku_words: next_constraints[:forbidden_nanaku_words]
       }
     )
-    tsugeku = generator.generate_tsugeku
+    tsugeku = sanitize_generated_phrase(generator.generate_tsugeku)
 
     tsugeku_word = bui_dict.detect_word(tsugeku, nm)
     candidate = {
@@ -88,6 +88,14 @@ class RengaGenerationService
   end
 
   private
+
+  # メンタムさんの生成句に句中の読点（、）や半角・全角スペースが混入する
+  # ことがある（例：「ただ今、帰り道の枝に止まる」「香りのする夜の奥に ついたる」）。
+  # 句末の記号除去とは別に、句中の読点・スペース除去へ拡張する。句点「。」や
+  # 括弧など他の記号・句の意味は変更しない。式目違反チェックの手前で適用する。
+  def sanitize_generated_phrase(text)
+    text.to_s.gsub(/[、\s　]/, "")
+  end
 
   # 其の三十七: fetch_verse_history（逆戻り検知用、其の三十六）と
   # build_verse_history（式目チェーン用、フェーズ8未接続）が、それぞれ独自に
