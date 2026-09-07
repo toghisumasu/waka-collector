@@ -35,7 +35,9 @@ class RengasController < ApplicationController
       return
     end
 
-    if check[:result] == "warning" && !confirmed
+    # 成立前句（previous_renga_idあり）はreadonlyで編集不可・既にrenga_versesへ
+    # 記録済みのため、字余り・字足らずの確認画面は出さず生成へ進める。
+    if check[:result] == "warning" && !confirmed && previous_renga_id.blank?
       @renga     = Renga.new(maeku: maeku, previous_renga_id: previous_renga_id)
       @honkas    = Waka.limit(5)
       @warning   = check[:message]

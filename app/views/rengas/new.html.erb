@@ -4,7 +4,7 @@
   <p style="color:#b00"><%= flash[:alert] %></p>
 <% end %>
 
-<% if @warning %>
+<% if @warning && @renga.previous_renga_id.blank? %>
   <p style="color:#c60"><strong><%= @warning %></strong></p>
 <% end %>
 
@@ -17,6 +17,7 @@
   <div>
     <%= f.label :maeku, "前句（五七五）" %><br>
     <%= f.text_area :maeku,
+          readonly: @renga.previous_renga_id.present?,
           placeholder: "春はあけぼの やうやう白く なりゆく山ぎは" %>
   </div>
 
@@ -38,7 +39,7 @@
   <% end %>
 <% end %>
 
-<% if @confirmed %>
+<% if @confirmed && @renga.previous_renga_id.blank? %>
   <%# 「差し戻す」は生成エンドポイント（form_with = create）を経由させず、
       前句再入力画面（new）へ素のGETで戻す。_result.html.erbの
       「前句の入力からやり直す」と同じパターン。 %>
