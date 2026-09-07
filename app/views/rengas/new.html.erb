@@ -15,7 +15,12 @@
 <%= form_with model: @renga, data: { turbo: false } do |f| %>
   <%= f.hidden_field :previous_renga_id %>
   <div>
-    <%= f.label :maeku, "前句（五七五）" %><br>
+    <% if @renga.previous_renga_id.present? %>
+      <% maeku_type = KuValidator.nearest_verse_type(KuValidator.new(@renga.maeku.to_s).count_mora) %>
+      <%= f.label :maeku, "前句（#{maeku_type == :chouku ? '五七五' : '七七'}）" %><br>
+    <% else %>
+      <%= f.label :maeku, "発句（五七五）" %><br>
+    <% end %>
     <%= f.text_area :maeku,
           readonly: @renga.previous_renga_id.present?,
           placeholder: "春はあけぼの やうやう白く なりゆく山ぎは" %>
