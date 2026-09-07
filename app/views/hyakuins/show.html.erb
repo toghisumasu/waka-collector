@@ -1,4 +1,16 @@
+<% content_for :head do %>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+    }
+  </style>
+<% end %>
+
 <h1>百韻</h1>
+
+<p class="no-print">
+  <button type="button" onclick="window.print()">印刷する</button>
+</p>
 
 <% if @complete %>
   <p><strong>百韻成立（挙句まで<%= RengaVerse::TOTAL_VERSES %>句、詠み終えました）</strong></p>
@@ -24,6 +36,7 @@
   </ol>
 <% end %>
 
+<div class="no-print">
 <% if @complete %>
   <p><%= link_to "新しい連歌を始める", root_path %></p>
 <% else %>
@@ -32,3 +45,4 @@
   <% end %>
   <p><%= link_to "連歌トップへ戻る", root_path %></p>
 <% end %>
+</div>
