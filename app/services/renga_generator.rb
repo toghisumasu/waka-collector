@@ -458,7 +458,11 @@ class RengaGenerator
 
   def build_full_prompt(seed, example, feedback, season_label, forbidden_label)
     feedback_line       = feedback ? "前回「#{feedback[:ku]}」は#{feedback[:issue]}。#{feedback[:message]}\n" : ""
-    target_desc          = (@verse_type == :chouku) ? "五七五（17音）" : "七七（14音）"
+    # 其の（今回）: モデルは句種に依らず15〜16音へ回帰するクセがあり、長句は
+    # 字足らず(-1)が42%、短句は字余り(+1)が55%（docs/investigation_20260908_
+    # mora_over_under_rate.md 案2）。目標音数をドリフトの逆へバイアスして真の
+    # 目標(17/14)へ着地させる。採否判定（target_mora ±1、上記）は変更しない。
+    target_desc = (@verse_type == :chouku) ? "五七五（18音でよい、やや長めに）" : "七七（13音でよい、やや短めに）"
     kigo_line, kinshi, continue_line = directive_lines(season_label)
     step0_line           = @step0_note.present? ? "（#{@step0_note}）\n" : ""
 
