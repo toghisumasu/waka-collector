@@ -21,8 +21,10 @@
     <% else %>
       <%= f.label :maeku, "発句（五七五）" %><br>
     <% end %>
+    <%# 前句欄は常に編集可能。式目違反後の差し戻し・「前句の入力からやり直す」で
+        ユーザーが前句を修正できる必要がある。成立済み句の readonly 表示は
+        hyakuins/show 側の責務。 %>
     <%= f.text_area :maeku,
-          readonly: @renga.previous_renga_id.present?,
           placeholder: "春はあけぼの やうやう白く なりゆく山ぎは" %>
   </div>
 
