@@ -458,6 +458,10 @@ class RengaGenerator
 
   def build_full_prompt(seed, example, feedback, season_label, forbidden_label)
     feedback_line       = feedback ? "前回「#{feedback[:ku]}」は#{feedback[:issue]}。#{feedback[:message]}\n" : ""
+    # 依頼書 D-XX-2: 再生成分岐（feedback非nil＝失敗後の詠み直し）のみ、意図説明を
+    # 予告して汎用語（揺れる・光る・重い等）への回帰を抑える一文を加える。
+    # 初回生成プロンプト（feedback nil）は安定性優先のため変更しない。
+    regen_note          = feedback ? "なお、後でこの句の語選びの意図を説明してもらうことがあります。「揺れる」「光る」「重い」のような一般的な語に頼らず、前句の情景に即した具体的な言葉を選んでください。\n" : ""
     # 其の（今回）: モデルは句種に依らず15〜16音へ回帰するクセがあり、長句は
     # 字足らず(-1)が42%、短句は字余り(+1)が55%（docs/investigation_20260908_
     # mora_over_under_rate.md 案2）。目標音数をドリフトの逆へバイアスして真の
@@ -472,7 +476,7 @@ class RengaGenerator
       前句：#{@maeku}
       #{step0_line}連想：#{seed[:surface]}
       季節：#{season_label}
-      #{kigo_line}#{kinshi}#{continue_line}#{feedback_line}#{target_desc}を一行だけ出力してください。説明や前置きは不要です。
+      #{kigo_line}#{kinshi}#{continue_line}#{feedback_line}#{regen_note}#{target_desc}を一行だけ出力してください。説明や前置きは不要です。
       続き：
     PROMPT
   end
