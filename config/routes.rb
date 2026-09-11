@@ -3,6 +3,7 @@ Rails.application.routes.draw do
   resources :rengas, only: [:new, :create, :show] do        # ← この行を追加
     member do
       post :confirm
+      patch :manual_tsugeku
     end
   end
   get "hyakuin/:id", to: "hyakuins#show", as: :hyakuin

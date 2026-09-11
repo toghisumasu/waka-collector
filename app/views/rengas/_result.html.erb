@@ -13,6 +13,19 @@
           new_renga_path(previous_renga_id: renga.previous_renga_id) %>
   </p>
 
+  <details<%= " open".html_safe if @manual_tsugeku_error %>>
+    <summary>自分で付ける</summary>
+    <% if @manual_tsugeku_error %>
+      <p style="color:red;"><%= @manual_tsugeku_error %></p>
+    <% end %>
+    <%= form_with url: manual_tsugeku_renga_path(renga), method: :patch do %>
+      <p>
+        <%= text_area_tag :tsugeku, @manual_tsugeku_draft, rows: 2, cols: 40 %>
+      </p>
+      <p><%= submit_tag "この付句で記録する" %></p>
+    <% end %>
+  </details>
+
 <% when "done" %>
   <%
     maeku_mora    = KuValidator.new(renga.maeku).count_mora

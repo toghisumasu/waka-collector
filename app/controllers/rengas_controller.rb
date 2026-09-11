@@ -145,6 +145,52 @@ class RengasController < ApplicationController
     end
   end
 
+  # 依頼書D-XX-3: 生成失敗（status: "failed"）時に、ユーザーが自分で付句を
+  # 入力して成立させる。KuValidator（字数）・ShikimokuChecker（式目）は
+  # 自動生成パイプラインと同じ基準を通す。式目・モーラのロジック自体には
+  # 手を入れず、既存のmaeku_shikimoku_violationsと同型の照合を複製する。
+  def manual_tsugeku
+    renga = Renga.find(params[:id])
+
+    unless renga.status == "failed"
+      redirect_to renga, alert: "生成失敗時のみ利用できます"
+      return
+    end
+
+    tsugeku = params[:tsugeku].to_s
+
+    maeku_mora   = KuValidator.new(renga.maeku).count_mora
+    maeku_type   = KuValidator.nearest_verse_type(maeku_mora)
+    tsugeku_type = (maeku_type == :chouku) ? :tanku : :chouku
+
+    check = KuValidator.new(tsugeku, type: tsugeku_type).validate
+    if check[:result] == "ng"
+      @renga                 = renga
+      @manual_tsugeku_draft  = tsugeku
+      @manual_tsugeku_error  = check[:message]
+      render :show, status: :unprocessable_entity
+      return
+    end
+
+    shikimoku_issues = manual_tsugeku_shikimoku_violations(renga, tsugeku, maeku_type, tsugeku_type)
+    if shikimoku_issues.any?
+      @renga                = renga
+      @manual_tsugeku_draft = tsugeku
+      @manual_tsugeku_error = "式目違反: #{shikimoku_issues.join('、')}"
+      render :show, status: :unprocessable_entity
+      return
+    end
+
+    renga.update!(
+      tsugeku:            tsugeku,
+      tsugeku_author:     "連衆",
+      style_check_result: { "result" => "ok", "issues" => [], "breakdown" => [] },
+      status:             "done"
+    )
+
+    redirect_to renga, notice: "付け句を記録しました"
+  end
+
   private
 
   def renga_params
@@ -163,6 +209,26 @@ class RengasController < ApplicationController
     history  = shikimoku_check_verse_chain(previous_renga_id, limit: 9)
                  .map { |row| shikimoku_check_verse_info(row["tsugeku"], nm: nm, bui_dict: bui_dict) }
     candidate = shikimoku_check_verse_info(maeku, nm: nm, bui_dict: bui_dict).merge(verse_type: maeku_type)
+
+    checker    = ShikimokuChecker.new
+    violations = checker.all_violations(history, candidate, bui_dict: bui_dict)
+    violations += checker.ichiza_violations(history, candidate)
+    violations.map { |v| ShikimokuChecker.describe(v) }
+  end
+
+  # manual_tsugeku用: renga.maekuに続くユーザー入力tsugekuを候補として、
+  # RengaGenerationService#build_verse_historyのchain.empty?時の扱い
+  # （前句自体を履歴に補う）に合わせて履歴を組み立てる。
+  def manual_tsugeku_shikimoku_violations(renga, tsugeku, maeku_type, tsugeku_type)
+    nm       = shikimoku_check_mecab
+    bui_dict = BuiDictionary.new
+
+    chain   = shikimoku_check_verse_chain(renga.previous_renga_id, limit: 9)
+    history = chain.map { |row| shikimoku_check_verse_info(row["tsugeku"], nm: nm, bui_dict: bui_dict) }
+    if chain.empty?
+      history << shikimoku_check_verse_info(renga.maeku, nm: nm, bui_dict: bui_dict).merge(verse_type: maeku_type)
+    end
+    candidate = shikimoku_check_verse_info(tsugeku, nm: nm, bui_dict: bui_dict).merge(verse_type: tsugeku_type)
 
     checker    = ShikimokuChecker.new
     violations = checker.all_violations(history, candidate, bui_dict: bui_dict)
