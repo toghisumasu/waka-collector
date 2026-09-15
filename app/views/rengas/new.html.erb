@@ -17,9 +17,9 @@
   <div>
     <% if @renga.previous_renga_id.present? %>
       <% maeku_type = KuValidator.nearest_verse_type(KuValidator.new(@renga.maeku.to_s).count_mora) %>
-      <%= f.label :maeku, "前句（#{maeku_type == :chouku ? '五七五' : '七七'}）" %><br>
+      <%= f.label :maeku, "前句（#{maeku_type == :chouku ? '長句・五七五' : '短句・七七'}）" %><br>
     <% else %>
-      <%= f.label :maeku, "発句（五七五）" %><br>
+      <%= f.label :maeku, "発句（長句・五七五）" %><br>
     <% end %>
     <%# 前句欄は常に編集可能。式目違反後の差し戻し・「前句の入力からやり直す」で
         ユーザーが前句を修正できる必要がある。成立済み句の readonly 表示は

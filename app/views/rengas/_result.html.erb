@@ -1,15 +1,19 @@
+<%
+  # 依頼書B Item 1: previous_renga_idがなければこのrenga.maekuは1句目（発句）。
+  maeku_label = renga.previous_renga_id.blank? ? "発句" : "前句"
+%>
 <% case renga.status %>
 <% when "pending", "generating" %>
   <h1>付句を詠んでいます……</h1>
-  <p>前句：<%= renga.maeku %></p>
+  <p><%= maeku_label %>：<%= renga.maeku %></p>
   <p>しばらくお待ちください。（1分ほどかかります）</p>
 
 <% when "failed" %>
   <h1>生成に失敗しました</h1>
-  <p>前句：<%= renga.maeku %></p>
+  <p><%= maeku_label %>：<%= renga.maeku %></p>
   <p>しばらく時間をおいてから、もう一度お試しください。</p>
   <p>
-    <%= link_to "前句の入力からやり直す",
+    <%= link_to "#{maeku_label}の入力からやり直す",
           new_renga_path(previous_renga_id: renga.previous_renga_id) %>
   </p>
 
@@ -62,7 +66,7 @@
   %>
   <h1><%= heading %></h1>
 
-  <p><strong>前句：</strong><%= renga.maeku %>
+  <p><strong><%= maeku_label %>：</strong><%= renga.maeku %>
      <small>（<%= renga.maeku_author %>）</small></p>
   <p><strong>付け句：</strong><%= renga.tsugeku %>
      <small>（<%= renga.tsugeku_author %>）</small></p>
@@ -70,14 +74,14 @@
   <h3>字数判定（KuValidator）</h3>
   <ul>
     <li>
-      前句（<%= maeku_type == :chouku ? "長句・17音" : "短句・14音" %>）：
+      <%= maeku_label %>（<%= maeku_type == :chouku ? "長句（五七五）" : "短句（七七）" %>）：
       <%= maeku_check[:mora] %>音 → <strong><%= maeku_check[:result] %></strong>
       <% if maeku_check[:message].present? %>
         （<%= maeku_check[:message] %>）
       <% end %>
     </li>
     <li>
-      付け句（<%= tsugeku_type == :chouku ? "長句・17音" : "短句・14音" %>）：
+      付け句（<%= tsugeku_type == :chouku ? "長句（五七五）" : "短句（七七）" %>）：
       <%= tsugeku_check[:mora] %>音 → <strong><%= tsugeku_check[:result] %></strong>
       <% if tsugeku_check[:message].present? %>
         （<%= tsugeku_check[:message] %>）
