@@ -12,6 +12,7 @@
 
 <p class="no-print">
   <button type="button" onclick="window.print()">印刷する</button>
+  <%= link_to "縦書き印刷ページ（連歌会用）", vertical_hyakuin_path(@tip) %>
 </p>
 
 <% if @complete %>

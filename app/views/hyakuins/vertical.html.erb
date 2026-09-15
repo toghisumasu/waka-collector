@@ -1,0 +1,186 @@
+<%
+  season_bg = { "春" => "#fdf2f5", "夏" => "#f0f7ec", "秋" => "#fbf0e4", "冬" => "#eef5f8", "雑" => "#f5f5f0" }
+%>
+<% content_for :head do %>
+  <style>
+    /* ── リセット ── */
+    .tategaki-page, .tategaki-page *, .tategaki-page *::before, .tategaki-page *::after {
+      box-sizing: border-box; margin: 0; padding: 0;
+    }
+
+    .tategaki-page {
+      background: #ede8df;
+      font-family: "Hiragino Mincho ProN", "游明朝", "Yu Mincho", "ＭＳ 明朝", serif;
+      color: #2a1f14;
+      padding: 40px 20px;
+    }
+
+    .tategaki-page .no-print { }
+
+    /* ── タイトル ── */
+    .tategaki-page .title-block {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      margin: 0 auto 50px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+    .tategaki-page .title-main {
+      font-size: 2.2rem;
+      letter-spacing: 0.25em;
+      color: #3d2b1a;
+      border-right: 3px double #9a7a5a;
+      padding-right: 16px;
+    }
+    .tategaki-page .title-date {
+      font-size: 0.95rem;
+      color: #7a6a5a;
+      letter-spacing: 0.15em;
+    }
+
+    /* ── 凡例 ── */
+    .tategaki-page .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 40px;
+      font-size: 0.8rem;
+    }
+    .tategaki-page .legend-item { display: flex; align-items: center; gap: 6px; }
+    .tategaki-page .legend-swatch {
+      width: 16px; height: 16px;
+      border: 1px solid #b0a090;
+      border-radius: 2px;
+    }
+
+    /* ── 折コンテナ ── */
+    .tategaki-page .fold-section { margin-bottom: 48px; }
+    .tategaki-page .fold-header {
+      writing-mode: horizontal-tb;
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      color: #7a5a3a;
+      border-bottom: 1px solid #b0946e;
+      padding-bottom: 6px;
+      margin-bottom: 20px;
+    }
+    .tategaki-page .fold-count { font-size: 0.75rem; color: #9a8a7a; margin-left: 12px; }
+
+    /* ── 短冊列（右→左、縦書き） ── */
+    .tategaki-page .tanzaku-row {
+      display: flex;
+      flex-direction: row-reverse;
+      flex-wrap: nowrap;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+    }
+
+    /* ── 短冊 ── */
+    .tategaki-page .tanzaku {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 8px;
+      min-width: 52px;
+      min-height: 280px;
+      border-radius: 3px;
+      position: relative;
+      flex-shrink: 0;
+      box-shadow: 1px 1px 4px rgba(0,0,0,0.08);
+    }
+    .tategaki-page .verse-no { font-size: 0.62rem; color: #9a8270; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .tategaki-page .verse-text { font-size: 1.0rem; line-height: 1.9; letter-spacing: 0.12em; color: #1e130a; flex: 1; }
+    .tategaki-page .verse-meta { font-size: 0.62rem; color: #8a7060; margin-top: 4px; letter-spacing: 0.05em; }
+
+    /* FORCED マーク（現状データには存在しないが表示機構は維持） */
+    .tategaki-page .forced-mark {
+      position: absolute; top: 4px; left: 4px;
+      font-size: 0.65rem; color: #c05050;
+      writing-mode: horizontal-tb; line-height: 1;
+    }
+
+    /* ── 統計バー ── */
+    .tategaki-page .stats {
+      display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+      margin-bottom: 32px; font-size: 0.8rem; color: #6a5a4a;
+    }
+    .tategaki-page .stat-item { letter-spacing: 0.08em; }
+
+    .tategaki-page .footer {
+      text-align: center; font-size: 0.75rem; color: #9a8a7a;
+      margin-top: 48px; padding-top: 16px;
+      border-top: 1px solid #c0b0a0; letter-spacing: 0.1em;
+    }
+
+    /* ── 印刷（依頼書B Item 3-4: A4横向き） ── */
+    @media print {
+      .no-print { display: none !important; }
+      @page { size: A4 landscape; margin: 10mm; }
+      .tategaki-page { background: #fff; padding: 0; }
+      .fold-section { page-break-inside: avoid; break-inside: avoid; }
+      .fold-section { page-break-before: always; break-before: page; }
+      .fold-section:first-child { page-break-before: avoid; break-before: avoid; }
+      .tanzaku-row { overflow-x: visible; flex-wrap: wrap; }
+      .tanzaku { box-shadow: none; }
+    }
+  </style>
+<% end %>
+
+<p class="no-print">
+  <button type="button" onclick="window.print()">印刷する</button>
+  <%= link_to "横書き表示に戻る", hyakuin_path(@tip) %>
+</p>
+
+<div class="tategaki-page">
+  <div style="text-align:center; margin-bottom: 40px;">
+    <div class="title-block">
+      <div class="title-main">連歌 百韻</div>
+      <div class="title-date"><%= @complete ? "挙句まで#{RengaVerse::TOTAL_VERSES}句" : "現在#{@verses.size}句目まで" %></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <span class="stat-item">全<%= @verses.size %>句</span>
+    <span class="stat-item">FORCED <%= @forced_count %>句</span>
+    <% @season_counts.each do |season, count| %>
+      <span class="stat-item"><%= season %><%= count %>句</span>
+    <% end %>
+  </div>
+
+  <div class="legend">
+    <% season_bg.each do |season, bg| %>
+      <div class="legend-item"><div class="legend-swatch" style="background:<%= bg %>"></div><%= season %></div>
+    <% end %>
+    <div class="legend-item"><span style="color:#c05050;font-size:0.85rem">※</span> FORCED句</div>
+  </div>
+
+  <% @fold_groups.each do |name, range, verses_in_fold| %>
+    <div class="fold-section">
+      <div class="fold-header"><%= name %><span class="fold-count">（<%= range.first %>〜<%= range.last %>句）</span></div>
+      <div class="tanzaku-row">
+        <% verses_in_fold.each do |v| %>
+          <% bg = season_bg[v[:season]] || season_bg["雑"] %>
+          <% border = v[:forced] ? "border: 1.5px solid #e8a0a0;" : "border: 1px solid #c8b89a;" %>
+          <div class="tanzaku" style="background:<%= bg %>;<%= border %>">
+            <% if v[:forced] %><span class="forced-mark">※</span><% end %>
+            <span class="verse-no"><%= format('%03d', v[:verse_no]) %></span>
+            <span class="verse-text"><%= v[:text] %></span>
+            <span class="verse-meta"><%= v[:season] %>・<%= v[:chouku] ? "長" : "短" %></span>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="footer">
+    連歌 百韻&ensp;|&ensp;生成: メンタムさん（qwen3:8b via Ollama）&ensp;|&ensp;検証: ShikimokuChecker
+  </div>
+</div>

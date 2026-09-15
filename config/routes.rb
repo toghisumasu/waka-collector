@@ -7,6 +7,7 @@ Rails.application.routes.draw do
     end
   end
   get "hyakuin/:id", to: "hyakuins#show", as: :hyakuin
+  get "hyakuin/:id/vertical", to: "hyakuins#vertical", as: :vertical_hyakuin
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
