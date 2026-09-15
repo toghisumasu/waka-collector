@@ -3,6 +3,11 @@
   season: null
   taiyo: 体
 
+水面:
+  primary_bui: 水辺
+  season: null
+  taiyo: 体
+
 舟:
   primary_bui: 水辺
   season: null
