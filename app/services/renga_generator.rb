@@ -453,7 +453,20 @@ class RengaGenerator
     else
       ""
     end
-    [kigo_line, kinshi, continue_line]
+    # C-1（依頼書C）: dryrun_hyakuin.rb:177の絶対禁止ブロックを移植。
+    # 移植元はJSON出力の「season」フィールドを禁じる文言だが、:direct方式は
+    # 一行テキスト出力でseasonフィールドが存在しないため、対象を「句の内容」に
+    # 言い換えて移植する（強調体裁・禁止季語列挙という要素はそのまま）。
+    switch_line = if season_hint && season_hint[:must_switch]
+      old_season = season_hint[:current]
+      old_key    = SEASON_JP.invert[old_season]
+      old_kigo   = (old_key && SEASON_WORDS[old_key] || []).first(5).join("・")
+      "【絶対禁止】#{old_season}の句を詠んではならない。" \
+      "「#{old_kigo}」等、#{old_season}の語を含む句も禁止。違反した場合は採点外とする。\n"
+    else
+      ""
+    end
+    [kigo_line, kinshi, continue_line, switch_line]
   end
 
   def build_full_prompt(seed, example, feedback, season_label, forbidden_label)
@@ -467,7 +480,7 @@ class RengaGenerator
     # mora_over_under_rate.md 案2）。目標音数をドリフトの逆へバイアスして真の
     # 目標(17/14)へ着地させる。採否判定（target_mora ±1、上記）は変更しない。
     target_desc = (@verse_type == :chouku) ? "五七五（18音でよい、やや長めに）" : "七七（13音でよい、やや短めに）"
-    kigo_line, kinshi, continue_line = directive_lines(season_label)
+    kigo_line, kinshi, continue_line, switch_line = directive_lines(season_label)
     step0_line           = @step0_note.present? ? "（#{@step0_note}）\n" : ""
 
     <<~PROMPT
@@ -476,7 +489,7 @@ class RengaGenerator
       前句：#{@maeku}
       #{step0_line}連想：#{seed[:surface]}
       季節：#{season_label}
-      #{kigo_line}#{kinshi}#{continue_line}#{feedback_line}#{regen_note}#{target_desc}を一行だけ出力してください。説明や前置きは不要です。
+      #{switch_line}#{kigo_line}#{kinshi}#{continue_line}#{feedback_line}#{regen_note}#{target_desc}を一行だけ出力してください。説明や前置きは不要です。
       続き：
     PROMPT
   end
