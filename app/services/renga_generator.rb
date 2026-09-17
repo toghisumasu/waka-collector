@@ -482,6 +482,11 @@ class RengaGenerator
     target_desc = (@verse_type == :chouku) ? "五七五（18音でよい、やや長めに）" : "七七（13音でよい、やや短めに）"
     kigo_line, kinshi, continue_line, switch_line = directive_lines(season_label)
     step0_line           = @step0_note.present? ? "（#{@step0_note}）\n" : ""
+    # C-2（依頼書C）: build_after_prompt時代に本文展開されていたexample引数を
+    # 復活。旧文脈は「部分補完の見本」だったが、現行:direct方式は全句自由生成
+    # のため実質「出力形式の見本」として機能する。形式・文言はStep1調査結果の通り。
+    example_line = "例：「#{example[:before]}」→「#{example[:after]}」\n" \
+                   "例文の言葉（「#{example[:after]}」）をそのままコピーしないこと。\n"
 
     <<~PROMPT
       あなたは連歌の宗匠です。
@@ -489,7 +494,7 @@ class RengaGenerator
       前句：#{@maeku}
       #{step0_line}連想：#{seed[:surface]}
       季節：#{season_label}
-      #{switch_line}#{kigo_line}#{kinshi}#{continue_line}#{feedback_line}#{regen_note}#{target_desc}を一行だけ出力してください。説明や前置きは不要です。
+      #{switch_line}#{kigo_line}#{kinshi}#{continue_line}#{feedback_line}#{regen_note}#{example_line}#{target_desc}を一行だけ出力してください。説明や前置きは不要です。
       続き：
     PROMPT
   end
