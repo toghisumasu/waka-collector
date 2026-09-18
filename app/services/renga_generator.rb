@@ -173,7 +173,9 @@ class RengaGenerator
         # 字余り方向はstreak>=2、字足らず方向はstreak>=3で発動
         # （其の三十二 Step B-3改：字足らず側は閾値を1段引き上げている）
         season_label = if season_hint && season_hint[:must_switch]
-          seed[:season] || "雑"
+          current    = season_hint[:current]
+          candidates = SEASON_JP.values.reject { |s| s == current }
+          candidates.sample
         else
           season_hint&.dig(:current) || SEASON_JP[m_season] || "雑"
         end
