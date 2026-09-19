@@ -93,12 +93,15 @@ end
 batches = ARGV.map(&:strip).reject(&:empty?)
 
 if batches.empty?
-  available = Renga.where.not(observation_batch: nil)
-                   .distinct.pluck(:observation_batch).sort
+  counts = Renga.where.not(observation_batch: nil)
+                .group(:observation_batch).count
   puts "observation_batch を引数で指定してください。"
   puts ""
-  puts "利用可能なbatch一覧:"
-  available.each { |b| puts "  #{b}" }
+  puts "利用可能なbatch一覧（句数付き、100句以上が実行対象）:"
+  counts.sort_by { |b, _| b }.each do |b, cnt|
+    marker = cnt >= 100 ? "OK " : "NG "
+    puts "  #{marker} #{b}  (#{cnt}句)"
+  end
   exit 0
 end
 
