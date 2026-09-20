@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_09_06_062632) do
+ActiveRecord::Schema[7.2].define(version: 2026_09_20_043216) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -24,6 +24,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_06_062632) do
     t.bigint "renga_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "bui_list", default: [], array: true
     t.index ["previous_verse_id"], name: "index_renga_verses_on_previous_verse_id"
     t.index ["renga_id"], name: "index_renga_verses_on_renga_id", unique: true
     t.index ["verse_no"], name: "index_renga_verses_on_verse_no"
