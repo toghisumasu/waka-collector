@@ -99,6 +99,8 @@ class RengasController < ApplicationController
 
     maeku_mora = KuValidator.new(renga.maeku).count_mora
     maeku_type = KuValidator.nearest_verse_type(maeku_mora)
+    # F-3: bui_list記録用。confirm内で1回だけ生成し発句・付け句の両方で共用する。
+    nm = shikimoku_check_mecab
 
     previous_verse = renga.previous_renga_id.present? ? RengaVerse.find_by(renga_id: renga.previous_renga_id) : nil
 
@@ -117,7 +119,8 @@ class RengasController < ApplicationController
         maeku_type:   nil,
         tsugeku_type: maeku_type.to_s,
         previous_verse_id: nil,
-        renga_id:     nil
+        renga_id:     nil,
+        bui_list:     BuiDictionary.new.detect_all(renga.maeku, nm)
       )
     end
 
@@ -135,7 +138,8 @@ class RengasController < ApplicationController
       maeku_type:        maeku_type.to_s,
       tsugeku_type:      tsugeku_type.to_s,
       previous_verse_id: previous_verse.id,
-      renga_id:          renga.id
+      renga_id:          renga.id,
+      bui_list:          BuiDictionary.new.detect_all(renga.tsugeku, nm)
     )
 
     if verse.verse_no >= RengaVerse::TOTAL_VERSES
