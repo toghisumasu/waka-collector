@@ -892,7 +892,9 @@ end
 end
 
 # (13c) ③真に未知（辞書に無い語）→ 変換せずそのまま返す
-%w[風 音 夢 春].each do |tag|
+# 「風」はG-2（run4語彙抽出）で聳物として辞書登録されたため、
+# 「声」に差し替えた（G-2依頼書の見送り語一覧により未登録と確認済み）。
+%w[声 音 夢 春].each do |tag|
   res = check("③真に未知「#{tag}」→ 無変換のまま返す",
               bui_dict.normalize_bui(tag, valid_categories), tag)
   p13, f13 = r13(res, p13, f13)

@@ -236,3 +236,313 @@
   taiyo: 体
   # 雁は現行SEASON_WORDSでは秋語のみだが、帰雁（春に北へ帰る雁）は
   # 古典的に春の景物として扱われる。湯山三吟95句「あまつかり」が春句である実例。
+
+# ── G-2追記 2026-09-24：run4語彙抽出・辞書充実（bui未登録語57語） ──
+もみじ:
+  primary_bui: 植物
+  season: 秋
+  taiyo: 体
+  plant_type: tree
+  note: "(漢字: 紅葉と同一)"
+
+すすき:
+  primary_bui: 植物
+  season: 秋
+  taiyo: 体
+  plant_type: grass
+  note: "(漢字: 薄と同一)"
+
+わらび:
+  primary_bui: 植物
+  season: 春
+  taiyo: 体
+  plant_type: grass
+
+おみなえし:
+  primary_bui: 植物
+  season: 秋
+  taiyo: 体
+  plant_type: flower
+
+すみれ:
+  primary_bui: 植物
+  season: 春
+  taiyo: 体
+  plant_type: flower
+
+むくげ:
+  primary_bui: 植物
+  season: 夏
+  taiyo: 体
+  plant_type: flower
+
+山吹:
+  primary_bui: 植物
+  season: 春
+  taiyo: 体
+  plant_type: flower
+
+桃:
+  primary_bui: 植物
+  season: 春
+  taiyo: 体
+  plant_type: flower
+
+菜の花:
+  primary_bui: 植物
+  season: 春
+  taiyo: 体
+  plant_type: flower
+
+菊:
+  primary_bui: 植物
+  season: 秋
+  taiyo: 体
+  plant_type: flower
+
+葉:
+  primary_bui: 植物
+  season: 秋
+  taiyo: 体
+  plant_type: tree
+
+木の葉:
+  primary_bui: 植物
+  season: 秋
+  taiyo: 体
+  plant_type: tree
+
+木々:
+  primary_bui: 植物
+  season: null
+  taiyo: 体
+  plant_type: tree
+
+梢:
+  primary_bui: 植物
+  season: null
+  taiyo: 体
+  plant_type: tree
+
+枯枝:
+  primary_bui: 植物
+  season: 冬
+  taiyo: 体
+  plant_type: tree
+
+千鳥:
+  primary_bui: 動物
+  season: 冬
+  taiyo: 体
+
+蝶:
+  primary_bui: 動物
+  season: 春
+  taiyo: 体
+
+蛙:
+  primary_bui: 動物
+  season: 春
+  taiyo: 体
+
+雁:
+  primary_bui: 動物
+  season: 秋
+  taiyo: 体
+  note: "帰雁（春）は既存エントリあり。雁は秋として独立登録"
+
+鷺:
+  primary_bui: 動物
+  season: null
+  taiyo: 体
+
+うぐいす:
+  primary_bui: 動物
+  season: 春
+  taiyo: 体
+
+しぐれ:
+  primary_bui: 降物
+  season: 冬
+  taiyo: 体
+  note: "(漢字: 時雨と同一)"
+
+露:
+  primary_bui: 降物
+  season: 秋
+  taiyo: 体
+
+雪:
+  primary_bui: 降物
+  season: 冬
+  taiyo: 体
+
+雨:
+  primary_bui: 降物
+  season: null
+  taiyo: 体
+
+滴:
+  primary_bui: 降物
+  season: null
+  taiyo: 体
+
+氷:
+  primary_bui: 降物
+  season: 冬
+  taiyo: 体
+
+みぞれ:
+  primary_bui: 降物
+  season: 冬
+  taiyo: 体
+  note: "MeCabで「みぞ」に分割される場合あり（run4 058/070句確認済み）"
+
+霞:
+  primary_bui: 聳物
+  season: 春
+  taiyo: 体
+
+風:
+  primary_bui: 聳物
+  season: null
+  taiyo: 体
+
+嵐:
+  primary_bui: 聳物
+  season: 秋
+  taiyo: 体
+
+きり:
+  primary_bui: 聳物
+  season: 秋
+  taiyo: 体
+  note: "(漢字: 霧)"
+
+空:
+  primary_bui: 聳物
+  season: null
+  taiyo: 体
+  note: "「そら」読み。くう（仏教）は釈教だが、メンタムさんの用法はそら"
+
+光:
+  primary_bui: 光物
+  season: null
+  taiyo: 体
+
+影:
+  primary_bui: 光物
+  season: null
+  taiyo: 体
+
+灯:
+  primary_bui: 光物
+  season: null
+  taiyo: 体
+
+朧:
+  primary_bui: 光物
+  season: 春
+  taiyo: 体
+
+波:
+  primary_bui: 水辺
+  season: null
+  taiyo: 体
+
+浜辺:
+  primary_bui: 水辺
+  season: null
+  taiyo: 体
+
+潮:
+  primary_bui: 水辺
+  season: null
+  taiyo: 体
+
+海:
+  primary_bui: 水辺
+  season: null
+  taiyo: 体
+
+川:
+  primary_bui: 水辺
+  season: null
+  taiyo: 体
+
+古池:
+  primary_bui: 水辺
+  season: null
+  taiyo: 体
+
+時:
+  primary_bui: 時分
+  season: null
+  taiyo: 体
+
+朝:
+  primary_bui: 時分
+  season: null
+  taiyo: 体
+
+未明:
+  primary_bui: 時分
+  season: null
+  taiyo: 体
+
+夜:
+  primary_bui: 時分
+  season: null
+  taiyo: 体
+
+夕暮れ:
+  primary_bui: 時分
+  season: null
+  taiyo: 体
+
+黄昏:
+  primary_bui: 時分
+  season: null
+  taiyo: 体
+
+宵:
+  primary_bui: 時分
+  season: null
+  taiyo: 体
+
+明け方:
+  primary_bui: 時分
+  season: null
+  taiyo: 体
+
+暁:
+  primary_bui: 時分
+  season: null
+  taiyo: 体
+
+庭:
+  primary_bui: 居所
+  season: null
+  taiyo: 体
+
+寺:
+  primary_bui: 釈教
+  season: null
+  taiyo: 体
+
+仏前:
+  primary_bui: 釈教
+  season: null
+  taiyo: 体
+
+竜田:
+  primary_bui: 名所
+  season: 秋
+  taiyo: 体
+  note: "竜田川・竜田山（紅葉の名所）"
+
+心:
+  primary_bui: 人倫
+  season: null
+  taiyo: 体
+
