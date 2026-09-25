@@ -24,6 +24,19 @@
 
 require "natto"
 
+# run5未完走(タイムアウト連発)の原因調査用: 送信直前のプロンプトを
+# 専用ファイルへ都度上書き記録する。プロセスがタイムアウトでクラッシュしても
+# 直前に何を送っていたかを事後確認できる（app/services/ollama_client.rbは
+# 無変更、observe_waka_extraction.rbと同じmonkey-patchパターン）。
+LAST_PROMPT_LOG = Rails.root.join("log", "observe_rg_last_prompt.log")
+module LastPromptLogger
+  def generate(prompt, **kwargs)
+    File.write(LAST_PROMPT_LOG, "[#{Time.now}] timeout=#{kwargs[:timeout]} model=#{kwargs[:model]}\n#{prompt}")
+    super
+  end
+end
+OllamaClient.singleton_class.prepend(LastPromptLogger)
+
 HAKKU_TEXT = "東風ふかば匂いおこせよ梅の花"
 TOTAL_VERSES = (ENV["OBSERVE_RG_TOTAL"] || 100).to_i
 MAX_RETRY    = 5
