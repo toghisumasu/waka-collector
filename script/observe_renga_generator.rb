@@ -94,7 +94,11 @@ end
 
 log_dir = Rails.root.join("log")
 Dir.mkdir(log_dir) unless Dir.exist?(log_dir)
-logfile = log_dir.join("observe_rg_#{Time.now.strftime('%Y%m%d')}.log").to_s
+# 依頼書M-3: 同日に複数モデル・複数回走行するとログファイルが衝突するため、
+# ENV["OBSERVE_RG_SUFFIX"]（例: "bonsai2"）を指定すると
+# observe_rg_YYYYMMDD_<suffix>.log として別ファイルに分離できる。省略時は従来通り。
+suffix_part = ENV["OBSERVE_RG_SUFFIX"].present? ? "_#{ENV['OBSERVE_RG_SUFFIX']}" : ""
+logfile = log_dir.join("observe_rg_#{Time.now.strftime('%Y%m%d')}#{suffix_part}.log").to_s
 
 puts "=" * 60
 puts "RengaGenerator直接観測 開始（モデル: #{OllamaClient::MODEL}）"

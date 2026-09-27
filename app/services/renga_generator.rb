@@ -248,12 +248,20 @@ class RengaGenerator
           repeat_streak = 0
         end
 
-        accepted = !is_echo && !is_rep && !is_sticky && !is_history_repeat
+        # 依頼書M-3: 前句・付句間の語彙オーバーラップ率（部分的な前句エコー）を
+        # 既存のecho/history_repeatと同じ内部リトライ判定に組み込む。
+        # ShikimokuChecker/KuValidatorはこの内部ループでは呼ばれておらず
+        # （式目判定は呼び出し側が generate_tsugeku 全体の再呼び出しで行う）、
+        # ここが唯一の自動フィードバック付きリトライの統合点となる。
+        overlap_rate      = OverlapGuard.overlap_rate(@maeku, ku, nm)
+        is_partial_echo   = overlap_rate > OverlapGuard::THRESHOLD
+
+        accepted = !is_echo && !is_rep && !is_sticky && !is_history_repeat && !is_partial_echo
         log_internal_attempt(
           internal_attempt: internal_attempt_no, raw_output: raw, first_line_result: ku,
           mora_count: mora, target_mora: target_mora,
-          rejection_reason: accepted ? nil : internal_rejection_reason(is_echo, is_rep, is_sticky, is_history_repeat),
-          tenji_hint: tenji_hint
+          rejection_reason: accepted ? nil : internal_rejection_reason(is_echo, is_rep, is_sticky, is_history_repeat, is_partial_echo),
+          tenji_hint: tenji_hint, overlap_rate: overlap_rate.round(6)
         )
 
         if accepted
@@ -271,6 +279,9 @@ class RengaGenerator
         elsif is_echo || is_rep || is_sticky
           issue    = is_echo ? "echo" : is_rep ? "鸚鵡返し" : "固着"
           feedback = { ku: ku, issue: issue, message: "別の言葉で" }
+        elsif is_partial_echo
+          feedback = { ku: ku, issue: "前句の語の流用",
+                       message: "前句の語をそのまま使わず、新しい言葉で" }
         else
           feedback = { ku: ku, issue: "既出", message: "別の表現で" }
         end
@@ -289,7 +300,7 @@ class RengaGenerator
   # raw出力・first_line抽出後テキスト・モーラ数・不採用理由付きで
   # 記録する（sono80の説明文混入調査でこの内部ループが完全に
   # ブラックボックス化していたことが判明したための計装）。
-  def log_internal_attempt(internal_attempt:, raw_output:, first_line_result:, mora_count:, target_mora:, rejection_reason:, tenji_hint: nil)
+  def log_internal_attempt(internal_attempt:, raw_output:, first_line_result:, mora_count:, target_mora:, rejection_reason:, tenji_hint: nil, overlap_rate: nil)
     path = Rails.root.join("log", "renga_internal_#{@internal_log_batch}_#{@internal_log_date}.jsonl")
     File.open(path, "a") do |f|
       f.puts({
@@ -300,16 +311,18 @@ class RengaGenerator
         mora_count:        mora_count,
         target_mora:       target_mora,
         rejection_reason:  rejection_reason,
-        tenji_hint:        tenji_hint
+        tenji_hint:        tenji_hint,
+        overlap_rate:      overlap_rate
       }.to_json)
     end
   rescue => e
     Rails.logger.warn "[RengaGenerator] internal log書き込み失敗: #{e.message}"
   end
 
-  def internal_rejection_reason(is_echo, is_rep, is_sticky, is_history_repeat)
+  def internal_rejection_reason(is_echo, is_rep, is_sticky, is_history_repeat, is_partial_echo = false)
     return "echo" if is_echo || is_rep
     return "content_violation" if is_sticky || is_history_repeat
+    return "partial_echo" if is_partial_echo
     "other"
   end
 
