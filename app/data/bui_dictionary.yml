@@ -593,3 +593,29 @@
   season: null
   taiyo: 体
 
+# ── G-5追記 2026-09-27：G-4候補64語のうち一次資料で裏取りが取れた4語 ──
+# 保留5語（江・浦・田・庵・おもかげ）は一次資料未確認のため今回は見送り。
+霜:
+  primary_bui: 降物
+  season: 冬
+  taiyo: 体
+  note: "G-4/G-5: 式目解説（降物=雨・雪・霜等）に基づく"
+
+法:
+  primary_bui: 釈教
+  season: null
+  taiyo: 体
+  note: "G-4/G-5: 連歌古注釈の付合語用例に基づく"
+
+佛:
+  primary_bui: 釈教
+  season: null
+  taiyo: 体
+  note: "G-4/G-5: 釈教基本語彙。(漢字: 仏と同一)"
+
+きぬぎぬ:
+  primary_bui: 恋
+  season: null
+  taiyo: 体
+  note: "G-4/G-5: 後朝恋（きぬぎぬのこひ）の歌題語"
+
