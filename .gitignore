@@ -16,6 +16,9 @@
 /tmp/*
 !/log/.keep
 !/tmp/.keep
+# S-0: 再生成できない実データ（seed未固定の採点rawと、手ラベルの盲検シート）は追跡する
+!/tmp/minase_qwen8b_score_raw.csv
+!/tmp/minase_label_sheet.csv
 
 # Ignore pidfiles, but keep the directory.
 /tmp/pids/*
