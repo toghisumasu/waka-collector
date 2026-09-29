@@ -29,9 +29,19 @@ require "natto"
 # 直前に何を送っていたかを事後確認できる（app/services/ollama_client.rbは
 # 無変更、observe_waka_extraction.rbと同じmonkey-patchパターン）。
 LAST_PROMPT_LOG = Rails.root.join("log", "observe_rg_last_prompt.log")
+# bonsai2-waka(27b)はqwen3:8bより応答が遅く、本番コード側の
+# timeout: 180固定では読み切る前にタイムアウトすることがあるため、
+# 観測スクリプト側でのみ底上げする（app/services/renga_generator.rbは無変更）。
+OBSERVE_RG_TIMEOUT = (ENV["OBSERVE_RG_TIMEOUT"] || 600).to_i
 module LastPromptLogger
   def generate(prompt, **kwargs)
+    kwargs[:timeout] = OBSERVE_RG_TIMEOUT
     File.write(LAST_PROMPT_LOG, "[#{Time.now}] timeout=#{kwargs[:timeout]} model=#{kwargs[:model]}\n#{prompt}")
+    super
+  end
+
+  def chat(messages, **kwargs)
+    kwargs[:timeout] = OBSERVE_RG_TIMEOUT
     super
   end
 end
