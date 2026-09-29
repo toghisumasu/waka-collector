@@ -13,6 +13,16 @@ class OllamaClient
   MODEL = ENV.fetch("WAKA_OLLAMA_MODEL", "qwen3:8b")
   MAX_TOOL_LOOPS = 5
 
+  # generate()が稀に反復ループに入り応答が返らずタイムアウトでクラッシュする
+  # 事例が発生した（tenji_kata_hint等、自由記述プロンプトで発生しやすい）。
+  # repeat_penaltyでループの発生自体を抑制し（一次予防）、num_predictで
+  # 万一発生しても有限時間で打ち切られるようにする（対症療法、二重の安全弁）。
+  # num_predict=4000は、既存ログ(renga_internal_*.jsonl)上の正常完了時
+  # 出力の最大値（tenji_kata_hint約1100字、換算約1600トークン）の約2.5倍。
+  # chat/chat_with_toolsは今回のスコープ外（generateのみ）。
+  DEFAULT_NUM_PREDICT    = 4000
+  DEFAULT_REPEAT_PENALTY = 1.15
+
   # localhostへの接続確立は通常ミリ秒単位で完了するため、Rubyデフォルトの
   # 60秒より大幅に短く固定する（其の四十 D-40-1）。
   OPEN_TIMEOUT = 5
@@ -25,7 +35,10 @@ class OllamaClient
 
     req = Net::HTTP::Post.new(uri.path)
     req["Content-Type"] = "application/json"
-    body = { model: model, prompt: prompt, stream: false, think: think }
+    body = {
+      model: model, prompt: prompt, stream: false, think: think,
+      options: { num_predict: DEFAULT_NUM_PREDICT, repeat_penalty: DEFAULT_REPEAT_PENALTY }
+    }
     body[:temperature] = temperature if temperature
     req.body = body.to_json
 
