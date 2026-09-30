@@ -19,6 +19,8 @@
 # S-0: 再生成できない実データ（seed未固定の採点rawと、手ラベルの盲検シート）は追跡する
 !/tmp/minase_qwen8b_score_raw.csv
 !/tmp/minase_label_sheet.csv
+# S-0b: 軸別呼び出しの採点raw（同上の理由で追跡。summaryは再生成できるので追跡しない）
+!/tmp/minase_qwen8b_split_raw.csv
 
 # Ignore pidfiles, but keep the directory.
 /tmp/pids/*
