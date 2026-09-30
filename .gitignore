@@ -21,6 +21,8 @@
 !/tmp/minase_label_sheet.csv
 # S-0b: 軸別呼び出しの採点raw（同上の理由で追跡。summaryは再生成できるので追跡しない）
 !/tmp/minase_qwen8b_split_raw.csv
+# S-0c: 軸別×結論先出し・理由後置の採点raw（同上の理由で追跡）
+!/tmp/minase_qwen8b_split_reason_raw.csv
 
 # Ignore pidfiles, but keep the directory.
 /tmp/pids/*
