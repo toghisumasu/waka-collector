@@ -51,14 +51,17 @@ class ShikimokuChecker
 
   NANAKU_GOMONO_INTERVAL = 7
 
-  attr_reader :rules, :kukazo_rules, :ichiza_words, :nanaku_words
+  attr_reader :rules, :kukazo_rules, :ichiza_words, :nanaku_words, :interval_offset
 
   # rules / kukazo_rules / ichiza_words / nanaku_words はテスト時に直接注入できる（ファイル不要）。
   def initialize(rules: nil, kukazo_rules: nil, ichiza_words: nil, nanaku_words: nil,
                  rules_path: DEFAULT_KUZARI_PATH,
                  kukazo_path: DEFAULT_KUKAZO_PATH,
                  ichiza_path: DEFAULT_ICHIZA_PATH,
-                 nanaku_path: DEFAULT_NANAKU_PATH)
+                 nanaku_path: DEFAULT_NANAKU_PATH,
+                 interval_offset: 0)
+    # interval_offset: 0 = 従来(位置差>=interval) / 1 = 間にinterval句以上(位置差>=interval+1, 瀬田2016)
+    @interval_offset = interval_offset
     @rules        = rules        || YAML.load_file(rules_path)
     @kukazo_rules = kukazo_rules || YAML.load_file(kukazo_path)
     raw_ichiza    = ichiza_words || (File.exist?(ichiza_path.to_s) ? YAML.load_file(ichiza_path) : {})
@@ -116,7 +119,7 @@ class ShikimokuChecker
       end
 
       between = n - j
-      next if between >= interval - 1  # 古典の数え年方式: 差=interval で合法
+      next if between >= interval - 1 + @interval_offset  # offset=0: 数え年方式(差=interval で合法) / 1: 間にinterval句以上
 
       violations << { bui: bui, required: interval, actual: between, last_pos: j }
     end
@@ -402,7 +405,7 @@ class ShikimokuChecker
       pos = last_seen[nw]
       next unless pos
       interval = history.size + 1 - pos
-      next if interval >= NANAKU_GOMONO_INTERVAL
+      next if interval >= NANAKU_GOMONO_INTERVAL + @interval_offset
       violations << { type: :nanaku_gomono, word: nw, bui: "七句去物",
                        last_pos: pos, pos: history.size + 1, interval: interval }
     end
@@ -492,7 +495,7 @@ class ShikimokuChecker
       interval = rule.is_a?(Hash) ? rule["default"] : rule
       j = (1..n).to_a.reverse.find { |pos| history[pos - 1][:bui]&.include?(bui) }
       next unless j
-      forbidden << bui if (n - j) < interval - 1
+      forbidden << bui if (n - j) < interval - 1 + @interval_offset
     end
     forbidden.uniq
   end
@@ -510,7 +513,7 @@ class ShikimokuChecker
     end
     Array(@nanaku_words).select do |nw|
       pos = last_seen[nw]
-      pos && (n + 1 - pos) < NANAKU_GOMONO_INTERVAL
+      pos && (n + 1 - pos) < NANAKU_GOMONO_INTERVAL + @interval_offset
     end
   end
 
