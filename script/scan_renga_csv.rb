@@ -24,7 +24,7 @@ puts "#{chain.size}句"
 
 [0, 1].each do |off|
   ck = ShikimokuChecker.new(
-    rules_path: "app/data/kuzari_rules.yml", kukazo_path: "app/data/kukazo_rules.yml",
+    rules_path: "app/data/kuzari_rules_seta2016.yml", kukazo_path: "app/data/kukazo_rules_seta2016.yml",
     ichiza_words: [], nanaku_words: [], interval_offset: off
   )
   found = ck.scan_chain(chain).map { |v| [v[:pos], v[:bui] || v[:type]] }

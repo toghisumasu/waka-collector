@@ -39,8 +39,8 @@ RSpec.describe ShikimokuChecker, "湯山三吟の回帰テスト" do
   context "規則表(瀬田2016)・間にN句以上(interval_offset: 1)" do
     let(:checker) do
       ShikimokuChecker.new(
-        rules_path:  File.expand_path("../../app/data/kuzari_rules.yml", __dir__),
-        kukazo_path: File.expand_path("../../app/data/kukazo_rules.yml", __dir__),
+        rules_path:  File.expand_path("../../app/data/kuzari_rules_seta2016.yml", __dir__),
+        kukazo_path: File.expand_path("../../app/data/kukazo_rules_seta2016.yml", __dir__),
         ichiza_words: [], nanaku_words: [], interval_offset: 1
       )
     end
