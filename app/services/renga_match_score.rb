@@ -34,7 +34,7 @@ class RengaMatchScore
     x = tags(a)
     y = tags(b)
     return 0.0 if x.empty? && y.empty?
-    (x & y).size.to_f / (x | y).size
+    (x & y).size.to_f / [(x | y).size, 2].max   # 1要素どうしの一致は割り引く
   end
 
   def self.score(r)

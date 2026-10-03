@@ -15,6 +15,10 @@ RSpec.describe RengaMatchScore do
     expect(described_class.call(v("あいう", %w[水辺], "春"), v("かきく", %w[水辺], "春"))).to eq 90.0
   end
 
+  it "1要素どうしが同じ部立でも、割り引いて80%(上限90%には届かない)" do
+    expect(described_class.call(v("あいう", %w[聳物]), v("かきく", %w[聳物]))).to eq 80.0
+  end
+
   it "本文がほぼ同じ(オウム返し)なら100%" do
     expect(described_class.call(v("春の夜の月", %w[光物]), v("春の夜の月", %w[光物]))).to eq 100.0
   end
