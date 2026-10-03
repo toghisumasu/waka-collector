@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_09_20_043216) do
+ActiveRecord::Schema[7.2].define(version: 2026_10_01_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -28,6 +28,40 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_20_043216) do
     t.index ["previous_verse_id"], name: "index_renga_verses_on_previous_verse_id"
     t.index ["renga_id"], name: "index_renga_verses_on_renga_id", unique: true
     t.index ["verse_no"], name: "index_renga_verses_on_verse_no"
+  end
+
+  create_table "renga_work_verses", force: :cascade do |t|
+    t.bigint "renga_work_id", null: false
+    t.integer "verse_no", null: false
+    t.string "fold"
+    t.string "kind"
+    t.string "author"
+    t.text "text", null: false
+    t.text "reading"
+    t.string "season"
+    t.text "bui_list", default: [], array: true
+    t.text "bui_weak_list", default: [], array: true
+    t.text "nana_list", default: [], array: true
+    t.text "other_cats", default: [], array: true
+    t.string "kyoken_tokens"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["renga_work_id", "verse_no"], name: "index_renga_work_verses_on_renga_work_id_and_verse_no", unique: true
+    t.index ["renga_work_id"], name: "index_renga_work_verses_on_renga_work_id"
+  end
+
+  create_table "renga_works", force: :cascade do |t|
+    t.string "slug", null: false
+    t.string "title", null: false
+    t.string "style"
+    t.string "form"
+    t.string "composed_on"
+    t.string "authors"
+    t.string "source"
+    t.string "data_status", default: "draft"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["slug"], name: "index_renga_works_on_slug", unique: true
   end
 
   create_table "rengas", force: :cascade do |t|
@@ -58,4 +92,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_09_20_043216) do
     t.string "lower_phrase_yomi"
     t.integer "flag"
   end
+
+  add_foreign_key "renga_work_verses", "renga_works"
 end
