@@ -32,7 +32,7 @@ require_relative "../app/services/ku_validator"
 
 HAKKU = {
   word:       "東風ふかば匂いおこせよ梅の花",
-  bui:        ["花", "植物"],
+  bui:        ["花", "植物", "風体"],
   season:     "春",
   verse_type: :chouku,
   tsuki:      false,
