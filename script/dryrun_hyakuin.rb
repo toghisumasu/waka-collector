@@ -41,6 +41,8 @@ HAKKU = {
 
 TOTAL_VERSES = 100
 MAX_RETRY    = 5
+# 風体は LLM の自己申告に頼らず、本文に風語があるかで付ける(本番は MeCab+辞書で判定)
+WIND_RE      = /風|嵐|あらし|野分|颪|凩|こがらし/
 
 BUI_EXAMPLE = {
   "降物" => "雨・雪・露・霜・時雨・霰",
@@ -319,15 +321,16 @@ end
 # ─────────────────────────────────────────────────────────────
 
 def check_ollama_model
+  model  = OllamaClient::MODEL
   result = `ollama list 2>&1`
-  unless result.include?("qwen3:8b")
-    puts "ERROR: qwen3:8b が ollama に見つかりません。"
-    puts "  ollama pull qwen3:8b を実行してください。"
+  unless result.include?(model)
+    puts "ERROR: #{model} が ollama に見つかりません。"
+    puts "  ollama pull #{model} を実行してください。"
     puts "--- ollama list 出力 ---"
     puts result
     exit 1
   end
-  puts "OK: qwen3:8b 確認済み"
+  puts "OK: #{model} 確認済み(WAKA_OLLAMA_MODEL で変更できます)"
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -338,7 +341,8 @@ check_ollama_model
 
 log_dir  = File.expand_path("../log", __dir__)
 Dir.mkdir(log_dir) unless Dir.exist?(log_dir)
-logfile  = File.join(log_dir, "dryrun_hyakuin_#{Time.now.strftime('%Y%m%d')}.log")
+model_slug = OllamaClient::MODEL.gsub(/[^\w.\-]/, "_")
+logfile    = File.join(log_dir, "dryrun_hyakuin_#{Time.now.strftime('%Y%m%d_%H%M')}_#{model_slug}.log")
 attempts_logfile = File.join(log_dir, "generation_attempts.log")
 checker  = ShikimokuChecker.new
 bui_dict = BuiDictionary.new
@@ -348,6 +352,7 @@ bui_dict = BuiDictionary.new
 # 一致しないbui自己申告を、bui_dictionary.yml の primary_bui で正規化する。
 # ShikimokuChecker自体は無変更（純粋関数性を維持）、呼び出し側で正規化する。
 valid_bui_categories = (checker.rules.keys + %w[時分 人倫]).uniq
+valid_bui_for_prompt = valid_bui_categories - %w[風体] # プロンプトの候補から風体を外す
 
 normalize_candidate_bui = lambda do |tags|
   Array(tags).map { |t| bui_dict.normalize_bui(t, valid_bui_categories) }
@@ -460,7 +465,7 @@ dup_flags = []
         end
         raw = OllamaClient.chat(awareness_messages, think: false, timeout: 300)
       else
-        prompt = build_prompt(history.last[:word], pool_params, verse_no, valid_bui_categories: valid_bui_categories, feedback: feedback)
+        prompt = build_prompt(history.last[:word], pool_params, verse_no, valid_bui_categories: valid_bui_for_prompt, feedback: feedback)
         raw    = OllamaClient.generate(prompt, think: false, timeout: 300,
                                        temperature: temperature)
       end
@@ -484,6 +489,7 @@ dup_flags = []
     # analyze_kigo_membership.rb 再実行で③（真に未知）の推移を監視するために残す）
     candidate[:raw_bui] = candidate[:bui].dup
     candidate[:bui]      = normalize_candidate_bui.call(candidate[:bui])
+    candidate[:bui]      = (candidate[:bui] - %w[風体]) + (candidate[:word].to_s.match?(WIND_RE) ? %w[風体] : [])
 
     # 重複句リジェクト（historyに同一wordが存在する場合は即却下）
     if history.any? { |v| v[:word] == candidate[:word] }
