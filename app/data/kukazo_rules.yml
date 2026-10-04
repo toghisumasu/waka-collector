@@ -28,6 +28,8 @@ seasons:
     max: 3
 
 bui:
+  風体:
+    max: 1
   恋:
     max: 5
   旅:
