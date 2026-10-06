@@ -1,0 +1,685 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# dryrun_hyakuin.rb — 独吟百韻ドライラン
+#
+# 使用法:
+#   bundle exec ruby script/dryrun_hyakuin.rb
+#   nohup bundle exec ruby script/dryrun_hyakuin.rb &
+#
+# 出力: log/dryrun_hyakuin_YYYYMMDD.log（追記）
+
+require "json"
+require_relative "../app/services/shikimoku_checker"
+require_relative "../app/services/bui_dictionary"
+require_relative "../app/services/ollama_client"
+
+# KuValidator は Rails.root に依存するため、フルRails環境を起動しないこの
+# スタンドアロンスクリプトでは軽量スタブを用意してから読み込む（其の三十 Step A）。
+unless defined?(Rails)
+  require "pathname"
+  module Rails
+    def self.root
+      Pathname.new(File.expand_path("..", __dir__))
+    end
+  end
+end
+require_relative "../app/services/ku_validator"
+
+# ─────────────────────────────────────────────────────────────
+#  定数
+# ─────────────────────────────────────────────────────────────
+
+HAKKU = {
+  word:       "東風ふかば匂いおこせよ梅の花",
+  bui:        ["花", "植物", "風体"],
+  season:     "春",
+  verse_type: :chouku,
+  tsuki:      false,
+  hana:       false
+}.freeze
+
+TOTAL_VERSES = 100
+MAX_RETRY    = 5
+# 風体は LLM の自己申告に頼らず、本文に風語があるかで付ける(本番は MeCab+辞書で判定)
+WIND_RE      = /風|嵐|あらし|野分|颪|凩|こがらし/
+
+BUI_EXAMPLE = {
+  "降物" => "雨・雪・露・霜・時雨・霰",
+  "聳物" => "霞・霧・雲・煙",
+  "光物" => "月・日・星",
+  "花"   => "梅・桜・菊・山吹",
+  "草"   => "萩・薄・若草",
+  "木"   => "柳・松・冬木立",
+  "植物" => "草木・花全般",
+  "鳥"   => "鶯・雁・鴨・千鳥",
+  "虫"   => "蛍・蟋蟀・蝶",
+  "獣"   => "鹿・狐",
+  "動物" => "鳥・虫・獣全般",
+  "水辺" => "川・海・池・渚",
+  "山類" => "山・峰・嶺・谷",
+  "時分" => "夜・朝・夕・暮れ",
+  "居所" => "宿・庵・垣根",
+  "衣裳" => "袖・衣・砧",
+  "恋"   => "恋・涙・逢う",
+  "旅"   => "旅・旅人・行く",
+  "名所" => "名所・歌枕",
+  "神祇" => "神・祈り・社",
+  "釈教" => "仏・法・寺",
+  "述懐" => "述懐・感慨",
+  "人倫" => "人・君・誰"
+}.freeze
+
+SEASON_KIGO = {
+  "春" => %w[霞 梅 桜 鶯 柳 蛙 燕 朧 若草 菜の花 山吹 すみれ よもぎ わらび],
+  "夏" => %w[郭公 ほととぎす 蛍 五月雨 蓮 卯の花 青葉 緑 さみだれ あやめ しょうぶ],
+  "秋" => %w[月 紅葉 もみじ 露 雁 鹿 萩 菊 嵐 時雨 霧 おみなえし ききょう],
+  "冬" => %w[雪 霜 氷 枯 千鳥 鷺 みぞれ かれの]
+}.freeze
+
+# 其の三十二 Step B-3: 字足らず時、不足モーラ数に応じて句末に足す
+# 連歌的文末表現の候補（LLMへの具体的な調整手段の提示に使う）
+ENDING_BY_MORA = {
+  1 => ["や", "か", "ぬ", "に"],
+  2 => ["かな", "けり", "らむ", "なり"],
+  3 => ["ぞかし", "ぬかな", "にけり"],
+  4 => ["にけらし", "ぬるかな", "たるかな"]
+}.freeze
+
+# ─────────────────────────────────────────────────────────────
+#  ユーティリティ
+# ─────────────────────────────────────────────────────────────
+
+def verse_type_ja(vt)
+  vt == :chouku ? "長句(5-7-5)" : "短句(7-7)"
+end
+
+def timestamp
+  Time.now.strftime("%Y-%m-%d %H:%M:%S")
+end
+
+# ─────────────────────────────────────────────────────────────
+#  B層: filter_pool — next_constraints からプロンプト制約を組み立てる
+# ─────────────────────────────────────────────────────────────
+
+def filter_pool(constraints)
+  forbidden_bui   = constraints[:forbidden_bui] || []
+  season_hint     = constraints[:season_hint]   || {}
+  verse_type      = constraints[:verse_type]    || :tanku
+  current_season  = season_hint[:current]
+
+  # must_switch: 当季の季語一覧も禁止対象に加える（プロンプト強制用）
+  forbidden_seasons = []
+  forbidden_kigo    = []
+  if season_hint[:must_switch] && current_season
+    forbidden_seasons << current_season
+    forbidden_kigo = SEASON_KIGO[current_season] || []
+  end
+
+  season_instruction = if season_hint[:must_switch]
+    alt = (%w[春 夏 秋 冬 雑] - forbidden_seasons).join("・")
+    "【季の転換】必ず#{forbidden_seasons.join('・')}以外の季にすること。選択肢：#{alt}"
+  elsif season_hint[:must_continue]
+    "★必ず#{current_season}の季を継続すること（残り#{[0, (3 - season_hint[:count])].max}句以上は続けよ）"
+  elsif current_season
+    "現在の季：#{current_season}（継続または転換、どちらでも可）"
+  else
+    "季は自由（雑・春・夏・秋・冬から選べ）"
+  end
+
+  kinshi_line = if forbidden_bui.any?
+    desc = forbidden_bui.map { |b| BUI_EXAMPLE[b] || b }.join("・")
+    "禁止部立（これらの語は避けよ）: #{desc}"
+  else
+    ""
+  end
+
+  {
+    verse_type:         verse_type,
+    season_instruction: season_instruction,
+    kinshi_line:        kinshi_line,
+    forbidden_bui:      forbidden_bui,
+    forbidden_seasons:  forbidden_seasons,
+    forbidden_kigo:     forbidden_kigo,
+    season_hint:        season_hint
+  }
+end
+
+# ─────────────────────────────────────────────────────────────
+#  C層: プロンプト構築とOllama生成
+# ─────────────────────────────────────────────────────────────
+
+def build_prompt(maeku_word, pool_params, verse_no, valid_bui_categories:, feedback: nil)
+  vt               = pool_params[:verse_type]
+  mora_desc        = vt == :chouku ? "17音（五七五）" : "14音（七七）"
+  forbidden_seasons = pool_params[:forbidden_seasons] || []
+  forbidden_kigo    = pool_params[:forbidden_kigo]    || []
+
+  # must_switch 時は別の季からkigoを提示してLLMを誘導する
+  hint_season = if forbidden_seasons.any?
+    (%w[春 夏 秋 冬] - forbidden_seasons).sample
+  else
+    pool_params[:season_hint][:current]
+  end
+
+  kigo_list = SEASON_KIGO[hint_season]
+                &.reject { |w| maeku_word.include?(w) || forbidden_kigo.include?(w) }
+                &.first(3)
+                &.join("・")
+
+  kigo_line = if kigo_list && !kigo_list.empty?
+    "参考季語（#{hint_season}）：#{kigo_list}"
+  else
+    ""
+  end
+
+  # 禁止季を強調ブロックとしてプロンプト冒頭に差し込む
+  forbidden_season_block = if forbidden_seasons.any?
+    kigo_ex = forbidden_kigo.first(5).join("・")
+    "【絶対禁止】season フィールドに「#{forbidden_seasons.join('・')}」を入れてはならない。\n" \
+    "「#{kigo_ex}」等の語を含む句も禁止。違反した場合は採点外とする。\n"
+  else
+    ""
+  end
+
+  feedback_line = feedback ? "前回「#{feedback[:ku]}」は#{feedback[:issue]}。#{feedback[:message]}\n" : ""
+
+  <<~PROMPT
+    あなたは連歌師（れんがし）です。次の句（前句）に付く「付句（つけく）」を一句作れ。
+
+    前句：#{maeku_word}
+    句番号：#{verse_no}句目
+    句型：#{mora_desc}の付句を作れ
+    #{forbidden_season_block}#{pool_params[:season_instruction]}
+    #{kigo_line}
+    #{pool_params[:kinshi_line]}
+    #{feedback_line}
+    【出力形式】
+    以下のJSONのみを出力せよ。前後の説明文・コードブロック不要。
+    {"ku":"付句の本文","mora":音数,"season":"春か夏か秋か冬か雑","bui":["部立1","部立2"],"tsuki":false,"hana":false}
+
+    bui（部立・複数可）は必ず次から選べ：
+    #{valid_bui_categories.join('・')}
+    tsuki は月を詠み込んだとき true、hana は桜の花を詠み込んだとき true
+
+    JSON:
+  PROMPT
+end
+
+def parse_candidate(raw)
+  json_str = raw.to_s.match(/\{[^{}]*\}/m)&.to_s
+  return nil unless json_str
+  parsed = JSON.parse(json_str)
+  {
+    word:       parsed["ku"].to_s.strip,
+    bui:        Array(parsed["bui"]),
+    season:     parsed["season"],
+    verse_type: nil,  # 後で設定
+    tsuki:      parsed["tsuki"] == true,
+    hana:       parsed["hana"]  == true,
+    mora:       parsed["mora"].to_i
+  }
+rescue JSON::ParserError
+  nil
+end
+
+# ─────────────────────────────────────────────────────────────
+#  ログ
+# ─────────────────────────────────────────────────────────────
+
+def log_attempt(logfile, verse_no:, attempt:, history_size:, reason:, candidate: nil, violation_types: [])
+  entry = {
+    ts:              timestamp,
+    verse_no:        verse_no,
+    attempt:         attempt,
+    history_size:    history_size,
+    reason:          reason,
+    violation_types: violation_types,
+    candidate:       candidate && {
+      word:    candidate[:word],
+      bui:     candidate[:bui],
+      raw_bui: candidate[:raw_bui], # 正規化前の自己申告そのまま（其の二十八）
+      season:  candidate[:season],
+      seed_id: nil # このスクリプトにはseed_pool概念がない（RengaGenerator固有）
+    }
+  }
+  File.open(logfile, "a") { |f| f.puts(entry.to_json) }
+end
+
+def log_line(logfile, verse_no, candidate, violations, forced: false, dup_note: nil)
+  no_str  = format("%03d", verse_no)
+  bui_str = candidate[:bui].join(",")
+  vt_str  = candidate[:verse_type] == :chouku ? "長" : "短"
+  vi_str  = if violations.empty?
+    forced ? "FORCED(no-valid)" : "OK"
+  else
+    labels = violations.map { |v| ShikimokuChecker.describe(v) }.join(" / ")
+    forced ? "FORCED: #{labels}" : "VIOLATION: #{labels}"
+  end
+
+  line = "[#{timestamp}] #{no_str} | #{candidate[:word]} | #{vt_str} | #{candidate[:season] || '雑'} | #{bui_str} | #{vi_str}"
+  line += " | #{dup_note}" if dup_note
+  puts line
+  $stdout.flush
+  File.open(logfile, "a") { |f| f.puts(line) }
+end
+
+# ─────────────────────────────────────────────────────────────
+#  其の三十六 Phase 0-2 観測レベルA: 採用句の連鎖内での逆戻り検知
+#  （本番RengaGeneratorには存在しない、ハーネス独自の観測機能）
+# ─────────────────────────────────────────────────────────────
+
+def levenshtein(a, b)
+  return b.length if a.empty?
+  return a.length if b.empty?
+
+  costs = Array(0..b.length)
+  a.each_char.with_index do |ca, i|
+    costs[0] = i + 1
+    nw = i
+    b.each_char.with_index do |cb, j|
+      cur = costs[j + 1]
+      costs[j + 1] = ca == cb ? nw : ([costs[j], costs[j + 1], nw].min + 1)
+      nw = cur
+    end
+  end
+  costs[b.length]
+end
+
+# 採用済み履歴 history（現句を含まない）の中から、現句と最も近い句を探し、
+# 「完全一致」か「類似（一語違い相当）」かをおおまかに判別する。
+# 相手の句番号は history の並び順＝句番号（1始まり）と一致する。
+def similarity_dup_note(word, history)
+  return [nil, nil] if word.nil? || word.strip.empty? || word == "(生成失敗)"
+
+  best_idx  = nil
+  best_dist = nil
+  history.each_with_index do |v, i|
+    next if v[:word].nil? || v[:word].strip.empty? || v[:word] == "(生成失敗)"
+
+    d = levenshtein(word, v[:word])
+    if best_dist.nil? || d < best_dist
+      best_dist = d
+      best_idx  = i + 1 # history[0] == 発句(verse_no 1)
+    end
+    break if best_dist.zero?
+  end
+  return [nil, nil] if best_idx.nil?
+
+  threshold = [(word.length * 0.3).ceil, 3].max
+  if best_dist.zero?
+    ["⚠DUP([#{best_idx}]句目と一致・完全)", best_idx]
+  elsif best_dist <= threshold
+    ["⚠DUP([#{best_idx}]句目と類似・一語違い)", best_idx]
+  else
+    [nil, nil]
+  end
+end
+
+# ─────────────────────────────────────────────────────────────
+#  事前チェック: ollama list で qwen3:8b 確認
+# ─────────────────────────────────────────────────────────────
+
+def check_ollama_model
+  model  = OllamaClient::MODEL
+  result = `ollama list 2>&1`
+  unless result.include?(model)
+    puts "ERROR: #{model} が ollama に見つかりません。"
+    puts "  ollama pull #{model} を実行してください。"
+    puts "--- ollama list 出力 ---"
+    puts result
+    exit 1
+  end
+  puts "OK: #{model} 確認済み(WAKA_OLLAMA_MODEL で変更できます)"
+end
+
+# ─────────────────────────────────────────────────────────────
+#  メインループ
+# ─────────────────────────────────────────────────────────────
+
+check_ollama_model
+
+log_dir  = File.expand_path("../log", __dir__)
+Dir.mkdir(log_dir) unless Dir.exist?(log_dir)
+model_slug = OllamaClient::MODEL.gsub(/[^\w.\-]/, "_")
+logfile    = File.join(log_dir, "dryrun_hyakuin_#{Time.now.strftime('%Y%m%d_%H%M')}_#{model_slug}.log")
+attempts_logfile = File.join(log_dir, "generation_attempts.log")
+checker  = ShikimokuChecker.new
+bui_dict = BuiDictionary.new
+
+# 其の二十八の季語所属ng調査で判明した①②対策：
+# ShikimokuChecker が認識する正規カテゴリ（kuzari_rules.yml + 時分/人倫）に
+# 一致しないbui自己申告を、bui_dictionary.yml の primary_bui で正規化する。
+# ShikimokuChecker自体は無変更（純粋関数性を維持）、呼び出し側で正規化する。
+valid_bui_categories = (checker.rules.keys + %w[時分 人倫]).uniq
+valid_bui_for_prompt = valid_bui_categories - %w[風体] # プロンプトの候補から風体を外す
+
+normalize_candidate_bui = lambda do |tags|
+  Array(tags).map { |t| bui_dict.normalize_bui(t, valid_bui_categories) }
+end
+
+puts "=" * 60
+puts "独吟百韻ドライラン開始"
+puts "ログ: #{logfile}"
+puts "=" * 60
+
+initial_verse = HAKKU.dup
+initial_verse[:bui] = normalize_candidate_bui.call(initial_verse[:bui])
+history = [initial_verse]
+log_line(logfile, 1, HAKKU, [])
+
+# 其の三十六 観測レベルA: DUP検知した句番号と一致相手を記録（連鎖崩壊追跡用）
+dup_flags = []
+
+(2..TOTAL_VERSES).each do |verse_no|
+  constraints  = checker.next_constraints(history)
+  pool_params  = filter_pool(constraints)
+
+  target_vt    = constraints[:verse_type]
+  target_mora  = target_vt == :chouku ? 17 : 14
+
+  best_candidate        = nil
+  best_violations       = nil
+  best_mora_diff        = nil
+  feedback              = nil
+  banned_words          = []
+  duplicate_streak      = 0
+  mora_error_streak     = 0
+  past_mora_error_words = []
+  last_mora_count       = nil
+
+  MAX_RETRY.times do |attempt|
+    temperature = attempt >= 3 ? 0.8 : nil
+
+    begin
+      if mora_error_streak >= 2 && (last_mora_count > target_mora || mora_error_streak >= 3)
+        # 其の三十一 Step C-3: 単発のフィードバック文言では「行き詰まっている」
+        # 認識・「雑」概念の理解をLLM自身に段階的に確認させられない。
+        # tools不要の複数ターン会話（chat）に切り替え、自己認識→概念確認→
+        # 実際の詠み直し、の3段階を踏ませることで局面打開を狙う。
+        #
+        # 其の三十二 Step B-3: 上記は字余り固着（雑へ逃がして季を手放す）を
+        # 想定した内容で、字足らず方向には「長くする」誘導が欠けていた。
+        # mora方向（last_mora_countとtarget_moraの大小）で分岐し、字足らずは
+        # 文末表現の追加を促す専用シーケンスとする（雑へは逃がさない）。
+        #
+        # 其の三十二 Step B-3改: 5回ドライランでstreak≥2到達句数がStep C-3比
+        # 33.4句→52.2句に増加したため、字足らず方向のchatモード発動閾値のみ
+        # streak≥3に引き上げる（字余り方向はstreak≥2のまま変更なし）。
+        # streak==2の字足らずは、下のelseブロック（通常のENDING_BY_MORAフィード
+        # バック経由のbuild_prompt生成）にそのまま委ねる。
+        if last_mora_count > target_mora
+          awareness_messages = [
+            { role: "user", content: "あなたはいま、同じような句を繰り返しています。" \
+                                      "直前の候補「#{past_mora_error_words.last}」は" \
+                                      "#{last_mora_count}音で、目標の#{target_mora}音に" \
+                                      "合っていません。行き詰まっていることを認識してください。" },
+            { role: "assistant", content: "はい、行き詰まっています。同じような句を繰り返しており、" \
+                                           "字数が合っていません。局面を打開する必要があります。" },
+            { role: "user", content: "連歌では、季語（春・夏・秋・冬の語）を使う句と、" \
+                                      "季語を使わない「雑（ぞう）」の句があります。" \
+                                      "雑の句は季節に縛られず自由に詠めます。" \
+                                      "局面打開には雑の句が有効なことがあります。" \
+                                      "理解できましたか？" },
+            { role: "assistant", content: "はい、理解しました。雑の句とは季語を含まない句で、" \
+                                           "季節に縛られず詠むことができます。" },
+            { role: "user", content: "では局面打開のため、雑の句として全く新しい言葉で" \
+                                      "#{target_mora}音の付け句を詠んでください。\n" \
+                                      "前句：#{history.last[:word]}\n" \
+                                      "これまでの候補（再使用禁止）：" \
+                                      "#{past_mora_error_words.join('、')}\n" \
+                                      "JSON形式で出力してください：" \
+                                      "{\"ku\":\"詠んだ句をここに\",\"bui\":[\"該当する部立をここに\"]," \
+                                      "\"season\":\"雑\",\"mora\":#{target_mora}}\n" \
+                                      "buiには句の内容に応じた部立（降物・植物・水辺・山類・居所・旅・恋など）を" \
+                                      "実際に入れてください。季語がない場合でも風景・情景の部立は入ります。" }
+          ]
+        else
+          deficit    = target_mora - last_mora_count
+          candidates = ENDING_BY_MORA[deficit] || []
+          ending_hint = candidates.any? ?
+            "句末に#{candidates.map { |c| "「#{c}」" }.join("、")}などを足すと自然です。" :
+            "句末に文末表現を加えて長くしてください。"
+
+          awareness_messages = [
+            { role: "user", content: "あなたはいま、同じような句を繰り返しています。" \
+                                      "直前の候補「#{past_mora_error_words.last}」は" \
+                                      "#{last_mora_count}音で、目標の#{target_mora}音より" \
+                                      "#{deficit}音足りません。行き詰まっていることを認識してください。" },
+            { role: "assistant", content: "はい、行き詰まっています。#{deficit}音足りず、" \
+                                           "同じような句を繰り返しています。局面を打開する必要があります。" },
+            { role: "user", content: "連歌では句の末尾に文末表現を加えて音数を整えます。" \
+                                      "#{deficit}音足りない場合、#{ending_hint}" \
+                                      "理解できましたか？" },
+            { role: "assistant", content: "はい、理解しました。句末に文末表現を加えて" \
+                                           "#{target_mora}音に整えます。" },
+            { role: "user", content: "では句末に文末表現を加えて、全く新しい言葉で" \
+                                      "#{target_mora}音の付け句を詠んでください。\n" \
+                                      "前句：#{history.last[:word]}\n" \
+                                      "これまでの候補（再使用禁止）：" \
+                                      "#{past_mora_error_words.join('、')}\n" \
+                                      "JSON形式で出力してください：" \
+                                      "{\"ku\":\"詠んだ句をここに\",\"bui\":[\"該当する部立をここに\"]," \
+                                      "\"season\":\"季節を入れてください\",\"mora\":#{target_mora}}" }
+          ]
+        end
+        raw = OllamaClient.chat(awareness_messages, think: false, timeout: 300)
+      else
+        prompt = build_prompt(history.last[:word], pool_params, verse_no, valid_bui_categories: valid_bui_for_prompt, feedback: feedback)
+        raw    = OllamaClient.generate(prompt, think: false, timeout: 300,
+                                       temperature: temperature)
+      end
+    rescue => e
+      puts "  [#{verse_no}句目 attempt#{attempt + 1}] Ollama接続エラー: #{e.message}"
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "ollama_error")
+      next
+    end
+
+    candidate = parse_candidate(raw)
+    if candidate.nil?
+      feedback = { ku: "(解析失敗)", issue: "JSON解析エラー", message: "正しいJSON形式で出力せよ" }
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "json_parse_error")
+      next
+    end
+
+    # bui自己申告の正規化（ログには正規化前のraw_buiも残し、以降の判定・historyには
+    # 正規化後のbuiを使う。generation_attempts.log の raw_bui は将来の
+    # analyze_kigo_membership.rb 再実行で③（真に未知）の推移を監視するために残す）
+    candidate[:raw_bui] = candidate[:bui].dup
+    candidate[:bui]      = normalize_candidate_bui.call(candidate[:bui])
+    candidate[:bui]      = (candidate[:bui] - %w[風体]) + (candidate[:word].to_s.match?(WIND_RE) ? %w[風体] : [])
+
+    # 重複句リジェクト（historyに同一wordが存在する場合は即却下）
+    if history.any? { |v| v[:word] == candidate[:word] }
+      banned_words << candidate[:word] unless banned_words.include?(candidate[:word])
+      duplicate_streak += 1
+
+      banned_list = banned_words.map { |w| "「#{w}」" }.join("・")
+      message = "以下は出力禁止（既出につき再使用不可）: #{banned_list}。全く別の語・情景で新たに詠め"
+
+      # duplicate_verse固着（同一文言の連続再出力）に対する機械的救済：
+      # 季語ヒントを強制的に変えるのではなく、「季から離れて雑（無季）で詠み直す」
+      # という連歌本来の技法をfeedbackで指示する（季を強制しない＝季語ヒントの上書きは行わない）
+      if duplicate_streak >= 2
+        puts "  [#{verse_no}句目 attempt#{attempt + 1}] duplicate_verse固着検知 → 雑（無季）への詠み直しを指示"
+        message           = "#{message}。季語にとらわれず、無季（雑）の句として、季節を離れた情景・心情・人事を詠んでください"
+        duplicate_streak  = 0
+      end
+
+      feedback = { ku: candidate[:word], issue: "重複句", message: message }
+
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "duplicate_verse", candidate: candidate)
+      next
+    end
+
+    # 禁止季リジェクト（LLMがJSONに誤記入した場合の防衛ライン）
+    if pool_params[:forbidden_seasons].include?(candidate[:season])
+      feedback = { ku: candidate[:word], issue: "禁止季（#{candidate[:season]}）",
+                   message: "#{pool_params[:forbidden_seasons].join('・')}以外の季にすること" }
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "forbidden_season", candidate: candidate)
+      next
+    end
+
+    candidate[:verse_type] = target_vt
+
+    mora_check = KuValidator.new(candidate[:word], type: target_vt).validate
+
+    if mora_check[:result] == "ng"
+      issue   = mora_check[:mora] > target_mora ? "字余り(#{mora_check[:mora]}音)" : "字足らず(#{mora_check[:mora]}音)"
+
+      mora_error_streak += 1
+      past_mora_error_words << candidate[:word]
+      past_mora_error_words.shift while past_mora_error_words.size > 3
+      last_mora_count = mora_check[:mora]
+
+      # 其の三十一 Step C: mora_errorが2回以上連続した場合、モーラ数の微調整を
+      # 促す従来フィードバックでは固着（同一文言の再送）が解消しないケースが
+      # 其の三十一の5回ドライランで約23%確認された。duplicate_verse固着対策
+      # （其の二十七）と同型の機械的救済として、季語を手放し雑（無季）の句として
+      # 全く新しい語で詠み直すよう指示を切り替える。
+      #
+      # 其の三十二 Step B-3改: 字足らず方向はstreak≥3まで雑固定メッセージを
+      # 保留し、上の閾値変更（chatモード発動条件）と揃える。streak==2の
+      # 字足らずはここでENDING_BY_MORAメッセージを維持し、次attemptの
+      # build_prompt経由フィードバックとして使われる。
+      message = if mora_error_streak >= 2 && (mora_check[:mora] > target_mora || mora_error_streak >= 3)
+        "前回までの候補は字数が合いませんでした。季語を使わない雑（ぞう）の句として、" \
+        "全く新しい言葉で#{target_mora}音の句を詠んでください。" \
+        "これまでの候補：#{past_mora_error_words.join('、')}"
+      elsif mora_check[:mora] > target_mora
+        # 其の三十 Step B-1: 「もっと短く」という曖昧な方向指示だけでなく、
+        # 目標モーラ数を明示することでLLMが具体的な調整量を把握できるようにする
+        "#{target_mora}音になるよう、もっと短くしてください"
+      else
+        # 其の三十二 Step B-3: 字足らずは不足モーラ数に応じた文末表現の
+        # 具体例を提示し、方向だけでなく具体的な調整手段を把握できるようにする
+        deficit    = target_mora - mora_check[:mora]
+        candidates = ENDING_BY_MORA[deficit] || []
+        if candidates.any?
+          "#{mora_check[:mora]}音で#{deficit}音足りません。" \
+          "句末に#{candidates.map { |c| "「#{c}」" }.join("、")}などを" \
+          "足すと#{target_mora}音になります。"
+        else
+          "#{target_mora}音になるよう、もっと長くしてください"
+        end
+      end
+      feedback = { ku: candidate[:word], issue: issue, message: message }
+      # 其の三十 Step B-1補足修正: mora_errorが複数回連続した際、best_candidateが
+      # 1投目のまま固定され、後続attemptでモーラ数が目標に近づいても
+      # FORCED採用結果に反映されない不具合を修正。目標モーラ数との差が
+      # それまでのmora_errorフォールバックより縮まった場合のみ更新する
+      # （mora検査を通過した候補が既にbest_candidateになっている場合は上書きしない）
+      diff = (mora_check[:mora] - target_mora).abs
+      if best_violations.nil? ||
+         (best_violations.first && best_violations.first[:type] == :mora_error && diff < best_mora_diff)
+        best_candidate  = candidate
+        best_violations = [{ type: :mora_error, desc: mora_check[:message] }]
+        best_mora_diff  = diff
+      end
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "mora_error", candidate: candidate)
+      next
+    else
+      # mora_error以外（ok/warning）で解消したため、duplicate_streakと同様
+      # 独立したカウンタとしてリセットする
+      mora_error_streak = 0
+      if mora_check[:result] == "warning"
+        log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                    history_size: history.size, reason: "mora_warning", candidate: candidate)
+      end
+    end
+
+    violations   = checker.all_violations(history, candidate, bui_dict: bui_dict)
+    ichiza_viols = checker.ichiza_violations(history, candidate)
+    all_viols    = violations + ichiza_viols
+
+    best_candidate  = candidate
+    best_violations = all_viols
+
+    if all_viols.empty?
+      feedback = nil
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "ok", candidate: candidate)
+      break
+    elsif ichiza_viols.any?
+      used    = ichiza_viols.map { |v| "「#{v[:word]}」(#{v[:first_pos]}句目既出)" }.join("・")
+      feedback = { ku: candidate[:word], issue: "一座一句物違反",
+                   message: "以下は一座一句物につき再使用不可: #{used}。別の語で詠め" }
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: "ichiza_duplicate", candidate: candidate,
+                  violation_types: all_viols.map { |v| v[:type] }.uniq)
+    else
+      desc    = violations.map { |v| ShikimokuChecker.describe(v) }.join("; ")
+      feedback = { ku: candidate[:word], issue: "式目違反", message: "式目違反を避けよ: #{desc}" }
+      log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
+                  history_size: history.size, reason: violations.first[:type] || "kuzari_violation",
+                  candidate: candidate,
+                  violation_types: all_viols.map { |v| v[:type] || "kuzari_violation" }.uniq)
+    end
+  end
+
+  if best_candidate.nil?
+    placeholder = {
+      word: "(生成失敗)", bui: [], season: nil,
+      verse_type: target_vt, tsuki: false, hana: false
+    }
+    log_line(logfile, verse_no, placeholder, [{ type: :generation_failed }], forced: true)
+    history << placeholder
+    next
+  end
+
+  forced = !(best_violations&.empty?)
+  dup_note, matched_idx = similarity_dup_note(best_candidate[:word], history)
+  dup_flags << { verse_no: verse_no, matched_verse_no: matched_idx, note: dup_note } if dup_note
+  log_line(logfile, verse_no, best_candidate, best_violations || [], forced: forced, dup_note: dup_note)
+  history << best_candidate
+end
+
+# ─────────────────────────────────────────────────────────────
+#  其の三十六 観測レベルA: 連鎖崩壊の追跡
+#  DUP検知した句の直後（最大3句）が通常進行／振動／生成失敗／季節急変の
+#  いずれかを機械的に判別し、生ログの末尾にまとめて出力する（統計化はしない）。
+# ─────────────────────────────────────────────────────────────
+
+if dup_flags.any?
+  banner = "=" * 60
+  puts banner
+  puts "【其の三十六 観測レベルA】DUP検知句の連鎖崩壊追跡（#{dup_flags.size}件）"
+  puts banner
+  File.open(logfile, "a") { |f| f.puts(banner); f.puts("【其の三十六 観測レベルA】DUP検知句の連鎖崩壊追跡（#{dup_flags.size}件）"); f.puts(banner) }
+
+  dup_flags.each do |flag|
+    v          = flag[:verse_no]
+    base_idx   = v - 1 # history配列内でのこの句のindex（0始まり）
+    follow_ups = (1..3).filter_map do |offset|
+      idx = base_idx + offset
+      next nil if idx >= history.size
+
+      nxt          = history[idx]
+      next_verse_no = idx + 1
+      status = if nxt[:word] == "(生成失敗)"
+        "❌生成失敗"
+      elsif nxt[:word] == history[flag[:matched_verse_no] - 1][:word]
+        "🔁振動（[#{flag[:matched_verse_no]}]句目と同一語が再出現）"
+      elsif idx.positive? && history[idx - 1][:season] && nxt[:season] && history[idx - 1][:season] != nxt[:season]
+        "⚠️季転換（#{history[idx - 1][:season]}→#{nxt[:season]}、異常かは要目視）"
+      else
+        "✅通常進行"
+      end
+      "  [#{next_verse_no}] #{nxt[:word]} — #{status}"
+    end
+
+    block = ["[#{v}]句目 #{flag[:note]}"] + (follow_ups.any? ? follow_ups : ["  （追跡対象なし：dryrun末尾に到達）"])
+    block.each { |l| puts l }
+    File.open(logfile, "a") { |f| block.each { |l| f.puts(l) } }
+  end
+end
+
+puts "=" * 60
+puts "独吟百韻ドライラン完了"
+puts "ログ: #{logfile}"
+puts "=" * 60
