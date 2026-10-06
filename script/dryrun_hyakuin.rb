@@ -149,7 +149,7 @@ end
 #  C層: プロンプト構築とOllama生成
 # ─────────────────────────────────────────────────────────────
 
-def build_prompt(maeku_word, pool_params, verse_no, valid_bui_categories:, feedback: nil)
+def build_prompt(maeku_word, pool_params, verse_no, valid_bui_categories:, feedback: nil, bui_dict: nil)
   vt               = pool_params[:verse_type]
   mora_desc        = vt == :chouku ? "17音（五七五）" : "14音（七七）"
   forbidden_seasons = pool_params[:forbidden_seasons] || []
@@ -164,7 +164,9 @@ def build_prompt(maeku_word, pool_params, verse_no, valid_bui_categories:, feedb
 
   kigo_list = SEASON_KIGO[hint_season]
                 &.reject { |w| maeku_word.include?(w) || forbidden_kigo.include?(w) }
-                &.first(3)
+                &.reject { |w| (b = bui_dict&.primary_bui(w)) && (pool_params[:forbidden_bui] || []).include?(b) }
+                &.shuffle
+                &.first(2)
                 &.join("・")
 
   kigo_line = if kigo_list && !kigo_list.empty?
@@ -465,7 +467,7 @@ dup_flags = []
         end
         raw = OllamaClient.chat(awareness_messages, think: false, timeout: 300)
       else
-        prompt = build_prompt(history.last[:word], pool_params, verse_no, valid_bui_categories: valid_bui_for_prompt, feedback: feedback)
+        prompt = build_prompt(history.last[:word], pool_params, verse_no, valid_bui_categories: valid_bui_for_prompt, feedback: feedback, bui_dict: bui_dict)
         raw    = OllamaClient.generate(prompt, think: false, timeout: 300,
                                        temperature: temperature)
       end
