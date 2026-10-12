@@ -1065,7 +1065,7 @@ p15, f15 = r15(res15e, p15, f15)
 #   紅葉・東風・時雨・妙高はbui_dictionary.ymlにも登録済みのためprimary_buiも確認、
 #   春雨・五月雨・若菜はbui未登録（読み・分割のみが目的）のため1トークン化のみ確認。
 {
-  "紅葉" => "植物", "東風" => "聳物", "時雨" => "降物", "妙高" => "山類",
+  "紅葉" => "植物", "東風" => "風体", "時雨" => "降物", "妙高" => "山類",
 }.each do |word, expected_bui|
   res = check("既存ユーザー辞書語「#{word}」→ primary_bui「#{expected_bui}」（回帰確認）",
               bui_dict.detect_all(word, nm15), [expected_bui])
