@@ -84,7 +84,7 @@ MAEKU_SUBSET = [
   { no: 8,  vt: :tanku,  text: "かきねをとへばあらはなるみち",   season: "雑" },
 ].freeze
 
-MODELS = ["qwen3:14b", "bonsai2-waka"].freeze
+MODELS = ["qwen3:14b", "qwen38-27b-q2k-waka"].freeze
 
 def target_verse_type(maeku_vt)
   maeku_vt == :chouku ? :tanku : :chouku

@@ -1,12 +1,12 @@
 # frozen_string_literal: true
-# 依頼書M: qwen3:14b × bonsai2-waka(27b) 付句生成比較
+# 依頼書M: qwen3:14b × qwen38-27b-q2k-waka(27b) 付句生成比較
 #
 # 使い方: bin/rails runner script/compare_models.rb
 #
 # 設計判断（Phase0報告後、Nobuson再送の依頼書に明示的な回答が無かったため、
 # 依頼書の不変条件「変数はモデルの1つだけ」を最優先して以下を採用）:
 #
-# 1. bonsai2-wakaのModelfileにSYSTEM行が存在する（qwen3:14bには無い）ため、
+# 1. qwen38-27b-q2k-wakaのModelfileにSYSTEM行が存在する（qwen3:14bには無い）ため、
 #    そのまま両モデルを叩くとSYSTEM有無という余計な変数が混入する。
 #    本スクリプトはOllamaClient.generate/chatをmonkey-patch（app/は無変更）し、
 #    全リクエストに system: "" を明示送信してModelfile側のSYSTEMを両モデルとも
@@ -103,7 +103,7 @@ MAEKU_SET = [
   { no: 8,  vt: :tanku,  text: "かきねをとへばあらはなるみち", season: "雑" },
 ].freeze
 
-MODELS     = ["qwen3:14b", "bonsai2-waka"].freeze
+MODELS     = ["qwen3:14b", "qwen38-27b-q2k-waka"].freeze
 STRATEGIES = [:direct, :waka_extraction].freeze
 TRIALS     = 3
 

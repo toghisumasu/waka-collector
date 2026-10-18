@@ -13,7 +13,7 @@ require "net/http"
 require "json"
 require "benchmark"
 
-MODEL   = "bonsai2-waka"
+MODEL   = "qwen38-27b-q2k-waka"
 PROMPT  = <<~PROMPT
   前句：街の灯り見る人の姿
   連歌の付け句として、この句から転じる方向を3つ提案してください。

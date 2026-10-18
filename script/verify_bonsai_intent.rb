@@ -1,8 +1,8 @@
 # frozen_string_literal: true
-# bonsai2-waka「意図の一貫性」検証スクリプト
+# qwen38-27b-q2k-waka「意図の一貫性」検証スクリプト
 #
 # 背景: 依頼書M-2の実時間再計測（script/measure_compare_walltime.rb）で
-# bonsai2-wakaが前句8「かきねをとへばあらはなるみち」に対して
+# qwen38-27b-q2k-wakaが前句8「かきねをとへばあらはなるみち」に対して
 # 「おみちのぞるや重く重くしる重」（語の反復を含む）を生成した。
 # Nobusonから「生成前に構想を聞くことと、生成後に説明を求めることを
 # 比べれば、一貫した意図を持って詠んでいるのか、後付けの尤もらしい
@@ -13,7 +13,7 @@
 #                  の構想（情景・心情・展開）だけを言語化させる。
 #   Step2（生成）: 通常の:direct方式で実際に付句を生成させる
 #                  （app/のRengaGenerator経由、compare_models.rbと同じ
-#                  monkey-patchでmodelをbonsai2-wakaへ強制）。
+#                  monkey-patchでmodelをqwen38-27b-q2k-wakaへ強制）。
 #   Step3（事後説明）: Step2で生成された句そのものを見せ、その意味・
 #                  意図を事後的に説明させる。
 #
@@ -28,7 +28,7 @@ require "net/http"
 require "json"
 require "natto"
 
-$COMPARE_MODEL      = "bonsai2-waka"
+$COMPARE_MODEL      = "qwen38-27b-q2k-waka"
 $LAST_RESPONSE_META = nil
 
 # compare_models.rb / measure_compare_walltime.rbと同一のmonkey-patch
@@ -93,7 +93,7 @@ def overlap_words(a, b)
 end
 
 puts "=" * 70
-puts "bonsai2-waka 意図の一貫性検証"
+puts "qwen38-27b-q2k-waka 意図の一貫性検証"
 puts "前句: #{MAEKU_TEXT}（#{MAEKU_VT}） → 付句: #{TARGET_VT}"
 puts "=" * 70
 

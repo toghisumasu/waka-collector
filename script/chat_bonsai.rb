@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-# bonsai2-waka 対話型REPL
+# qwen38-27b-q2k-waka 対話型REPL
 #
 # 目的: qwen3:8bの時と同様、モデルの「癖」を対話で探ってからプロンプトを
 # 調整するための手作業ツール。script/verify_bonsai_intent.rbで見えた
@@ -27,7 +27,7 @@ require "net/http"
 require "json"
 
 module ChatBonsaiPatch
-  def chat(messages, timeout: 300, think: false, temperature: nil, model: "bonsai2-waka")
+  def chat(messages, timeout: 300, think: false, temperature: nil, model: "qwen38-27b-q2k-waka")
     uri  = URI(OllamaClient::API_URL_CHAT)
     http = Net::HTTP.new(uri.host, uri.port)
     http.open_timeout = OllamaClient::OPEN_TIMEOUT
@@ -79,7 +79,7 @@ def log_turn(path, role, content)
 end
 
 puts "=" * 70
-puts "bonsai2-waka 対話REPL"
+puts "qwen38-27b-q2k-waka 対話REPL"
 puts "system=\"#{system_prompt}\" temperature=#{temperature} think=#{think}"
 puts "ログ: #{log_path}"
 puts "終了は /exit、コマンド一覧はファイル冒頭コメント参照"
@@ -139,7 +139,7 @@ loop do
   messages << { role: "assistant", content: reply.to_s }
   log_turn(log_path, "assistant", reply.to_s)
 
-  puts "\nbonsai2-waka(#{elapsed}s)> #{reply}"
+  puts "\nqwen38-27b-q2k-waka(#{elapsed}s)> #{reply}"
 end
 
 puts "\n終了しました。ログ: #{log_path}"
