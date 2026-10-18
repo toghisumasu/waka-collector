@@ -5,6 +5,10 @@
 **配置先（推奨）**: `docs/llm_behavior_notes.md`  
 **位置づけ**: LLM関連の依頼書では §0 で**必読**とする
 
+> **モデル名の対応（2026-10-18）**: `bonsai2-waka` は `qwen38-27b-q2k-waka` に改名した。
+> 実体は Qwen3.8-27B 無検閲 Q2_K（orcarouter 版）に宗匠 SYSTEM を重ねたもので、
+> Hikari 版 Ternary Bonsai 2 ではない。それ以前の観測記録・CSV・ログは旧名のまま。
+
 ---
 
 ## 0. この文書を読む理由
