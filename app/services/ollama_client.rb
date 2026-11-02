@@ -23,10 +23,22 @@ class OllamaClient
   DEFAULT_NUM_PREDICT    = 4000
   DEFAULT_REPEAT_PENALTY = 1.15
 
+  # 環境変数 WAKA_OLLAMA_TEMPERATURE の値が数値でないときの設定エラー。
+  # generate の rescue => e に「接続エラー」として包まれないよう素通しにする。
+  class ConfigError < ArgumentError; end
+
   # localhostへの接続確立は通常ミリ秒単位で完了するため、Rubyデフォルトの
   # 60秒より大幅に短く固定する（其の四十 D-40-1）。
   OPEN_TIMEOUT = 5
 
+  # temperature 引数について（M-7a）:
+  #   従来は body 直下に置いていたが、Ollama は options.temperature しか読まないため
+  #   指定値はすべて無視され、実効値は常にモデル既定（qwen3系は0.6）だった。
+  #   呼び出し側の指定値（0.5 / 0.8 / stepwise の可変temp）が突然効き始めると
+  #   既存の観測基準が動くため、M-7a では引数を受け取るだけで使わない。
+  #   呼び出し側の値を有効化するのは M-7b（前後比較つき）。
+  #   それまでは環境変数 WAKA_OLLAMA_TEMPERATURE で、generate のみ一括で上書きできる
+  #   （chat / chat_with_tools は temperature を扱わず、本変更の対象外）。
   def self.generate(prompt, timeout: 300, think: true, temperature: nil, model: MODEL)
     uri  = URI(API_URL)
     http = Net::HTTP.new(uri.host, uri.port)
@@ -35,11 +47,14 @@ class OllamaClient
 
     req = Net::HTTP::Post.new(uri.path)
     req["Content-Type"] = "application/json"
-    body = {
-      model: model, prompt: prompt, stream: false, think: think,
-      options: { num_predict: DEFAULT_NUM_PREDICT, repeat_penalty: DEFAULT_REPEAT_PENALTY }
-    }
-    body[:temperature] = temperature if temperature
+    options = { num_predict: DEFAULT_NUM_PREDICT, repeat_penalty: DEFAULT_REPEAT_PENALTY }
+    env_temp = env_temperature
+    if env_temp
+      options[:temperature] = env_temp
+      # 観測中に環境変数が残っていても気づけるよう、実効値をログに残す
+      Rails.logger.info "[OllamaClient] WAKA_OLLAMA_TEMPERATURE=#{env_temp} を options.temperature に適用 (model=#{model})"
+    end
+    body = { model: model, prompt: prompt, stream: false, think: think, options: options }
     req.body = body.to_json
 
     http_res = http.request(req)
@@ -47,9 +62,23 @@ class OllamaClient
     JSON.parse(http_res.body)["response"]
   rescue Net::ReadTimeout
     raise "メンタムさんへの接続がタイムアウトしました（#{timeout}秒）"
+  rescue ConfigError
+    raise
   rescue => e
     raise "Ollama接続エラー: #{e.message}"
   end
+
+  # WAKA_OLLAMA_TEMPERATURE が未設定または空なら nil（＝モデル既定）。
+  # 数値でなければ ConfigError。
+  def self.env_temperature
+    raw = ENV["WAKA_OLLAMA_TEMPERATURE"].to_s.strip
+    return nil if raw.empty?
+
+    Float(raw)
+  rescue ArgumentError, TypeError
+    raise ConfigError, "WAKA_OLLAMA_TEMPERATURE が数値ではありません: #{raw.inspect}"
+  end
+  private_class_method :env_temperature
 
   # messages: [{ role:, content: }, ...]
   # tools不要の複数ターン会話用（其の三十一 Step C-3）
