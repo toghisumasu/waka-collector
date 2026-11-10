@@ -45,6 +45,9 @@ module LastPromptLogger
     super
   end
 end
+# Ollama呼び出し単位の計測（OBSERVE_RG_CALL_LOG=1のときのみ。timeoutは変更しない）。
+# LastPromptLoggerより先にprependして内側に置き、底上げ後のtimeoutを記録する。
+require_relative "ollama_call_logger" if ENV["OBSERVE_RG_CALL_LOG"] == "1"
 OllamaClient.singleton_class.prepend(LastPromptLogger)
 
 HAKKU_TEXT = "東風ふかば匂いおこせよ梅の花"
@@ -141,6 +144,7 @@ log_line(logfile, 1, hakku, [])
   best_violations = nil
 
   MAX_RETRY.times do |attempt|
+    $OBS_CTX = { verse_no: verse_no, attempt: attempt + 1 } if defined?($OBS_CTX)
     generator = RengaGenerator.new(
       maeku_text, [], target_vt,
       constraints: {
