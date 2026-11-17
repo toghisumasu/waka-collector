@@ -169,7 +169,7 @@ RSpec.describe StepwiseStepLogger do
   describe "generateからの配線" do
     let(:waka31) { "つきかげやたなびくくものしろたへにあきかぜぞふくこひしかりけり" } # 30音
 
-    it "step1・step2・step3・step4の各行が記録される" do
+    it "step1・step2・step1.5・step4の各行が記録される" do
       generator = StepwiseWakaGenerator.new(
         "はなのはるかな", :chouku,
         constraints: { log_context: { batch: "wiring_test", verse_no: 1 } },
@@ -182,7 +182,7 @@ RSpec.describe StepwiseStepLogger do
       generator.generate
 
       steps = records(generator).map { |r| r["step"] }.uniq
-      expect(steps).to include("step1", "step2", "step3", "step4")
+      expect(steps).to include("step1", "step2", "step1.5", "step4")
     end
 
     it "適正音数のStep1出力ではstep1.5がskipとして記録される" do

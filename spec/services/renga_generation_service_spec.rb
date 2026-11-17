@@ -1,6 +1,8 @@
 require "rails_helper"
 
-RSpec.describe RengasController, type: :controller do
+RSpec.describe RengaGenerationService do
+  let(:controller) { described_class.new(maeku: "まえく", previous_renga_id: nil, verse_type: :tanku) }
+
   describe "#fetch_verse_history (private)" do
     it "previous_renga_idが空なら空配列を返す" do
       expect(controller.send(:fetch_verse_history, nil)).to eq([])

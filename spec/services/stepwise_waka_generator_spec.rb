@@ -212,7 +212,7 @@ RSpec.describe StepwiseWakaGenerator do
   describe "#build_length_adjust_prompt (private、Step1.5)" do
     it "condense方向は核心への凝縮を指示し、下書きを含む" do
       generator = build("まえく", :tanku)
-      prompt = generator.send(:build_length_adjust_prompt, "ながいしたがき", :condense)
+      prompt = generator.send(:build_length_adjust_prompt, "ながいしたがき", :condense, 45)
       expect(prompt).to include("核心の情景")
       expect(prompt).to include("要約・凝縮")
       expect(prompt).to include("ながいしたがき")
@@ -220,7 +220,7 @@ RSpec.describe StepwiseWakaGenerator do
 
     it "expand方向は遠景の追加を指示し、下書きを含む" do
       generator = build("まえく", :tanku)
-      prompt = generator.send(:build_length_adjust_prompt, "みじかいしたがき", :expand)
+      prompt = generator.send(:build_length_adjust_prompt, "みじかいしたがき", :expand, 18)
       expect(prompt).to include("遠くの情景")
       expect(prompt).to include("押し広げて")
       expect(prompt).to include("みじかいしたがき")

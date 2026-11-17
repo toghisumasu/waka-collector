@@ -32,7 +32,7 @@ RSpec.describe "Wakas", type: :request do
 
     it "無効なデータでは登録できない" do
       expect {
-        post wakas_path, params: { waka: attributes_for(:waka, upper_phrase: '') }
+        post wakas_path, params: { waka: attributes_for(:waka, upper_phrase_text: '') }
       }.not_to change(Waka, :count)
     end
   end

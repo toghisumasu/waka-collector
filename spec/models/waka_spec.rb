@@ -8,12 +8,12 @@ RSpec.describe Waka, type: :model do
     end
 
     it '上の句がなければ無効' do
-      waka = build(:waka, upper_phrase: '')
+      waka = build(:waka, upper_phrase_text: '')
       expect(waka).not_to be_valid
     end
 
     it '下の句がなければ無効' do
-      waka = build(:waka, lower_phrase: '')
+      waka = build(:waka, lower_phrase_text: '')
       expect(waka).not_to be_valid
     end
   end
