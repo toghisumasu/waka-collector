@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 依頼書S-0: 水無瀬三吟 付合ペア（前句→付句、99組）のqwen3:8bスコアリング（基礎データ収集）
 #
 # 実行（本番）: WAKA_OLLAMA_MODEL=qwen3:8b bin/rails runner script/score_minase_pairs_qwen8b.rb
@@ -127,13 +128,13 @@ def run_trial(prompt)
       raw = call_ollama(prompt)["response"].to_s
     rescue StandardError => e
       raw = "ERROR: #{e.message}"
-      return [nil, raw, attempt == 1, true] if attempt == 1
+      return [ nil, raw, attempt == 1, true ] if attempt == 1
       next
     end
     scores = parse_scores(raw)
-    return [scores, raw, attempt == 1, false] if scores
+    return [ scores, raw, attempt == 1, false ] if scores
   end
-  [nil, raw, true, raw.start_with?("ERROR:")]
+  [ nil, raw, true, raw.start_with?("ERROR:") ]
 end
 
 def median(a)
@@ -247,7 +248,7 @@ def write_label_sheet(pairs, verses)
   ]
   write_csv_with_comments(LABEL_PATH, comments) do |csv|
     csv << %w[pair_no maeku tsukeku label memo]
-    sheet.each { |p| csv << [p[:pair_no], p[:maeku], p[:tsukeku], "", ""] }
+    sheet.each { |p| csv << [ p[:pair_no], p[:maeku], p[:tsukeku], "", "" ] }
   end
   puts "盲検シート出力: #{LABEL_PATH}（#{sheet.size}ペア）"
 end
@@ -276,21 +277,21 @@ def write_raw(path, rows)
     csv << %w[pair_no maeku tsukeku trial season_gap material_gap scene_gap parse_ok raw_output retried]
     rows.each do |r|
       s = r[:scores]
-      csv << [r[:pair_no], r[:maeku], r[:tsukeku], r[:trial], s&.[]("season_gap"), s&.[]("material_gap"), s&.[]("scene_gap"),
-              r[:parse_ok], r[:raw], r[:retried]]
+      csv << [ r[:pair_no], r[:maeku], r[:tsukeku], r[:trial], s&.[]("season_gap"), s&.[]("material_gap"), s&.[]("scene_gap"),
+              r[:parse_ok], r[:raw], r[:retried] ]
     end
   end
 end
 
 def build_summary(rows, verses)
-  bui = CSV.read(BUI_PATH, headers: true).to_h { |r| [r["pair_no"].to_i, r] }
+  bui = CSV.read(BUI_PATH, headers: true).to_h { |r| [ r["pair_no"].to_i, r ] }
   rows.group_by { |r| r[:pair_no] }.sort.map do |pair_no, trs|
     b = bui.fetch(pair_no) { raise "bui距離レポートにpair_no #{pair_no} がありません" }
     raise "pair_no #{pair_no} の本文がbui距離レポートと一致しません" unless b["maeku_text"] == trs.first[:maeku] && b["tsugeku_text"] == trs.first[:tsukeku]
     ok = trs.select { |r| r[:parse_ok] }
     stats = AXES.to_h do |a|
       vals = ok.map { |r| r[:scores][a] }
-      [a, vals.empty? ? { med: nil, min: nil, max: nil } : { med: median(vals), min: vals.min, max: vals.max }]
+      [ a, vals.empty? ? { med: nil, min: nil, max: nil } : { med: median(vals), min: vals.min, max: vals.max } ]
     end
     unstable = stats.values.any? { |s| s[:max] && s[:max] - s[:min] >= 2 }
     { pair_no: pair_no, ori: b["ori"], men: b["men"], maeku: trs.first[:maeku], tsukeku: trs.first[:tsukeku],
@@ -300,11 +301,11 @@ end
 
 def write_summary(summary)
   comment = "# 依頼書S-0 ペア単位の集計（rawとtmp/minase_bui_distance_report.csvから再生成可能）。中央値・最小・最大はparse成功試行のみ。unstable=いずれかの軸で最大-最小>=2"
-  write_csv_with_comments(SUMMARY_PATH, [comment]) do |csv|
+  write_csv_with_comments(SUMMARY_PATH, [ comment ]) do |csv|
     csv << (%w[pair_no ori men maeku tsukeku n_ok] + AXES.flat_map { |a| %W[#{a}_median #{a}_min #{a}_max] } + %w[bui_distance unstable])
     summary.each do |s|
-      csv << ([s[:pair_no], s[:ori], s[:men], s[:maeku], s[:tsukeku], s[:n_ok]] +
-              AXES.flat_map { |a| [s[:stats][a][:med], s[:stats][a][:min], s[:stats][a][:max]] } + [s[:bui_distance], s[:unstable]])
+      csv << ([ s[:pair_no], s[:ori], s[:men], s[:maeku], s[:tsukeku], s[:n_ok] ] +
+              AXES.flat_map { |a| [ s[:stats][a][:med], s[:stats][a][:min], s[:stats][a][:max] ] } + [ s[:bui_distance], s[:unstable] ])
     end
   end
 end
@@ -345,7 +346,7 @@ if TRIAL_MODE
   puts "\n試験: #{rows.size} 試行中 parse成功 #{ok} / 失敗 #{rows.size - ok} → #{TRIAL_PATH}"
 else
   write_label_sheet(pairs, verses)
-  [RAW_PATH, SUMMARY_PATH].each { |p| rotate_existing(p) }
+  [ RAW_PATH, SUMMARY_PATH ].each { |p| rotate_existing(p) }
   t0 = Time.now
   rows = score_pairs(pairs)
   write_raw(RAW_PATH, rows)

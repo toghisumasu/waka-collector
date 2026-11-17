@@ -32,7 +32,7 @@ require_relative "../app/services/ku_validator"
 
 HAKKU = {
   word:       "東風ふかば匂いおこせよ梅の花",
-  bui:        ["花", "植物", "風体"],
+  bui:        [ "花", "植物", "風体" ],
   season:     "春",
   verse_type: :chouku,
   tsuki:      false,
@@ -80,10 +80,10 @@ SEASON_KIGO = {
 # 其の三十二 Step B-3: 字足らず時、不足モーラ数に応じて句末に足す
 # 連歌的文末表現の候補（LLMへの具体的な調整手段の提示に使う）
 ENDING_BY_MORA = {
-  1 => ["や", "か", "ぬ", "に"],
-  2 => ["かな", "けり", "らむ", "なり"],
-  3 => ["ぞかし", "ぬかな", "にけり"],
-  4 => ["にけらし", "ぬるかな", "たるかな"]
+  1 => [ "や", "か", "ぬ", "に" ],
+  2 => [ "かな", "けり", "らむ", "なり" ],
+  3 => [ "ぞかし", "ぬかな", "にけり" ],
+  4 => [ "にけらし", "ぬるかな", "たるかな" ]
 }.freeze
 
 # ─────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ def filter_pool(constraints)
     alt = (%w[春 夏 秋 冬 雑] - forbidden_seasons).join("・")
     "【季の転換】必ず#{forbidden_seasons.join('・')}以外の季にすること。選択肢：#{alt}"
   elsif season_hint[:must_continue]
-    "★必ず#{current_season}の季を継続すること（残り#{[0, (3 - season_hint[:count])].max}句以上は続けよ）"
+    "★必ず#{current_season}の季を継続すること（残り#{[ 0, (3 - season_hint[:count]) ].max}句以上は続けよ）"
   elsif current_season
     "現在の季：#{current_season}（継続または転換、どちらでも可）"
   else
@@ -281,7 +281,7 @@ def levenshtein(a, b)
     nw = i
     b.each_char.with_index do |cb, j|
       cur = costs[j + 1]
-      costs[j + 1] = ca == cb ? nw : ([costs[j], costs[j + 1], nw].min + 1)
+      costs[j + 1] = ca == cb ? nw : ([ costs[j], costs[j + 1], nw ].min + 1)
       nw = cur
     end
   end
@@ -292,7 +292,7 @@ end
 # 「完全一致」か「類似（一語違い相当）」かをおおまかに判別する。
 # 相手の句番号は history の並び順＝句番号（1始まり）と一致する。
 def similarity_dup_note(word, history)
-  return [nil, nil] if word.nil? || word.strip.empty? || word == "(生成失敗)"
+  return [ nil, nil ] if word.nil? || word.strip.empty? || word == "(生成失敗)"
 
   best_idx  = nil
   best_dist = nil
@@ -306,15 +306,15 @@ def similarity_dup_note(word, history)
     end
     break if best_dist.zero?
   end
-  return [nil, nil] if best_idx.nil?
+  return [ nil, nil ] if best_idx.nil?
 
-  threshold = [(word.length * 0.3).ceil, 3].max
+  threshold = [ (word.length * 0.3).ceil, 3 ].max
   if best_dist.zero?
-    ["⚠DUP([#{best_idx}]句目と一致・完全)", best_idx]
+    [ "⚠DUP([#{best_idx}]句目と一致・完全)", best_idx ]
   elsif best_dist <= threshold
-    ["⚠DUP([#{best_idx}]句目と類似・一語違い)", best_idx]
+    [ "⚠DUP([#{best_idx}]句目と類似・一語違い)", best_idx ]
   else
-    [nil, nil]
+    [ nil, nil ]
   end
 end
 
@@ -367,7 +367,7 @@ puts "=" * 60
 
 initial_verse = HAKKU.dup
 initial_verse[:bui] = normalize_candidate_bui.call(initial_verse[:bui])
-history = [initial_verse]
+history = [ initial_verse ]
 log_line(logfile, 1, HAKKU, [])
 
 # 其の三十六 観測レベルA: DUP検知した句番号と一致相手を記録（連鎖崩壊追跡用）
@@ -579,7 +579,7 @@ dup_flags = []
       if best_violations.nil? ||
          (best_violations.first && best_violations.first[:type] == :mora_error && diff < best_mora_diff)
         best_candidate  = candidate
-        best_violations = [{ type: :mora_error, desc: mora_check[:message] }]
+        best_violations = [ { type: :mora_error, desc: mora_check[:message] } ]
         best_mora_diff  = diff
       end
       log_attempt(attempts_logfile, verse_no: verse_no, attempt: attempt + 1,
@@ -629,7 +629,7 @@ dup_flags = []
       word: "(生成失敗)", bui: [], season: nil,
       verse_type: target_vt, tsuki: false, hana: false
     }
-    log_line(logfile, verse_no, placeholder, [{ type: :generation_failed }], forced: true)
+    log_line(logfile, verse_no, placeholder, [ { type: :generation_failed } ], forced: true)
     history << placeholder
     next
   end
@@ -675,7 +675,7 @@ if dup_flags.any?
       "  [#{next_verse_no}] #{nxt[:word]} — #{status}"
     end
 
-    block = ["[#{v}]句目 #{flag[:note]}"] + (follow_ups.any? ? follow_ups : ["  （追跡対象なし：dryrun末尾に到達）"])
+    block = [ "[#{v}]句目 #{flag[:note]}" ] + (follow_ups.any? ? follow_ups : [ "  （追跡対象なし：dryrun末尾に到達）" ])
     block.each { |l| puts l }
     File.open(logfile, "a") { |f| block.each { |l| f.puts(l) } }
   end

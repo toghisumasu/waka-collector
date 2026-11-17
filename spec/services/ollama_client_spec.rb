@@ -85,12 +85,12 @@ RSpec.describe OllamaClient do
   describe ".chat" do
     it "returns message content on 200" do
       allow(http).to receive(:request).and_return(success_response({ message: { content: "こたえ" } }.to_json))
-      expect(described_class.chat([{ role: "user", content: "hi" }])).to eq("こたえ")
+      expect(described_class.chat([ { role: "user", content: "hi" } ])).to eq("こたえ")
     end
 
     it "raises when Ollama responds with a non-2xx status (其の四十 T2)" do
       allow(http).to receive(:request).and_return(error_response("500"))
-      expect { described_class.chat([{ role: "user", content: "hi" }]) }.to raise_error(RuntimeError, /HTTP 500/)
+      expect { described_class.chat([ { role: "user", content: "hi" } ]) }.to raise_error(RuntimeError, /HTTP 500/)
     end
   end
 
@@ -98,7 +98,7 @@ RSpec.describe OllamaClient do
     it "raises when Ollama responds with a non-2xx status (其の四十 T2)" do
       allow(http).to receive(:request).and_return(error_response("500"))
       expect do
-        described_class.chat_with_tools([{ role: "user", content: "hi" }], tools: []) { |_n, _a| {} }
+        described_class.chat_with_tools([ { role: "user", content: "hi" } ], tools: []) { |_n, _a| {} }
       end.to raise_error(RuntimeError, /HTTP 500/)
     end
   end
@@ -116,14 +116,14 @@ RSpec.describe OllamaClient do
 
     it "chat: StandardErrorはOllama接続エラーというRuntimeErrorに正規化される" do
       allow(http).to receive(:request).and_raise(SocketError, "getaddrinfo failed")
-      expect { described_class.chat([{ role: "user", content: "hi" }]) }
+      expect { described_class.chat([ { role: "user", content: "hi" } ]) }
         .to raise_error(RuntimeError, "Ollama接続エラー: getaddrinfo failed")
     end
 
     it "chat_with_tools: StandardErrorはOllama接続エラーというRuntimeErrorに正規化される" do
       allow(http).to receive(:request).and_raise(SocketError, "getaddrinfo failed")
       expect do
-        described_class.chat_with_tools([{ role: "user", content: "hi" }], tools: []) { |_n, _a| {} }
+        described_class.chat_with_tools([ { role: "user", content: "hi" } ], tools: []) { |_n, _a| {} }
       end.to raise_error(RuntimeError, "Ollama接続エラー: getaddrinfo failed")
     end
 
@@ -140,7 +140,7 @@ RSpec.describe OllamaClient do
     it "chatは元の例外クラス・メッセージをログに残してからRuntimeErrorをraiseする" do
       allow(http).to receive(:request).and_raise(SocketError, "getaddrinfo failed")
       expect(Rails.logger).to receive(:error).with(/SocketError: getaddrinfo failed/)
-      expect { described_class.chat([{ role: "user", content: "hi" }]) }
+      expect { described_class.chat([ { role: "user", content: "hi" } ]) }
         .to raise_error(RuntimeError, "Ollama接続エラー: getaddrinfo failed")
     end
 
@@ -148,7 +148,7 @@ RSpec.describe OllamaClient do
       allow(http).to receive(:request).and_raise(SocketError, "getaddrinfo failed")
       expect(Rails.logger).to receive(:error).with(/SocketError: getaddrinfo failed/)
       expect do
-        described_class.chat_with_tools([{ role: "user", content: "hi" }], tools: []) { |_n, _a| {} }
+        described_class.chat_with_tools([ { role: "user", content: "hi" } ], tools: []) { |_n, _a| {} }
       end.to raise_error(RuntimeError, "Ollama接続エラー: getaddrinfo failed")
     end
 

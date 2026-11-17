@@ -96,10 +96,10 @@ module VerseTextAnalysis
     morphemes.each_with_index do |m, i|
       acc += m[:mora]
       diff = (acc - target).abs
-      candidates << [diff, i] if diff <= tolerance
+      candidates << [ diff, i ] if diff <= tolerance
       break if acc >= target + tolerance
     end
-    candidates.sort_by { |diff, i| [diff, i] }.map { |_, i| i }
+    candidates.sort_by { |diff, i| [ diff, i ] }.map { |_, i| i }
   end
 
   # 其の三十六: 一巻の履歴（verse_history、tsugeku本文の配列）との
@@ -116,7 +116,7 @@ module VerseTextAnalysis
       nw = i
       b.each_char.with_index do |cb, j|
         cur = costs[j + 1]
-        costs[j + 1] = ca == cb ? nw : ([costs[j], costs[j + 1], nw].min + 1)
+        costs[j + 1] = ca == cb ? nw : ([ costs[j], costs[j + 1], nw ].min + 1)
         nw = cur
       end
     end
@@ -136,7 +136,7 @@ module VerseTextAnalysis
     end
     return false if best_dist.nil?
 
-    threshold = [(word.length * 0.3).ceil, 3].max
+    threshold = [ (word.length * 0.3).ceil, 3 ].max
     best_dist <= threshold
   end
 
@@ -152,7 +152,7 @@ module VerseTextAnalysis
     prefix = text[0, @maeku.length]
     return false if prefix.nil? || prefix.empty?
 
-    threshold = [(@maeku.length * 0.3).ceil, 3].max
+    threshold = [ (@maeku.length * 0.3).ceil, 3 ].max
     levenshtein(prefix, @maeku) <= threshold
   end
 end

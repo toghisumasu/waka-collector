@@ -38,4 +38,3 @@ puts "=== 生成結果（ひらがな） ==="
 puts raw_line
 puts "=== モーラ数: #{mora} ==="
 puts "=== 所要時間: #{elapsed.round(1)}秒 ==="
-

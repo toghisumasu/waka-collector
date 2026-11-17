@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 依頼書M-2 Phase1: script/compare_models.rb（依頼書M）が出力した既存CSVを
 # 追加列で再分析する。生成の再実行は行わない（既存CSVの読み取りのみ）。
 #
@@ -65,7 +66,7 @@ MAEKU_SET = [
   { no: 6,  text: "霜おく野はら秋は暮れけり" },
   { no: 32, text: "たのむもはかなつま木とる山" },
   { no: 4,  text: "舟さす音もしるきあけがた" },
-  { no: 8,  text: "かきねをとへばあらはなるみち" },
+  { no: 8,  text: "かきねをとへばあらはなるみち" }
 ].freeze
 MAEKU_LOOKUP = MAEKU_SET.each_with_object({}) { |m, h| h[m[:no]] = m[:text] }.freeze
 
@@ -189,7 +190,7 @@ puts "出力: #{out_path}（#{out_rows.size}行）"
 # ─────────────────────────────────────────────────────────
 puts "\n" + "=" * 70
 puts "【failure_type分布】モデル×戦略ごと"
-out_rows.group_by { |r| [r["model"], r["strategy"]] }.each do |(model, strategy), group|
+out_rows.group_by { |r| [ r["model"], r["strategy"] ] }.each do |(model, strategy), group|
   n = group.size
   dist = group.group_by { |r| r["failure_type"] }.transform_values(&:size)
   dist_str = dist.sort_by { |_, c| -c }.map { |k, c| "#{k}=#{c}(#{(100.0*c/n).round(1)}%)" }.join(" ")
@@ -197,7 +198,7 @@ out_rows.group_by { |r| [r["model"], r["strategy"]] }.each do |(model, strategy)
 end
 
 puts "\n【overlap・partial_echo】モデル×戦略ごと（tsukeku非空行のみ）"
-out_rows.group_by { |r| [r["model"], r["strategy"]] }.each do |(model, strategy), group|
+out_rows.group_by { |r| [ r["model"], r["strategy"] ] }.each do |(model, strategy), group|
   valid = group.reject { |r| r["overlap"].nil? || r["overlap"] == "" }
   next if valid.empty?
 
@@ -208,13 +209,13 @@ out_rows.group_by { |r| [r["model"], r["strategy"]] }.each do |(model, strategy)
 end
 
 puts "\n【bui_distance】モデル×戦略ごと"
-out_rows.group_by { |r| [r["model"], r["strategy"]] }.each do |(model, strategy), group|
+out_rows.group_by { |r| [ r["model"], r["strategy"] ] }.each do |(model, strategy), group|
   dists = group.map { |r| r["bui_distance"].to_f }
   puts "  #{model} / #{strategy} (n=#{dists.size}): 平均=#{(dists.sum/dists.size).round(4)}"
 end
 
 puts "\n【eval_ms（timeout行は補正済みnil、成功行は最終呼び出し1回分のみ）】"
-out_rows.group_by { |r| [r["model"], r["strategy"]] }.each do |(model, strategy), group|
+out_rows.group_by { |r| [ r["model"], r["strategy"] ] }.each do |(model, strategy), group|
   vals = group.filter_map { |r| r["eval_ms"] && r["eval_ms"] != "" ? r["eval_ms"].to_f : nil }
   next if vals.empty?
 

@@ -176,4 +176,3 @@ class OllamaClient
   end
   private_class_method :log_and_reraise!
 end
-

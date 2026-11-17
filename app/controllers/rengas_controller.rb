@@ -259,7 +259,7 @@ class RengasController < ApplicationController
   def shikimoku_check_verse_chain(previous_renga_id, limit: nil)
     depth_guard = limit ? "WHERE verse_chain.depth + 1 < #{limit.to_i}" : ""
 
-    sql = Renga.sanitize_sql_array([<<~SQL, previous_renga_id])
+    sql = Renga.sanitize_sql_array([ <<~SQL, previous_renga_id ])
       WITH RECURSIVE verse_chain AS (
         SELECT id, tsugeku, previous_renga_id, 0 AS depth
         FROM rengas
@@ -296,4 +296,3 @@ class RengasController < ApplicationController
     false
   end
 end
-

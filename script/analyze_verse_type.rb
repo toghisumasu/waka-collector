@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 依頼書M-6: 句種別（月を含む句・花を含む句・挙句・平句）の切り直し集計
 #
 # 実行: bundle exec ruby script/analyze_verse_type.rb
@@ -27,7 +28,7 @@ HANA_WORDS = %w[花 桜 櫻].freeze
 AGEKU_VERSE_NO = 100
 EXPECTED_VERSES = 99
 
-RUN_LABELS = ["水無瀬三吟（人手注釈・参考）", "bonsai2-waka（0929）", "qwen3:14b（0929）"].freeze
+RUN_LABELS = [ "水無瀬三吟（人手注釈・参考）", "bonsai2-waka（0929）", "qwen3:14b（0929）" ].freeze
 MINASE = RUN_LABELS.first
 TYPES = %w[月を含む句 花を含む句 挙句 平句].freeze
 SEASONS = %w[春 夏 秋 冬 雑 恋].freeze
@@ -65,14 +66,14 @@ verses_by_run = RUN_LABELS.to_h do |label|
       seconds: r["seconds"].to_s.empty? ? nil : r["seconds"].to_f }
   end
   abort "#{label}: #{rows.size}句（#{EXPECTED_VERSES}句必要）" unless rows.size == EXPECTED_VERSES && rows.map { |v| v[:no] }.sort == (2..100).to_a
-  [label, rows.sort_by { |v| v[:no] }]
+  [ label, rows.sort_by { |v| v[:no] } ]
 end
 
 results = []
 verses_by_run.each do |label, verses|
   TYPES.each do |type|
     vs = verses.select { |v| types_of(v).include?(type) }
-    sc = SEASONS.to_h { |s| [s, vs.count { |v| v[:season] == s }] }
+    sc = SEASONS.to_h { |s| [ s, vs.count { |v| v[:season] == s } ] }
     secs_incl = vs.filter_map { |v| v[:seconds] }
     secs_excl = vs.reject { |v| v[:no] == 2 }.filter_map { |v| v[:seconds] }
     att = vs.filter_map { |v| v[:attempts] }
@@ -93,10 +94,10 @@ CSV.open(OUT_PATH, "w") do |csv|
   results.each do |r|
     s = r[:seasons]
     pct = ->(k) { r[:n].zero? ? nil : (100.0 * k / r[:n]).round(1) }
-    csv << [r[:run], r[:type], r[:n], *%w[春 夏 秋 冬 雑 恋].map { |k| s[k] }, s["雑"] + s["恋"],
+    csv << [ r[:run], r[:type], r[:n], *%w[春 夏 秋 冬 雑 恋].map { |k| s[k] }, s["雑"] + s["恋"],
             r[:aux_k], pct.(r[:aux_k]), r[:attempts_mean]&.round(2), r[:sec_mean_incl]&.round(1), r[:sec_median_incl]&.round(1),
             r[:sec_mean_excl]&.round(1), r[:sec_median_excl]&.round(1), r[:overlap_k], pct.(r[:overlap_k]), r[:forced_k],
-            r[:verse_nos].join(" ")]
+            r[:verse_nos].join(" ") ]
   end
 end
 
@@ -123,7 +124,7 @@ end
 
 puts "\n## 検算（RC-2）"
 verses_by_run.each do |label, verses|
-  sets = TYPES.to_h { |t| [t, verses.select { |v| types_of(v).include?(t) }.map { |v| v[:no] }] }
+  sets = TYPES.to_h { |t| [ t, verses.select { |v| types_of(v).include?(t) }.map { |v| v[:no] } ] }
   union = sets.values.flatten.uniq.size
   sum_n = sets.values.sum(&:size)
   moon_hana = (sets["月を含む句"] & sets["花を含む句"]).size

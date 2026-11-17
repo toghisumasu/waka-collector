@@ -32,7 +32,7 @@ RSpec.describe RengaMatchScore do
   end
 
   it "類似度が上がるほど単調に大きい" do
-    xs = [0, 0.2, 0.5, 0.7, 1.0].map { |r| described_class.score(r) }
+    xs = [ 0, 0.2, 0.5, 0.7, 1.0 ].map { |r| described_class.score(r) }
     expect(xs).to eq xs.sort
   end
 

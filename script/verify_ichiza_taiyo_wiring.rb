@@ -75,10 +75,10 @@ ActiveRecord::Base.transaction do
 
   puts "  修正後（本番と同じ呼び出し）: #{after_a.inspect}"
   puts "  修正前シミュレーション　　　: #{before_a.inspect}"
-  r = check("修正後：鶯の再出を検出する", after_a.map { |v| v[:type] }, [:ichiza_duplicate])
-  total_pass, total_fail = r ? [total_pass + 1, total_fail] : [total_pass, total_fail + 1]
+  r = check("修正後：鶯の再出を検出する", after_a.map { |v| v[:type] }, [ :ichiza_duplicate ])
+  total_pass, total_fail = r ? [ total_pass + 1, total_fail ] : [ total_pass, total_fail + 1 ]
   r = check("修正前（旧配線）：検出できない（バグ再現）", before_a, [])
-  total_pass, total_fail = r ? [total_pass + 1, total_fail] : [total_pass, total_fail + 1]
+  total_pass, total_fail = r ? [ total_pass + 1, total_fail ] : [ total_pass, total_fail + 1 ]
 
   # ── Part B: 植物異種区分（kuzari cross句去） ──────────────
   # 植物は同種5句去・異種3句去（kuzari_rules.yml）。桜(flower)から2句あけて
@@ -105,11 +105,11 @@ ActiveRecord::Base.transaction do
   puts "  修正後（本番と同じ呼び出し）: #{after_b.inspect}"
   puts "  修正前シミュレーション　　　: #{before_b.inspect}"
   r = check("修正後：異種区分によりcross句去(3)が適用され適法", after_b.select { |v| v[:bui] == "植物" }, [])
-  total_pass, total_fail = r ? [total_pass + 1, total_fail] : [total_pass, total_fail + 1]
+  total_pass, total_fail = r ? [ total_pass + 1, total_fail ] : [ total_pass, total_fail + 1 ]
   r = check("修正前（旧配線）：同種default(5)扱いで誤検出（バグ再現）",
-            before_b.select { |v| v[:bui] == "植物" }.map { |v| [v[:bui], v[:required], v[:actual]] },
-            [["植物", 5, 2]])
-  total_pass, total_fail = r ? [total_pass + 1, total_fail] : [total_pass, total_fail + 1]
+            before_b.select { |v| v[:bui] == "植物" }.map { |v| [ v[:bui], v[:required], v[:actual] ] },
+            [ [ "植物", 5, 2 ] ])
+  total_pass, total_fail = r ? [ total_pass + 1, total_fail ] : [ total_pass, total_fail + 1 ]
 
   # ── Part C: 体用（taiyo差別化） ────────────────────────────
   # production辞書の taiyo: 用 は舟/船の2語のみで、いずれも「水辺」句去(5)の
@@ -148,11 +148,11 @@ ActiveRecord::Base.transaction do
   puts "  修正後（本番と同じ呼び出し）: #{after_c.inspect}"
   puts "  修正前シミュレーション　　　: #{before_c.inspect}"
   r = check("修正後：体用が異なるため同一視されず適法", after_c.select { |v| v[:bui] == "光物" }, [])
-  total_pass, total_fail = r ? [total_pass + 1, total_fail] : [total_pass, total_fail + 1]
+  total_pass, total_fail = r ? [ total_pass + 1, total_fail ] : [ total_pass, total_fail + 1 ]
   r = check("修正前（旧配線）：体用無視でpos2直後の再出扱い→違反（バグ再現）",
-            before_c.select { |v| v[:bui] == "光物" }.map { |v| [v[:bui], v[:required], v[:actual]] },
-            [["光物", 3, 0]])
-  total_pass, total_fail = r ? [total_pass + 1, total_fail] : [total_pass, total_fail + 1]
+            before_c.select { |v| v[:bui] == "光物" }.map { |v| [ v[:bui], v[:required], v[:actual] ] },
+            [ [ "光物", 3, 0 ] ])
+  total_pass, total_fail = r ? [ total_pass + 1, total_fail ] : [ total_pass, total_fail + 1 ]
 
   File.delete(taiyo_dict_path) if File.exist?(taiyo_dict_path)
 

@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 #
 # モーラ過不足率調査（Phase 0・read-only）
 # 依頼書 2026-09-08「モーラ過不足率調査」
@@ -67,15 +68,15 @@ else
     if v.maeku.present?
       mtype = if v.maeku_type.present?
                 norm_type(v.maeku_type)
-              else
+      else
                 norm_type(v.tsugeku_type) == :chouku ? :tanku : :chouku
-              end
-      maeku_rows << [mora_of(v.maeku), TARGET[mtype]]
+      end
+      maeku_rows << [ mora_of(v.maeku), TARGET[mtype] ]
     end
 
     # 付句: tsugeku_type（null:false）から目標を決める
     ttype = norm_type(v.tsugeku_type)
-    tsugeku_rows << [mora_of(v.tsugeku), TARGET[ttype]]
+    tsugeku_rows << [ mora_of(v.tsugeku), TARGET[ttype] ]
   end
 
   print_block("前句（maeku）",   maeku_rows)
@@ -90,8 +91,8 @@ end
 puts "=== 自動生成パイプライン（observation_batch）==="
 
 obs        = Renga.where.not(observation_batch: nil)
-literal_n  = obs.where(status: "done").where.not(tsugeku: [nil, ""]).count
-rows       = obs.where.not(tsugeku: [nil, ""]).to_a
+literal_n  = obs.where(status: "done").where.not(tsugeku: [ nil, "" ]).count
+rows       = obs.where.not(tsugeku: [ nil, "" ]).to_a
 
 puts "（参考）依頼書 literal 条件 status=\"done\": #{literal_n} 件"
 puts "（実集計）status 不問・tsugeku 非空: #{rows.size} 件"
@@ -106,8 +107,8 @@ rows.each do |r|
   maeku_mora   = mora_of(r.maeku)
   maeku_type   = KuValidator.nearest_verse_type(maeku_mora)
   tsugeku_type = (maeku_type == :chouku) ? :tanku : :chouku
-  maeku_rows   << [maeku_mora, TARGET[maeku_type]]
-  tsugeku_rows << [mora_of(r.tsugeku), TARGET[tsugeku_type]]
+  maeku_rows   << [ maeku_mora, TARGET[maeku_type] ]
+  tsugeku_rows << [ mora_of(r.tsugeku), TARGET[tsugeku_type] ]
 rescue => e
   skipped += 1
   warn "skip renga##{r.id}: #{e.class} #{e.message}"

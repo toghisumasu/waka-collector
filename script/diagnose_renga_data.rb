@@ -75,7 +75,7 @@ puts "\n【異常データ集計（全#{total}件）】\n\n"
 english_ids = []
 asterisk_ids = []
 
-Renga.where.not(tsugeku: [nil, '']).find_each do |r|
+Renga.where.not(tsugeku: [ nil, '' ]).find_each do |r|
   t = r.tsugeku
   english_ids  << r.id if t.match?(/[a-zA-Z]/)
   asterisk_ids << r.id if t.include?('**')

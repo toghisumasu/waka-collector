@@ -38,7 +38,7 @@ by_id.each do |id, r|
     ids.unshift(cur)
     cur = by_id[cur][:prev]
   end
-  texts = ids.empty? ? [r[:maeku].to_s] : ids.map { |i| by_id[i][:tsugeku].to_s }
+  texts = ids.empty? ? [ r[:maeku].to_s ] : ids.map { |i| by_id[i][:tsugeku].to_s }
   texts << r[:tsugeku].to_s
   next if texts.any?(&:empty?)
   last = texts.size
@@ -58,7 +58,7 @@ by_id.each do |id, r|
     newly += 1
     by_result[r[:result].to_s][:newly] += 1
     added.each { |c| newcats[c] += 1 }
-    examples << [id, texts[-2], texts[-1], added] if examples.size < 8
+    examples << [ id, texts[-2], texts[-1], added ] if examples.size < 8
   end
 end
 

@@ -34,7 +34,7 @@ class RengaMatchScore
     x = tags(a)
     y = tags(b)
     return 0.0 if x.empty? && y.empty?
-    (x & y).size.to_f / [(x | y).size, 2].max   # 1要素どうしの一致は割り引く
+    (x & y).size.to_f / [ (x | y).size, 2 ].max   # 1要素どうしの一致は割り引く
   end
 
   def self.score(r)
@@ -44,7 +44,7 @@ class RengaMatchScore
 
   def self.apply_violations(base, n)
     return base if n.to_i <= 0
-    [base * VIOLATION_CEIL / 100.0 - VIOLATION_STEP * (n - 1), 0.0].max
+    [ base * VIOLATION_CEIL / 100.0 - VIOLATION_STEP * (n - 1), 0.0 ].max
   end
 
   def self.echo?(a, b)
@@ -61,7 +61,7 @@ class RengaMatchScore
   end
 
   def self.tags(v)
-    Array(v[:match_bui] || v[:bui]) + (SEASONS.include?(v[:season]) ? [v[:season]] : [])
+    Array(v[:match_bui] || v[:bui]) + (SEASONS.include?(v[:season]) ? [ v[:season] ] : [])
   end
 
   def self.blank?(v)

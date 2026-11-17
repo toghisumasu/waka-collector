@@ -8,7 +8,7 @@ messages = [
 
 result = nil
 elapsed = Benchmark.realtime do
-  result = OllamaClient.chat_with_tools(messages, tools: [OllamaTools::COUNT_MORA]) do |name, args|
+  result = OllamaClient.chat_with_tools(messages, tools: [ OllamaTools::COUNT_MORA ]) do |name, args|
     OllamaTools.execute(name, args)
   end
 end
@@ -16,4 +16,3 @@ end
 puts "=== 最終応答 ==="
 puts result
 puts "=== 所要時間: #{elapsed.round(1)}秒 ==="
-

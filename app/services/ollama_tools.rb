@@ -10,7 +10,7 @@ module OllamaTools
       description: "与えられた日本語の句のモーラ数（拍数）を正確に数える",
       parameters: {
         type: "object",
-        required: ["text"],
+        required: [ "text" ],
         properties: {
           text: { type: "string", description: "モーラ数を数えたい句のテキスト" }
         }
@@ -29,4 +29,3 @@ module OllamaTools
     end
   end
 end
-

@@ -4,11 +4,11 @@ class Waka < ApplicationRecord
 
   # フラグ定数
   FLAG_TYPES = {
-    0 => 'なし',
-    1 => '注（上下句分割不確実）'
+    0 => "なし",
+    1 => "注（上下句分割不確実）"
   }.freeze
 
   def flag_label
-    FLAG_TYPES[flag] || 'なし'
+    FLAG_TYPES[flag] || "なし"
   end
 end

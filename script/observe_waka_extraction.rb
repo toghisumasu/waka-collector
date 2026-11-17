@@ -218,7 +218,7 @@ bui_dict = BuiDictionary.new
 hakku_waka = nil
 hakku_text = nil
 20.times do
-  candidate_waka  = Waka.where.not(upper_phrase_text: [nil, ""]).order(Arel.sql("RANDOM()")).first
+  candidate_waka  = Waka.where.not(upper_phrase_text: [ nil, "" ]).order(Arel.sql("RANDOM()")).first
   candidate_text  = candidate_waka.upper_phrase_text.strip
   candidate_mora  = KuValidator.new(candidate_text).count_mora
   candidate_type  = KuValidator.nearest_verse_type(candidate_mora)
@@ -273,7 +273,7 @@ catch(:attempt_cap_reached) do
       trigger_labels << note
       log_line(log_file, {
         verse_no: verse_no, attempt: 0, text: maeku, mora_result: "ng",
-        shikimoku_result: nil, violations: [note], action: "maeku_ng_continue"
+        shikimoku_result: nil, violations: [ note ], action: "maeku_ng_continue"
       })
     end
 
@@ -334,7 +334,7 @@ catch(:attempt_cap_reached) do
           action = (attempt_no == MAX_RETRY) ? "exhausted" : "retry"
           log_line(log_file, {
             verse_no: verse_no, attempt: attempt_no, text: "", mora_result: nil,
-            shikimoku_result: nil, violations: [label], action: action,
+            shikimoku_result: nil, violations: [ label ], action: action,
             attempt_elapsed: (Time.now - attempt_started_at).round(2),
             attempt_calls: OllamaProbe::CALLS.size - attempt_calls_before
           })
@@ -351,7 +351,7 @@ catch(:attempt_cap_reached) do
           action = (attempt_no == MAX_RETRY) ? "exhausted" : "retry"
           log_line(log_file, {
             verse_no: verse_no, attempt: attempt_no, text: tsugeku.to_s, mora_result: "ng",
-            shikimoku_result: nil, violations: ["生成失敗"], action: action,
+            shikimoku_result: nil, violations: [ "生成失敗" ], action: action,
             attempt_elapsed: attempt_elapsed, attempt_calls: attempt_calls
           })
           raise RetryExhausted, "句が生成できませんでした" if attempt_no == MAX_RETRY
@@ -367,7 +367,7 @@ catch(:attempt_cap_reached) do
           action = (attempt_no == MAX_RETRY) ? "exhausted" : "retry"
           log_line(log_file, {
             verse_no: verse_no, attempt: attempt_no, text: tsugeku, mora_result: "ng",
-            shikimoku_result: nil, violations: [label], action: action,
+            shikimoku_result: nil, violations: [ label ], action: action,
             attempt_elapsed: attempt_elapsed, attempt_calls: attempt_calls
           })
           raise RetryExhausted, "モーラ判定ngが解消しませんでした" if attempt_no == MAX_RETRY
@@ -440,7 +440,7 @@ catch(:attempt_cap_reached) do
           end
 
         log_violations = trigger_labels.uniq
-        log_violations += [r[:mora_check][:message]] if r[:connection_error]
+        log_violations += [ r[:mora_check][:message] ] if r[:connection_error]
 
         log_line(log_file, {
           verse_no: verse_no, attempt: attempt_no, text: r[:text],
@@ -477,7 +477,7 @@ catch(:attempt_cap_reached) do
       tsugeku_author:     "メンタムさん",
       generated_by_model: OllamaClient::MODEL,
       style_check_result: style_result,
-      honka_reference:    [used_seed_waka_id].compact,
+      honka_reference:    [ used_seed_waka_id ].compact,
       previous_renga_id:  previous_renga_id,
       observation_batch:  BATCH_NAME
     )
@@ -501,7 +501,7 @@ catch(:attempt_cap_reached) do
     warn e.backtrace.first(10).join("\n") if e.backtrace
     log_line(log_file, {
       verse_no: verse_no, attempt: attempt_no, text: nil, mora_result: nil,
-      shikimoku_result: nil, violations: ["#{stage}: #{e.class}: #{e.message}"], action: "error"
+      shikimoku_result: nil, violations: [ "#{stage}: #{e.class}: #{e.message}" ], action: "error"
     })
     raise
   end

@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # G-1: bui候補語彙抽出スクリプト
 #
 # 使い方:
@@ -118,7 +119,7 @@ candidates = word_counts.reject { |w, _| EXISTING_WORDS.include?(w) }
 rows = candidates.map do |word, freq|
   stats = hachidaishu_stats(word)
   bui_hint = suggest_bui(word, stats[:season], stats[:ratio])
-  [word, freq, stats[:count], stats[:season], bui_hint, ""]
+  [ word, freq, stats[:count], stats[:season], bui_hint, "" ]
 end.sort_by { |r| -r[1] }
 
 out_path = Rails.root.join("tmp", "bui_candidates_#{Time.now.strftime('%Y%m%d')}.csv")

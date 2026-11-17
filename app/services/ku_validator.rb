@@ -34,28 +34,28 @@ class KuValidator
   end
 
   def count_mora
-    yomi_string.gsub(/[ゃゅょ]/, '').length
+    yomi_string.gsub(/[ゃゅょ]/, "").length
   end
 
   def yomi_string
-    require 'natto'
+    require "natto"
     nm = Natto::MeCab.new(userdic: USER_DIC)
-    clean = @text.gsub(/\s+/, '')
+    clean = @text.gsub(/\s+/, "")
     yomi_parts = []
     nm.parse(clean) do |node|
       next if node.is_eos?
       features = node.feature.split(",")
       yomi_parts << (features[7] || node.surface)
     end
-    yomi_parts.join("").tr('ァ-ヴー', 'ぁ-ゔー')
+    yomi_parts.join("").tr("ァ-ヴー", "ぁ-ゔー")
   end
 
   private
 
   def valid_by_morphemes?
-    require 'natto'
+    require "natto"
     nm = Natto::MeCab.new(userdic: USER_DIC)
-    clean = @text.gsub(/\s+/, '')
+    clean = @text.gsub(/\s+/, "")
 
     return false if clean.empty?
 
@@ -65,4 +65,3 @@ class KuValidator
     morphemes.length >= 2
   end
 end
-

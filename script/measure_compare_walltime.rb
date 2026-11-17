@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 依頼書M-2 Phase1 (B): 実時間（壁時計時間）再計測。:direct方式のみ、
 # 前句5句×モデル2種×1回試行＝10生成。
 #
@@ -81,10 +82,10 @@ MAEKU_SUBSET = [
   { no: 5,  vt: :chouku, text: "月や猶霧わたる夜に残るらん",     season: "秋" },
   { no: 17, vt: :chouku, text: "はるゝまも袖は時雨の旅衣",       season: "冬" },
   { no: 4,  vt: :tanku,  text: "舟さす音もしるきあけがた",       season: "雑" },
-  { no: 8,  vt: :tanku,  text: "かきねをとへばあらはなるみち",   season: "雑" },
+  { no: 8,  vt: :tanku,  text: "かきねをとへばあらはなるみち",   season: "雑" }
 ].freeze
 
-MODELS = ["qwen3:14b", "qwen38-27b-q2k-waka"].freeze
+MODELS = [ "qwen3:14b", "qwen38-27b-q2k-waka" ].freeze
 
 def target_verse_type(maeku_vt)
   maeku_vt == :chouku ? :tanku : :chouku

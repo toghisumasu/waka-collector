@@ -83,7 +83,7 @@ class RengaGenerationService
       tsugeku_author:     "メンタムさん",
       generated_by_model: OllamaClient::MODEL,
       style_check_result: { "result" => "ok", "issues" => [], "breakdown" => [] },
-      honka_reference:    (@honka_ids + [generator.used_seed_waka_id]).compact.uniq
+      honka_reference:    (@honka_ids + [ generator.used_seed_waka_id ]).compact.uniq
     )
   end
 
@@ -108,7 +108,7 @@ class RengaGenerationService
 
     depth_guard = limit ? "WHERE verse_chain.depth + 1 < #{limit.to_i}" : ""
 
-    sql = Renga.sanitize_sql_array([<<~SQL, previous_renga_id])
+    sql = Renga.sanitize_sql_array([ <<~SQL, previous_renga_id ])
       WITH RECURSIVE verse_chain AS (
         SELECT id, tsugeku, previous_renga_id, honka_reference, 0 AS depth
         FROM rengas

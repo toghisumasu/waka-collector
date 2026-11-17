@@ -173,7 +173,7 @@ RSpec.describe StepwiseStepLogger do
       generator = StepwiseWakaGenerator.new(
         "はなのはるかな", :chouku,
         constraints: { log_context: { batch: "wiring_test", verse_no: 1 } },
-        pool: [{ surface: "つきかげ", season: "秋", waka_id: 7 }],
+        pool: [ { surface: "つきかげ", season: "秋", waka_id: 7 } ],
         nm: Natto::MeCab.new, bui_dict: BuiDictionary.new
       )
       allow(generator).to receive(:step_log_path).and_return(File.join(@log_dir, "steps.jsonl"))
@@ -188,7 +188,7 @@ RSpec.describe StepwiseStepLogger do
     it "適正音数のStep1出力ではstep1.5がskipとして記録される" do
       generator = StepwiseWakaGenerator.new(
         "はなのはるかな", :chouku, constraints: {},
-        pool: [{ surface: "つきかげ", season: "秋", waka_id: 7 }],
+        pool: [ { surface: "つきかげ", season: "秋", waka_id: 7 } ],
         nm: Natto::MeCab.new, bui_dict: BuiDictionary.new
       )
       allow(generator).to receive(:step_log_path).and_return(File.join(@log_dir, "steps.jsonl"))
@@ -198,13 +198,13 @@ RSpec.describe StepwiseStepLogger do
 
       skips = records(generator).select { |r| r["step"] == "step1.5" }
       expect(skips).to be_present
-      expect(skips.map { |r| r["direction"] }.uniq).to eq(["skip"])
+      expect(skips.map { |r| r["direction"] }.uniq).to eq([ "skip" ])
     end
 
     it "ペルソナ・seed・draft_attemptが実走行でも各行に載る" do
       generator = StepwiseWakaGenerator.new(
         "はなのはるかな", :chouku, constraints: { persona: :woman },
-        pool: [{ surface: "つきかげ", season: "秋", waka_id: 7 }],
+        pool: [ { surface: "つきかげ", season: "秋", waka_id: 7 } ],
         nm: Natto::MeCab.new, bui_dict: BuiDictionary.new
       )
       allow(generator).to receive(:step_log_path).and_return(File.join(@log_dir, "steps.jsonl"))

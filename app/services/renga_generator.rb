@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require "natto"
 require "yaml"
 
@@ -14,7 +15,7 @@ class RengaGenerator
     { before: "かすみたなびく",   after: "ゆくはるのそら" },
     { before: "しらくもかかる",   after: "やまのあおぞら" },
     { before: "ながめておれば",   after: "つきのかたむく" },
-    { before: "うぐいすのねに",   after: "はるをよぶこえ" },
+    { before: "うぐいすのねに",   after: "はるをよぶこえ" }
   ].freeze
 
   ECHO_AFTERS = EXAMPLES.map { |e| e[:after] }.freeze
@@ -22,10 +23,10 @@ class RengaGenerator
   # 其の三十二 Step B-3: 字足らず時、不足モーラ数に応じて句末に足す
   # 連歌的文末表現の候補（LLMへの具体的な調整手段の提示に使う）
   ENDING_BY_MORA = {
-    1 => ["や", "か", "ぬ", "に"],
-    2 => ["かな", "けり", "らむ", "なり"],
-    3 => ["ぞかし", "ぬかな", "にけり"],
-    4 => ["にけらし", "ぬるかな", "たるかな"]
+    1 => [ "や", "か", "ぬ", "に" ],
+    2 => [ "かな", "けり", "らむ", "なり" ],
+    3 => [ "ぞかし", "ぬかな", "にけり" ],
+    4 => [ "にけらし", "ぬるかな", "たるかな" ]
   }.freeze
 
   DECORATION_POOL = YAML.load_file(
@@ -50,7 +51,7 @@ class RengaGenerator
   # Ruby側でローテーションさせて決め打ちする。Step0に「〇〇から〇〇へ」の
   # 転換先を自己判断させると「情景→心情（心が揺れる、等）」に収束する傾向が
   # sono79観測で確認されたための対策。
-  SENSORY_DOMAINS = ["身体感覚（肌触り・重さ・温度）", "音", "光・色彩", "匂い"].freeze
+  SENSORY_DOMAINS = [ "身体感覚（肌触り・重さ・温度）", "音", "光・色彩", "匂い" ].freeze
 
   KIGO_BUI = {
     "霞" => "聳物", "かすみ" => "聳物", "霧" => "聳物", "きり" => "聳物",
@@ -64,7 +65,7 @@ class RengaGenerator
     "雁" => "鳥", "千鳥" => "鳥", "鷺" => "鳥",
     "鹿" => "獣",
     "露" => "降物", "五月雨" => "降物", "時雨" => "降物", "しぐれ" => "降物",
-    "雪" => "降物", "霜" => "降物", "しも" => "降物", "みぞれ" => "降物",
+    "雪" => "降物", "霜" => "降物", "しも" => "降物", "みぞれ" => "降物"
   }.freeze
 
   BUI_EXAMPLE_WORDS = {
@@ -85,7 +86,7 @@ class RengaGenerator
     "居所" => "宿・庵・垣根",
     "衣裳" => "袖・衣・砧",
     "恋" => "恋・涙・逢う",
-    "旅" => "旅・旅人・行く",
+    "旅" => "旅・旅人・行く"
   }.freeze
 
 
@@ -358,7 +359,7 @@ class RengaGenerator
 
   def build_seed_pool(nm)
     seeds = []
-    Waka.where.not(upper_phrase_text: [nil, ""]).where.not(lower_phrase_text: [nil, ""]).each do |w|
+    Waka.where.not(upper_phrase_text: [ nil, "" ]).where.not(lower_phrase_text: [ nil, "" ]).each do |w|
       upper_ms = morphemes_of(w.upper_phrase_text.strip, nm)
       lower_ms = morphemes_of(w.lower_phrase_text.strip, nm)
       stag     = compute_season_tag(w.upper_phrase_text, w.lower_phrase_text)
@@ -481,7 +482,7 @@ class RengaGenerator
     else
       ""
     end
-    [kigo_line, kinshi, continue_line, switch_line]
+    [ kigo_line, kinshi, continue_line, switch_line ]
   end
 
   def build_full_prompt(seed, example, feedback, season_label, forbidden_label)

@@ -91,7 +91,7 @@ File.write(
 puts "=" * 60
 puts "サマリー"
 puts "=" * 60
-[false, true].each do |th|
+[ false, true ].each do |th|
   subset = results.select { |r| r[:think] == th }
   ok        = subset.select { |r| r[:status] == "ok" }
   timeouts  = subset.count { |r| r[:status] == "timeout" }

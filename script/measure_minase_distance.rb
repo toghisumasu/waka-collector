@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 水無瀬三吟 語彙非重複率（Jaccard距離）計測スクリプト
 # 実行: bin/rails runner script/measure_minase_distance.rb
 
@@ -88,7 +89,7 @@ std_dev  = Math.sqrt(variance)
 bucket_labels = (0..4).map { |i| "#{format("%.1f", i * 0.2)}-#{format("%.1f", (i + 1) * 0.2)}" }
 bucket_counts = Array.new(5, 0)
 rates.each do |r|
-  idx = [(r / 0.2).floor.to_i, 4].min
+  idx = [ (r / 0.2).floor.to_i, 4 ].min
   bucket_counts[idx] += 1
 end
 
@@ -105,7 +106,7 @@ puts ""
 puts "分布（ヒストグラム）:"
 bucket_labels.each_with_index do |label, idx|
   count = bucket_counts[idx]
-  bar   = "■" * [count, 40].min
+  bar   = "■" * [ count, 40 ].min
   puts "#{label} : #{bar}  (#{count}件)"
 end
 

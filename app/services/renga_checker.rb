@@ -21,7 +21,7 @@ class RengaChecker
       "breakdown" => Array(parsed["breakdown"])
     }
   rescue JSON::ParserError, TypeError
-    { "result" => "unknown", "issues" => ["式目チェックの解析に失敗しました"], "breakdown" => [] }
+    { "result" => "unknown", "issues" => [ "式目チェックの解析に失敗しました" ], "breakdown" => [] }
   end
 
   private

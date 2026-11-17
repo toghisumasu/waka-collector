@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 依頼書S-0b: 軸別呼び出しによる qwen3:8b スコアリング（S-0 の切り分け実験）
 #
 # S-0 は3軸を1回の呼び出しで同時に出させ、「2/3/4」に約75%固着した。本スクリプトは変数を1つだけ変える:
@@ -122,13 +123,13 @@ def run_call(prompt, key)
       raw = call_ollama(prompt)["response"].to_s
     rescue StandardError => e
       raw = "ERROR: #{e.message}"
-      return [nil, raw, attempt == 1, true] if attempt == 1
+      return [ nil, raw, attempt == 1, true ] if attempt == 1
       next
     end
     gap = parse_gap(raw, key)
-    return [gap, raw, attempt == 1, false] if gap
+    return [ gap, raw, attempt == 1, false ] if gap
   end
-  [nil, raw, true, raw.start_with?("ERROR:")]
+  [ nil, raw, true, raw.start_with?("ERROR:") ]
 end
 
 def n_echo?(raw, key) = raw.to_s.match?(/"#{key}"\s*:\s*"?n"?\s*[,}]/)
@@ -230,15 +231,15 @@ end
 def write_raw(path, rows)
   write_csv_with_comments(path, header_comments) do |csv|
     csv << %w[pair_no maeku tsukeku axis trial gap parse_ok retried raw_output]
-    rows.each { |r| csv << [r[:pair_no], r[:maeku], r[:tsukeku], r[:axis], r[:trial], r[:gap], r[:parse_ok], r[:retried], r[:raw]] }
+    rows.each { |r| csv << [ r[:pair_no], r[:maeku], r[:tsukeku], r[:axis], r[:trial], r[:gap], r[:parse_ok], r[:retried], r[:raw] ] }
   end
 end
 
 def read_csv(path) = CSV.read(path, headers: true, skip_lines: /\A#/)
 
 def build_summary(rows)
-  bui = read_csv(BUI_PATH).to_h { |r| [r["pair_no"].to_i, r] }
-  s0  = read_csv(S0_SUMMARY_PATH).to_h { |r| [r["pair_no"].to_i, r] }
+  bui = read_csv(BUI_PATH).to_h { |r| [ r["pair_no"].to_i, r ] }
+  s0  = read_csv(S0_SUMMARY_PATH).to_h { |r| [ r["pair_no"].to_i, r ] }
   rows.group_by { |r| r[:pair_no] }.sort.map do |pair_no, trs|
     b = bui.fetch(pair_no) { raise "bui距離レポートにpair_no #{pair_no} がありません" }
     z = s0.fetch(pair_no) { raise "S-0 summaryにpair_no #{pair_no} がありません" }
@@ -246,23 +247,23 @@ def build_summary(rows)
     raise "pair_no #{pair_no} の本文がS-0 summaryと一致しません" unless z["maeku"] == trs.first[:maeku] && z["tsukeku"] == trs.first[:tsukeku]
     stats = AXIS_KEYS.to_h do |k|
       vals = trs.select { |r| r[:axis] == k && r[:parse_ok] }.map { |r| r[:gap] }
-      [k, vals.empty? ? { n: 0, med: nil, min: nil, max: nil } : { n: vals.size, med: median(vals), min: vals.min, max: vals.max }]
+      [ k, vals.empty? ? { n: 0, med: nil, min: nil, max: nil } : { n: vals.size, med: median(vals), min: vals.min, max: vals.max } ]
     end
     { pair_no: pair_no, ori: b["ori"], men: b["men"], maeku: trs.first[:maeku], tsukeku: trs.first[:tsukeku], stats: stats,
       bui_distance: b["bui_distance"].to_f, unstable: stats.values.any? { |s| s[:max] && s[:max] - s[:min] >= 2 },
-      s0: AXIS_KEYS.to_h { |k| [k, z["#{k}_median"]&.to_f] } }
+      s0: AXIS_KEYS.to_h { |k| [ k, z["#{k}_median"]&.to_f ] } }
   end
 end
 
 def write_summary(summary)
   comment = "# 依頼書S-0b ペア単位の集計（rawとtmp/minase_bui_distance_report.csv・S-0 summaryから再生成可能）。中央値・最小・最大はparse成功呼び出しのみ（各軸最大3試行）。unstable=いずれかの軸で最大-最小>=2。s0_*=S-0の中央値"
-  write_csv_with_comments(SUMMARY_PATH, [comment]) do |csv|
+  write_csv_with_comments(SUMMARY_PATH, [ comment ]) do |csv|
     csv << (%w[pair_no ori men maeku tsukeku] + AXIS_KEYS.flat_map { |k| %W[#{k}_n_ok #{k}_median #{k}_min #{k}_max] } +
             %w[bui_distance unstable s0_season s0_material s0_scene])
     summary.each do |s|
-      csv << ([s[:pair_no], s[:ori], s[:men], s[:maeku], s[:tsukeku]] +
-              AXIS_KEYS.flat_map { |k| [s[:stats][k][:n], s[:stats][k][:med], s[:stats][k][:min], s[:stats][k][:max]] } +
-              [s[:bui_distance], s[:unstable]] + AXIS_KEYS.map { |k| s[:s0][k] })
+      csv << ([ s[:pair_no], s[:ori], s[:men], s[:maeku], s[:tsukeku] ] +
+              AXIS_KEYS.flat_map { |k| [ s[:stats][k][:n], s[:stats][k][:med], s[:stats][k][:min], s[:stats][k][:max] ] } +
+              [ s[:bui_distance], s[:unstable] ] + AXIS_KEYS.map { |k| s[:s0][k] })
     end
   end
 end
@@ -292,7 +293,7 @@ def season_class(s) = %w[春 夏 秋 冬].include?(s) ? s : "無季"
 def print_stats(rows, summary, verses)
   s0_raw = read_csv(S0_RAW_PATH).map { |r| { pair_no: r["pair_no"].to_i, trial: r["trial"].to_i, ok: r["parse_ok"] == "true",
                                              vals: AXIS_KEYS.map { |k| r[k]&.to_i } } }
-  s0_summary = read_csv(S0_SUMMARY_PATH).to_h { |r| [r["pair_no"].to_i, r] }
+  s0_summary = read_csv(S0_SUMMARY_PATH).to_h { |r| [ r["pair_no"].to_i, r ] }
   ok = rows.select { |r| r[:parse_ok] }
 
   puts "\n## 記述統計（判断・閾値提案はしない）"
@@ -308,7 +309,7 @@ def print_stats(rows, summary, verses)
 
   puts "\n### 2. 3軸の組（ペア×試行）の種類数と最頻の組の占有率"
   print_triples("S-0 ", s0_raw.select { |r| r[:ok] }.map { |r| r[:vals] }, s0_raw.size)
-  print_triples("S-0b", triples(rows.group_by { |r| [r[:pair_no], r[:trial]] }), rows.map { |r| [r[:pair_no], r[:trial]] }.uniq.size)
+  print_triples("S-0b", triples(rows.group_by { |r| [ r[:pair_no], r[:trial] ] }), rows.map { |r| [ r[:pair_no], r[:trial] ] }.uniq.size)
 
   puts "\n### 3. unstable ペア"
   uns = summary.select { |s| s[:unstable] }
@@ -329,7 +330,7 @@ def print_stats(rows, summary, verses)
   end
 
   puts "\n### 5. pair 1 と 71 の全値（S-0 では両方「2/3/4」）"
-  [1, 71].each do |n|
+  [ 1, 71 ].each do |n|
     s0t = s0_raw.select { |r| r[:pair_no] == n }.map { |r| r[:vals].join("/") }
     puts "pair #{n}（#{verses[n][:season]}→#{verses[n + 1][:season]}）: S-0 試行別 #{s0t.join(' , ')}"
     AXIS_KEYS.each { |k| puts "  S-0b #{k}: #{rows.select { |r| r[:pair_no] == n && r[:axis] == k }.sort_by { |r| r[:trial] }.map { |r| r[:gap] || 'FAIL' }.join(' ')}" }
@@ -373,8 +374,8 @@ if TRIAL_MODE
   puts "\n（以下は記述統計コードの動作確認。試験の対象ペアだけの値で、summaryは書かない）"
   print_stats(rows, build_summary(rows), verses)
 else
-  [S0_RAW_PATH, S0_SUMMARY_PATH, BUI_PATH].each { |p| abort "入力がありません: #{p}" unless File.exist?(p) }
-  [RAW_PATH, SUMMARY_PATH].each { |p| rotate_existing(p) }
+  [ S0_RAW_PATH, S0_SUMMARY_PATH, BUI_PATH ].each { |p| abort "入力がありません: #{p}" unless File.exist?(p) }
+  [ RAW_PATH, SUMMARY_PATH ].each { |p| rotate_existing(p) }
   t0 = Time.now
   rows = score_all(pairs)
   write_raw(RAW_PATH, rows)

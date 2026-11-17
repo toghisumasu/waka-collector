@@ -56,7 +56,7 @@ module OllamaCallLogger
 
   def self.record(api:, prompt_chars:, timeout:, caller_loc:)
     ctx = $OBS_CTX # rubocop:disable Style/GlobalVars
-    key = [ctx[:verse_no], ctx[:attempt]]
+    key = [ ctx[:verse_no], ctx[:attempt] ]
     @seq[key] += 1
     Thread.current[:ollama_call_meta] = nil
     t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)

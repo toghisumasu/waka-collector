@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require "rails_helper"
 
 RSpec.describe KuValidator do
@@ -34,4 +35,3 @@ RSpec.describe KuValidator do
     end
   end
 end
-

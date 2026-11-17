@@ -41,7 +41,7 @@ class HyakuinsController < ApplicationController
       verses_in_fold = @verses.select { |v| range.cover?(v[:verse_no]) }
       next if verses_in_fold.empty?
 
-      [name, range, verses_in_fold]
+      [ name, range, verses_in_fold ]
     end
 
     @season_counts = @verses.group_by { |v| v[:season] }.transform_values(&:size).sort_by { |_, c| -c }
@@ -54,7 +54,7 @@ class HyakuinsController < ApplicationController
   # 遡って古い順に取得）。renga_versesにグルーピング用の列がないため、
   # tip.idから遡る形でその一巻だけを取り出す。
   def fetch_chain(tip_id)
-    sql = RengaVerse.sanitize_sql_array([<<~SQL, tip_id])
+    sql = RengaVerse.sanitize_sql_array([ <<~SQL, tip_id ])
       WITH RECURSIVE verse_chain AS (
         SELECT id, verse_no, maeku, tsugeku, tsugeku_type, previous_verse_id, 0 AS depth
         FROM renga_verses

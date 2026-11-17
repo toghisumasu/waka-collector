@@ -56,4 +56,3 @@ feedback = nil
   end
   feedback = { ku: ku, mora: mora }
 end
-

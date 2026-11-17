@@ -79,7 +79,7 @@ SEASON_NAMES = %w[春 夏 秋 冬 雑].freeze
 SEASONED_WORDS = bui_dict.filter_map do |word, meta|
   next unless meta.is_a?(Hash) && meta["season"]
 
-  [word, meta["season"]]
+  [ word, meta["season"] ]
 end.to_h.freeze
 
 def parse_attempts_log(path)
@@ -239,7 +239,7 @@ md << "\n"
 md << "#### ③ 真に未知（上位20件）\n\n"
 md << "| # | タグ | 出現回数 |\n|:-:|:--|--:|\n"
 bucket3.sort_by { |_, v| -v }.first(20).each_with_index { |(tag, count), i| md << "| #{i + 1} | #{tag} | #{count} |\n" }
-md << "\n（他 #{[bucket3.size - 20, 0].max}種、出現回数1〜数回の長い裾）\n\n"
+md << "\n（他 #{[ bucket3.size - 20, 0 ].max}種、出現回数1〜数回の長い裾）\n\n"
 
 md << "---\n\n"
 md << "## 所見\n\n"

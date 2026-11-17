@@ -1,6 +1,6 @@
 Rails.application.routes.draw do
   resources :wakas
-  resources :rengas, only: [:new, :create, :show] do        # ← この行を追加
+  resources :rengas, only: [ :new, :create, :show ] do        # ← この行を追加
     member do
       post :confirm
       patch :manual_tsugeku

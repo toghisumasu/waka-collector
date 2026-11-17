@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # S-2 / S-2a: 手ラベル（近=1・中=2・遠=3）と、各系列（qwen3:8b の各版・bui距離・--extra 追加系列）との順位相関。
 # 読み取り専用・標準出力のみ・LLM は呼ばない。解釈・閾値提案・系列の採否判断はしない。
 #
@@ -94,7 +95,7 @@ until args.empty?
 end
 
 sheet = read_csv("minase_label_sheet.csv")
-label_by_pair = sheet.to_h { |r| [r["pair_no"].to_i, LABELS.fetch(r["label"]) { abort "label が近/中/遠以外または空欄: pair #{r['pair_no']}" }] }
+label_by_pair = sheet.to_h { |r| [ r["pair_no"].to_i, LABELS.fetch(r["label"]) { abort "label が近/中/遠以外または空欄: pair #{r['pair_no']}" } ] }
 pairs = label_by_pair.keys.sort
 abort "30ペアでない: #{pairs.size}" unless pairs.size == 30
 seasons = load_seasons
@@ -109,17 +110,17 @@ end
 { "S-0b" => "minase_qwen8b_split_raw.csv", "S-0c" => "minase_qwen8b_split_reason_raw.csv" }.each do |ver, file|
   read_csv(file).each { |r| trials[ver][r["axis"]][r["pair_no"].to_i] << r["gap"].to_i if r["parse_ok"] == "true" }
 end
-bui = read_csv("minase_bui_distance_report.csv").to_h { |r| [r["pair_no"].to_i, r["bui_distance"].to_f] }
+bui = read_csv("minase_bui_distance_report.csv").to_h { |r| [ r["pair_no"].to_i, r["bui_distance"].to_f ] }
 
 # series: {name:, vals: {pair_no => round(9)された連続値}, tv: {pair_no => 試行値配列} or nil, kind: :model | :extra | :ref}
 series = []
 trials.each do |ver, by_axis|
   AXES.each do |a|
-    series << { name: "#{ver} #{a}", kind: :model, tv: pairs.to_h { |p| [p, by_axis[a][p]] },
-                vals: pairs.to_h { |p| [p, mean(by_axis[a][p]).round(9)] } }
+    series << { name: "#{ver} #{a}", kind: :model, tv: pairs.to_h { |p| [ p, by_axis[a][p] ] },
+                vals: pairs.to_h { |p| [ p, mean(by_axis[a][p]).round(9) ] } }
   end
-  series << { name: "#{ver} 3軸平均", kind: :model, tv: pairs.to_h { |p| [p, AXES.flat_map { |a| by_axis[a][p] }] },
-              vals: pairs.to_h { |p| [p, mean(AXES.map { |a| mean(by_axis[a][p]) }).round(9)] } }
+  series << { name: "#{ver} 3軸平均", kind: :model, tv: pairs.to_h { |p| [ p, AXES.flat_map { |a| by_axis[a][p] } ] },
+              vals: pairs.to_h { |p| [ p, mean(AXES.map { |a| mean(by_axis[a][p]) }).round(9) ] } }
 end
 
 def load_extra(spec, pairs)
@@ -145,12 +146,12 @@ extra_specs.each do |spec|
   abort "--extra の NAME が既存系列と重複: #{s[:name]}" if series.any? { |x| x[:name] == s[:name] } || (s[:name] == "bui距離（参考）")
   series << s
 end
-series << { name: "bui距離（参考）", kind: :ref, tv: nil, vals: pairs.to_h { |p| [p, bui.fetch(p).round(9)] } }
+series << { name: "bui距離（参考）", kind: :ref, tv: nil, vals: pairs.to_h { |p| [ p, bui.fetch(p).round(9) ] } }
 
 # ---- 恋→恋（前句・付句の季欄がともに「恋」）と季移り（春夏秋冬・無季[雑・恋]の区分が異なる）----
 koi_koi = pairs.select { |p| seasons[p] == "恋" && seasons[p + 1] == "恋" }
-shift_of = pairs.to_h { |p| [p, season_class(seasons[p]) != season_class(seasons[p + 1])] }
-versions = [["A. 全30ペア", pairs], ["B. 恋→恋を除く", pairs - koi_koi]]
+shift_of = pairs.to_h { |p| [ p, season_class(seasons[p]) != season_class(seasons[p + 1]) ] }
+versions = [ [ "A. 全30ペア", pairs ], [ "B. 恋→恋を除く", pairs - koi_koi ] ]
 
 def label_counts(ps, label_by_pair) = (1..3).map { |l| ps.count { |p| label_by_pair[p] == l } }
 
@@ -181,7 +182,7 @@ def analyze(ps, label_by_pair, series)
     r[:p] = (1 + r[:cnt]).to_f / (PERM_N + 1)
     r[:p_corr] = r[:s][:kind] == :ref ? nil : (1 + r[:ccnt]).to_f / (PERM_N + 1)
   end
-  [rows, cset.map { |r| r[:s][:name] }, rows.select { |r| r[:rho].nil? && r[:s][:kind] != :ref }.map { |r| r[:s][:name] }]
+  [ rows, cset.map { |r| r[:s][:name] }, rows.select { |r| r[:rho].nil? && r[:s][:kind] != :ref }.map { |r| r[:s][:name] } ]
 end
 
 # ---- 出力 ----
@@ -199,7 +200,7 @@ puts "- ラベル分布: " + LABELS.map { |k, v| "#{k}(#{v})=#{label_by_pair.val
 puts "\n### 0. 恋→恋のペア（原表の季欄で前句・付句がともに恋）: #{koi_koi.size}件"
 puts "| pair_no | 前句の季欄 | 付句の季欄 | 手ラベル |", "|---:|:---:|:---:|:---:|"
 koi_koi.each { |p| puts "| #{p} | #{seasons[p]} | #{seasons[p + 1]} | #{LABELS.key(label_by_pair[p])} |" }
-puts "（参考: 片側だけ恋のペアは除外しない: " + pairs.select { |p| [seasons[p], seasons[p + 1]].count("恋") == 1 }.map { |p| "#{p}(#{seasons[p]}→#{seasons[p + 1]})" }.join(" ") + "）"
+puts "（参考: 片側だけ恋のペアは除外しない: " + pairs.select { |p| [ seasons[p], seasons[p + 1] ].count("恋") == 1 }.map { |p| "#{p}(#{seasons[p]}→#{seasons[p + 1]})" }.join(" ") + "）"
 
 analyzed = {}
 versions.each do |title, ps|
@@ -238,7 +239,7 @@ end
 
 puts "\n### 4. 季移りの有無 × 手ラベル（30ペア。季移り = 春夏秋冬・無季[雑・恋]の区分が前句と付句で異なる。雑↔恋は季移りでない）"
 puts "| | 近 | 中 | 遠 | 計 |", "|---|---:|---:|---:|---:|"
-[[true, "季移りあり"], [false, "季移りなし"]].each do |flag, name|
+[ [ true, "季移りあり" ], [ false, "季移りなし" ] ].each do |flag, name|
   ps = pairs.select { |p| shift_of[p] == flag }
   c = label_counts(ps, label_by_pair)
   puts "| #{name} | #{c.join(' | ')} | #{ps.size} |"

@@ -278,9 +278,9 @@ class ShikimokuChecker
     return [] if prev[:verse_type] != candidate[:verse_type]
 
     expected = (candidate[:verse_type] == :chouku) ? :tanku : :chouku
-    [{ type: :chotan_chigai,
+    [ { type: :chotan_chigai,
        verse_type: candidate[:verse_type],
-       expected: expected }]
+       expected: expected } ]
   end
 
   def chotan_ok?(history, candidate)
@@ -532,6 +532,4 @@ class ShikimokuChecker
       must_switch:   max_val ? count >= max_val : false
     }
   end
-
 end
-

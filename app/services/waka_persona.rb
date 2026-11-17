@@ -84,7 +84,7 @@ module WakaPersona
   def self.best_match(maeku)
     return nil if maeku.nil? || maeku.strip.empty?
 
-    scored = PERSONAS.map { |_, persona| [persona, persona[:keywords].count { |w| maeku.include?(w) }] }
+    scored = PERSONAS.map { |_, persona| [ persona, persona[:keywords].count { |w| maeku.include?(w) } ] }
     best   = scored.max_by { |_, score| score }
     best && best[1] > 0 ? best[0] : nil
   end

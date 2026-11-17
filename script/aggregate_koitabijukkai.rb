@@ -67,7 +67,7 @@ works = {
   "住吉夢想百韻" => { type: "独吟",
                        恋: csv_flags("#{data_dir}/sumiyoshi_muso_kokiraisichiran.csv", "恋"),
                        旅: csv_flags("#{data_dir}/sumiyoshi_muso_kokiraisichiran.csv", "旅"),
-                       述: csv_flags("#{data_dir}/sumiyoshi_muso_kokiraisichiran.csv", "述") },
+                       述: csv_flags("#{data_dir}/sumiyoshi_muso_kokiraisichiran.csv", "述") }
 }
 
 puts "作品,分類,部立,開始句番,連続句数,間隔"

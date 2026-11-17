@@ -44,7 +44,7 @@ require "natto"
 N       = (ARGV[0] || 12).to_i
 ONLY    = ARGV[1].to_s.split(",").map(&:strip).reject(&:empty?)
 MAEKU   = "へたてける人の心のうきはしを"
-TRIGGER = ["句去:月", "句数:秋"]
+TRIGGER = [ "句去:月", "句数:秋" ]
 THRESHOLD = 5
 TARGET_VT = :tanku
 SRAND_SEED = 20260730
@@ -102,7 +102,7 @@ def summarize(label, outputs, nm)
               mean_pairwise_jaccard(lists), ttr,
               valid.sum(&:length).to_f / valid.size)
 
-  freq = tokens.tally.sort_by { |w, c| [-c, w] }.first(6)
+  freq = tokens.tally.sort_by { |w, c| [ -c, w ] }.first(6)
   puts "               頻出内容語: #{freq.map { |w, c| "#{w}(#{c})" }.join(' ')}"
 end
 
@@ -126,7 +126,7 @@ def step1_once(maeku, seed, persona, mode, nm, bui, idx)
     maeku, :chouku,
     constraints: { gaze_mode: mode,
                    log_context: { batch: "sono77_fixation_#{mode}", verse_no: idx, attempt: 1 } },
-    pool: [seed], nm: nm, bui_dict: bui
+    pool: [ seed ], nm: nm, bui_dict: bui
   )
   g.instance_variable_set(:@draft_attempt, 1)
   g.instance_variable_set(:@current_seed, seed)

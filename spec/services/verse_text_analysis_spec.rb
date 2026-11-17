@@ -38,23 +38,23 @@ RSpec.describe VerseTextAnalysis do
     end
 
     it "完全一致（距離0）はtrue" do
-      host = host_class.new(verse_history: ["つきのかたむく"])
+      host = host_class.new(verse_history: [ "つきのかたむく" ])
       expect(host.send(:history_repeat?, "つきのかたむく")).to eq(true)
     end
 
     it "類似（閾値以内の距離）はtrue" do
-      host = host_class.new(verse_history: ["つきのかたむく"])
+      host = host_class.new(verse_history: [ "つきのかたむく" ])
       # 距離1、閾値 = max(7文字×0.3をceil=3, 3) = 3 → 閾値内
       expect(host.send(:history_repeat?, "つきのかたぶく")).to eq(true)
     end
 
     it "閾値を超える距離はfalse" do
-      host = host_class.new(verse_history: ["つきのかたむく"])
+      host = host_class.new(verse_history: [ "つきのかたむく" ])
       expect(host.send(:history_repeat?, "はるのよのゆめ")).to eq(false)
     end
 
     it "複数の履歴のうち最も近い1句で判定する" do
-      host = host_class.new(verse_history: ["はるのよのゆめ", "つきのかたむく"])
+      host = host_class.new(verse_history: [ "はるのよのゆめ", "つきのかたむく" ])
       expect(host.send(:history_repeat?, "つきのかたぶく")).to eq(true)
     end
   end
@@ -97,7 +97,7 @@ RSpec.describe VerseTextAnalysis do
         { surface: "たなびくくもの", yomi: "たなびくくもの", mora: 7 },
         { surface: "しろたへに",     yomi: "しろたへに",     mora: 5 },
         { surface: "あきかぜぞふく", yomi: "あきかぜぞふく", mora: 7 },
-        { surface: "こひしかりけり", yomi: "こひしかりけり", mora: 7 },
+        { surface: "こひしかりけり", yomi: "こひしかりけり", mora: 7 }
       ]
     end
 
@@ -112,7 +112,7 @@ RSpec.describe VerseTextAnalysis do
     end
 
     it "境界が揃わない場合はnilを返す" do
-      misaligned = [{ surface: "はるのゆめみし", yomi: "はるのゆめみし", mora: 20 }]
+      misaligned = [ { surface: "はるのゆめみし", yomi: "はるのゆめみし", mora: 20 } ]
       expect(host.send(:extract_mora_segment, misaligned, 17, 14)).to be_nil
     end
   end

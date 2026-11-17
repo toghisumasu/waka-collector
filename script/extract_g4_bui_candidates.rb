@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 依頼書G-4 Phase1: BuiDictionary拡充候補の抽出（LLM活用・辞書反映なし）
 #
 # M-4で判明した「水無瀬三吟100句中55句でBuiDictionary#detect_allが空集合」
@@ -61,9 +62,9 @@ OllamaClient.singleton_class.prepend(ExtractCandidatesPatch)
 # M-4で判明した55句のうち、人手注釈が存在する54句を読み込む
 # （no.100は注釈自体が無いため対象外＝辞書ギャップではなくデータ欠落）
 # ─────────────────────────────────────────────────────────
-NA_VERSE_NOS = [6, 8, 9, 10, 11, 12, 14, 21, 22, 23, 26, 31, 33, 35, 36, 37, 38, 39, 40, 41, 42, 44, 46,
+NA_VERSE_NOS = [ 6, 8, 9, 10, 11, 12, 14, 21, 22, 23, 26, 31, 33, 35, 36, 37, 38, 39, 40, 41, 42, 44, 46,
                 50, 51, 54, 56, 64, 65, 69, 70, 71, 72, 73, 74, 75, 76, 77, 79, 82, 83, 84, 85, 86, 88,
-                89, 92, 93, 94, 95, 96, 97, 98, 99].freeze # 100は除外
+                89, 92, 93, 94, 95, 96, 97, 98, 99 ].freeze # 100は除外
 
 md_path = Rails.root.join("docs", "minase_sangin_hyakuin.md")
 verses = {}
@@ -154,7 +155,7 @@ def parse_response(text, valid_nos)
 
     candidates << { pair_no: pair_no, word: m[2].strip, bui: m[3].strip, note: m[4].strip }
   end
-  [candidates, discarded]
+  [ candidates, discarded ]
 end
 
 all_rows = []

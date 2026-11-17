@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 水無瀬三吟 bui Jaccard距離計測スクリプト
 # 実行: bin/rails runner script/measure_bui_distance.rb
 
@@ -13,12 +14,12 @@ FOLD_MAP = [
   { range: (51..64), ori: "三折",  men: "表" },
   { range: (65..78), ori: "三折",  men: "裏" },
   { range: (79..92), ori: "名残折", men: "表" },
-  { range: (93..99), ori: "名残折", men: "裏" },
+  { range: (93..99), ori: "名残折", men: "裏" }
 ].freeze
 
 def fold_info(maeku_no)
   entry = FOLD_MAP.find { |f| f[:range].include?(maeku_no) }
-  entry ? [entry[:ori], entry[:men]] : ["不明", "不明"]
+  entry ? [ entry[:ori], entry[:men] ] : [ "不明", "不明" ]
 end
 
 def bui_jaccard_distance(set_a, set_b)
@@ -101,12 +102,12 @@ variance = rates.sum { |r| (r - mean)**2 } / n.to_f
 std_dev  = Math.sqrt(variance)
 
 # 折ごとの平均
-fold_groups = pairs.group_by { |p| [p[:ori], p[:men]] }
+fold_groups = pairs.group_by { |p| [ p[:ori], p[:men] ] }
 fold_order  = [
-  ["初折", "表"], ["初折", "裏"],
-  ["二折", "表"], ["二折", "裏"],
-  ["三折", "表"], ["三折", "裏"],
-  ["名残折", "表"], ["名残折", "裏"]
+  [ "初折", "表" ], [ "初折", "裏" ],
+  [ "二折", "表" ], [ "二折", "裏" ],
+  [ "三折", "表" ], [ "三折", "裏" ],
+  [ "名残折", "表" ], [ "名残折", "裏" ]
 ]
 
 # Top5 加速度（絶対値降順）
@@ -130,7 +131,7 @@ puts "標準偏差   : #{format("%.6f", std_dev)}"
 puts ""
 puts "=== 折ごとの平均bui距離 ==="
 fold_order.each do |ori, men|
-  group = fold_groups[[ori, men]]
+  group = fold_groups[[ ori, men ]]
   next unless group && !group.empty?
   avg = group.sum { |p| p[:bui_distance] } / group.size.to_f
   puts "#{ori}#{men} (#{group.size}ペア) : #{format("%.6f", avg)}"

@@ -196,7 +196,7 @@ class StepwiseWakaGenerator
       return seg[:surface] if seg
 
       # 其の八十四 案5: 同一出力の反復（deflock）を検知したら次 attempt の温度を上げる
-      temp      = [temp + 0.3, 1.1].min if mora_text.present? && mora_text == prev_text
+      temp      = [ temp + 0.3, 1.1 ].min if mora_text.present? && mora_text == prev_text
       prev_text = mora_text
       feedback  = failure.merge(ku: mora_text)
     end
@@ -246,7 +246,7 @@ class StepwiseWakaGenerator
     broken = seg && !clean_phrase_edges?(seg[:morphemes])
     seg    = nil if echoes || over || broken
 
-    return [seg, nil] if seg
+    return [ seg, nil ] if seg
 
     failure =
       if echoes
@@ -274,7 +274,7 @@ class StepwiseWakaGenerator
           message: "はじめの十七音で言葉がひとつ切れ、そのあと十四音が続くように、" \
                    "十七音めに語の切れ目が来るよう言葉を選び直してください。" }
       end
-    [nil, failure]
+    [ nil, failure ]
   end
 
   # 其の八十五 案F: must_continue / must_switch 局面かつ、既定 seg に対象季の季語が
@@ -350,7 +350,7 @@ class StepwiseWakaGenerator
   # chouku（長句・五七五＝17音）は先頭17音、tanku（短句・七七＝14音）は
   # 17音スキップして残り14音を、31音の和歌テキストから切り出す。
   def waka_extraction_bounds
-    @verse_type == :chouku ? [0, 17] : [17, 14]
+    @verse_type == :chouku ? [ 0, 17 ] : [ 17, 14 ]
   end
 
   def waka_total_mora_within_tolerance?(total_mora)
@@ -422,7 +422,7 @@ class StepwiseWakaGenerator
       else
         ""
       end
-    [kigo_line, kinshi, continue_line]
+    [ kigo_line, kinshi, continue_line ]
   end
 
   def kigo_hint(season_label)

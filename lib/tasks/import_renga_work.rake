@@ -2,7 +2,7 @@ require "csv"
 namespace :renga do
   # bin/rails "renga:import_csv[yuyama_sangin,湯山三吟百韻,yugama,三吟,tmp/yuyama_sangin_verses.csv]"
   desc "百韻CSVを renga_works / renga_work_verses に取り込む(再実行可)"
-  task :import_csv, [:slug, :title, :style, :form, :path] => :environment do |_, a|
+  task :import_csv, [ :slug, :title, :style, :form, :path ] => :environment do |_, a|
     work = RengaWork.find_or_initialize_by(slug: a[:slug])
     work.update!(title: a[:title], style: a[:style], form: a[:form],
                  source: "去嫌一覧(紀要)からの転記", data_status: "draft")

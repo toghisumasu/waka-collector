@@ -17,7 +17,7 @@ FOLDS = [
   { name: "三の折表", range: 51..64  },
   { name: "三の折裏", range: 65..78  },
   { name: "名残表",  range: 79..92  },
-  { name: "名残裏",  range: 93..100 },
+  { name: "名残裏",  range: 93..100 }
 ].freeze
 
 SEASON_BG = {
@@ -25,7 +25,7 @@ SEASON_BG = {
   "夏" => "#f0f7ec",
   "秋" => "#fbf0e4",
   "冬" => "#eef5f8",
-  "雑" => "#f5f5f0",
+  "雑" => "#f5f5f0"
 }.freeze
 
 # ── ログ解析 ─────────────────────────────────────────────────
@@ -88,7 +88,7 @@ abort "ログが読み込めません: #{INPUT}" if verses.empty?
 # 折ごとにグループ化
 fold_groups = FOLDS.map do |fold|
   lines = verses.select { |v| fold[:range].include?(v.no) }
-  [fold[:name], lines]
+  [ fold[:name], lines ]
 end
 
 html = <<~HTML

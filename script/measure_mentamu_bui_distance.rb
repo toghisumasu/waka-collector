@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # メンタム百韻 bui Jaccard距離計測スクリプト
 # 使い方:
 #   bin/rails runner script/measure_mentamu_bui_distance.rb BATCH1 [BATCH2 ...]
@@ -24,7 +25,7 @@ def build_verse_chain(batch_name)
   first     = rengas.find { |r| r.previous_renga_id.nil? || !id_set.include?(r.previous_renga_id) }
   raise "先頭Rengaが特定できません（batch: #{batch_name}）" unless first
 
-  chain = [first]
+  chain = [ first ]
   by_prev = rengas.index_by(&:previous_renga_id)
   loop do
     nxt = by_prev[chain.last.id]
@@ -33,7 +34,7 @@ def build_verse_chain(batch_name)
   end
 
   # 発句（最初のmaeku）+ 各rengaのtsugeku = 全100句
-  texts = [chain.first.maeku]
+  texts = [ chain.first.maeku ]
   chain.each { |r| texts << r.tsugeku }
   texts.compact.reject(&:empty?)
 end
@@ -44,7 +45,7 @@ end
 def build_extractors
   nm       = Natto::MeCab.new(userdic: Rails.root.join("dict", "user.dic").to_s)
   bui_dict = BuiDictionary.new
-  [nm, bui_dict]
+  [ nm, bui_dict ]
 end
 
 def extract_bui(text, nm, bui_dict)

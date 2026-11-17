@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 使い方: ruby script/analyze_dryrun.rb log/dryrun_hyakuin_20261004.log
 # dryrun_hyakuin.rb のログ(1句1行)を集計する。Rails 不要。
 LINE = /\A\[[^\]]+\]\s+(\d+)\s+\|\s+(.*?)\s+\|\s+(長|短)\s+\|\s+(\S+)\s+\|\s+(.*?)\s+\|\s+(OK|FORCED[^|]*?)\s*(?:\|\s*(.*))?\z/
@@ -38,7 +39,7 @@ fv = forced.select { |v| v[:reason] =~ /部立「風体」/ }
 puts "  風体が理由の FORCED: #{fv.size}句 (#{fv.map { |v| v[:no] }.join(',')})"
 
 puts "\n== 季の分布(連続した同季の長さ) =="
-runs = verses.slice_when { |a, b| a[:season] != b[:season] }.map { |g| [g.first[:season], g.size] }
+runs = verses.slice_when { |a, b| a[:season] != b[:season] }.map { |g| [ g.first[:season], g.size ] }
 runs.group_by(&:first).each { |s, a| puts format("%-2s 句数 %3d  連続 平均%.1f 最長%d", s, a.sum(&:last), a.sum(&:last).fdiv(a.size), a.map(&:last).max) }
 
 puts "\n== 部立の頻度 =="

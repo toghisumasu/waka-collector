@@ -8,12 +8,12 @@ RSpec.describe StepwiseWakaGenerator do
   describe "#waka_extraction_bounds (private)" do
     it "chouku（長句・五七五＝17音）は先頭17音を指定する" do
       generator = build("まえく", :chouku)
-      expect(generator.send(:waka_extraction_bounds)).to eq([0, 17])
+      expect(generator.send(:waka_extraction_bounds)).to eq([ 0, 17 ])
     end
 
     it "tanku（短句・七七＝14音）は17音スキップして14音を指定する" do
       generator = build("まえく", :tanku)
-      expect(generator.send(:waka_extraction_bounds)).to eq([17, 14])
+      expect(generator.send(:waka_extraction_bounds)).to eq([ 17, 14 ])
     end
   end
 
@@ -235,7 +235,7 @@ RSpec.describe StepwiseWakaGenerator do
     end
 
     it "一巻内の既出表現を検出する" do
-      generator = build("しらくもかかる", :tanku, constraints: { verse_history: ["つきのかたむく"] })
+      generator = build("しらくもかかる", :tanku, constraints: { verse_history: [ "つきのかたむく" ] })
       violation = generator.send(:content_violation, "つきのかたむく")
       expect(violation[:issue]).to eq("既出")
     end

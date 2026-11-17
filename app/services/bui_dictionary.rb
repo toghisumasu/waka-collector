@@ -1,7 +1,7 @@
-require 'yaml'
+require "yaml"
 
 class BuiDictionary
-  DICT_PATH = File.join(__dir__, '../data/bui_dictionary.yml')
+  DICT_PATH = File.join(__dir__, "../data/bui_dictionary.yml")
 
   def initialize(path = DICT_PATH)
     @data = YAML.load_file(path) || {}
@@ -12,24 +12,24 @@ class BuiDictionary
   end
 
   def primary_bui(word)
-    @data.dig(word, 'primary_bui')
+    @data.dig(word, "primary_bui")
   end
 
   def taiyo(word)
-    @data.dig(word, 'taiyo') || '体'
+    @data.dig(word, "taiyo") || "体"
   end
 
   def tai?(word)
-    taiyo(word) == '体'
+    taiyo(word) == "体"
   end
 
   def yo?(word)
-    taiyo(word) == '用'
+    taiyo(word) == "用"
   end
 
   # 植物細分化: "flower" / "grass" / "tree" / nil（未登録）
   def plant_type(word)
-    @data.dig(word, 'plant_type')
+    @data.dig(word, "plant_type")
   end
 
   # taiyo/plant_type の完全一致検索に使う代表語を1つ抽出する（其の五十九 D-59-1）。
@@ -77,4 +77,3 @@ class BuiDictionary
     valid_categories.include?(mapped) ? mapped : tag
   end
 end
-

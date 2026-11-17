@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 依頼書M-5 Phase1: 百韻走行の機械集計（bonsai2-waka × qwen3:14b、参考行に水無瀬三吟・0925の2本）
 #
 # 実行: bin/rails runner script/analyze_hyakuin_compare.rb
@@ -137,7 +138,7 @@ end
 
 # 同一ファイルに複数runが追記されるため、verse_noが減る箇所でrunを区切る。
 def split_segments(rows)
-  segs = [[]]
+  segs = [ [] ]
   prev = nil
   rows.each do |r|
     segs << [] if prev && r["verse_no"] < prev
@@ -152,9 +153,9 @@ def pick_segment(segments, log_verses)
   scored = segments.map do |seg|
     by = seg.group_by { |r| r["verse_no"] }
     hit = log_verses.count { |v| v[:no] >= 2 && (by[v[:no]] || []).any? { |r| sanitize(r["first_line_result"]) == sanitize(v[:text]) } }
-    [hit, seg]
+    [ hit, seg ]
   end
-  scored.max_by.with_index { |(hit, _), i| [hit, i] }
+  scored.max_by.with_index { |(hit, _), i| [ hit, i ] }
 end
 
 # ── ペア指標 ──
@@ -183,7 +184,7 @@ RUN_DEFS.select { |d| selected.include?(d[:key]) }.each do |d|
   segs = split_segments(load_jsonl_rows(d[:jsonl_dates]))
   hit, seg = pick_segment(segs, log)
   abort "#{d[:label]}: jsonlのセグメントと本文が一致しない（一致#{hit}/99）" unless hit == 99
-  runs << d.merge(verses: log, texts: log.to_h { |v| [v[:no], v[:text]] }, jsonl: seg, jsonl_hit: hit)
+  runs << d.merge(verses: log, texts: log.to_h { |v| [ v[:no], v[:text] ] }, jsonl: seg, jsonl_hit: hit)
 end
 
 # 水無瀬三吟（docs/minase_sangin_hyakuin.md）
@@ -203,10 +204,10 @@ verse_rows = []    # 句単位CSV
 summary = []       # [run, scope, metric, value]
 tables = {}        # 標準出力用
 
-def add(summary, run, scope, metric, value) = summary << [run, scope, metric, value.is_a?(Float) ? value.round(6) : value]
+def add(summary, run, scope, metric, value) = summary << [ run, scope, metric, value.is_a?(Float) ? value.round(6) : value ]
 
 def pair_summary(summary, run, pairs, hand: nil)
-  scopes = [["全体", pairs]] + ORI_NAMES.map { |o| [o, pairs.select { |p| p[:ori] == o }] }
+  scopes = [ [ "全体", pairs ] ] + ORI_NAMES.map { |o| [ o, pairs.select { |p| p[:ori] == o } ] }
   scopes.map do |scope, ps|
     valid = ps.reject { |p| p[:bui_na] }
     row = { scope: scope, n: ps.size, overlap: mean(ps.map { |p| p[:overlap_rate] }),
@@ -229,7 +230,7 @@ def pair_summary(summary, run, pairs, hand: nil)
 end
 
 def season_row(summary, run, counts, has_koi)
-  base = %w[春 夏 秋 冬 雑].to_h { |s| [s, counts[s]] }
+  base = %w[春 夏 秋 冬 雑].to_h { |s| [ s, counts[s] ] }
   base["恋"] = has_koi ? counts["恋"] : nil
   base["雑＋恋"] = counts["雑"] + counts["恋"]
   base.each { |k, v| add(summary, run, "全体", "A_season_#{k}", v) }
@@ -238,11 +239,11 @@ end
 
 def vocab_rows(summary, run, texts_2_100, pairs)
   toks = texts_2_100.flat_map { |t| content_tokens(t) }
-  tally = toks.tally.sort_by { |w, c| [-c, w] }
+  tally = toks.tally.sort_by { |w, c| [ -c, w ] }
   top10 = tally.first(10).map { |w, c| "#{w}:#{c}" }.join(" ")
   shared = pairs.count { |p| p[:overlap_rate] > 0 }
   aux_verses = texts_2_100.map { |t| classical_aux_hits(t) }
-  aux_tally = aux_verses.flatten.tally.sort_by { |w, c| [-c, w] }.map { |w, c| "#{w}:#{c}" }.join(" ")
+  aux_tally = aux_verses.flatten.tally.sort_by { |w, c| [ -c, w ] }.map { |w, c| "#{w}:#{c}" }.join(" ")
   d = { total: toks.size, unique: tally.size, top10: top10, shared: shared, shared_pct: pct(shared, pairs.size),
         aux_verses: aux_verses.count { |h| !h.empty? }, aux_pct: pct(aux_verses.count { |h| !h.empty? }, aux_verses.size), aux_tally: aux_tally }
   add(summary, run, "全体", "D_content_words_total", d[:total])
@@ -253,11 +254,11 @@ def vocab_rows(summary, run, texts_2_100, pairs)
   add(summary, run, "全体", "E_classical_aux_verses", d[:aux_verses])
   add(summary, run, "全体", "E_classical_aux_pct", d[:aux_pct])
   add(summary, run, "全体", "E_classical_aux_hits", d[:aux_tally])
-  [d, aux_verses]
+  [ d, aux_verses ]
 end
 
 # 水無瀬
-m_texts = minase.to_h { |v| [v[:no], v[:text]] }
+m_texts = minase.to_h { |v| [ v[:no], v[:text] ] }
 m_pairs = pair_rows(m_texts)
 m_hand = (0..98).map { |i| jaccard_distance(minase[i][:bui_hand], minase[i + 1][:bui_hand]) }
 tables[MINASE_LABEL] = { pairs: pair_summary(summary, MINASE_LABEL, m_pairs, hand: m_hand) }
@@ -266,15 +267,15 @@ tables[MINASE_LABEL][:season] = season_row(summary, MINASE_LABEL, m_counts, true
 m_vocab, m_aux = vocab_rows(summary, MINASE_LABEL, (2..100).map { |n| m_texts[n] }, m_pairs)
 tables[MINASE_LABEL][:vocab] = m_vocab
 m_pairs.each_with_index do |p, i|
-  verse_rows << [MINASE_LABEL, p[:no], p[:ori], minase[p[:no] - 1][:season], "", p[:maeku], p[:text], p[:overlap_rate].round(6),
-                 p[:maeku_bui].join("・"), p[:bui].join("・"), p[:bui_distance]&.round(6), p[:bui_na], nil, nil, nil, nil, !m_aux[i].empty?]
+  verse_rows << [ MINASE_LABEL, p[:no], p[:ori], minase[p[:no] - 1][:season], "", p[:maeku], p[:text], p[:overlap_rate].round(6),
+                 p[:maeku_bui].join("・"), p[:bui].join("・"), p[:bui_distance]&.round(6), p[:bui_na], nil, nil, nil, nil, !m_aux[i].empty? ]
 end
 m_max = m_pairs.map { |p| p[:overlap_rate] }.max
 
 # 生成run
 runs.each do |r|
   label = r[:label]
-  t = { }
+  t = {}
   pairs = pair_rows(r[:texts])
   t[:pairs] = pair_summary(summary, label, pairs)
 
@@ -294,7 +295,7 @@ runs.each do |r|
   end
   outer_dist = outer.values.tally.sort.to_h
   pe_verses = by_verse.count { |_, vr| vr.any? { |x| x["rejection_reason"] == "partial_echo" } }
-  times = r[:verses].each_cons(2).map { |a, b| [b[:no], b[:time] - a[:time]] }.to_h
+  times = r[:verses].each_cons(2).map { |a, b| [ b[:no], b[:time] - a[:time] ] }.to_h
   secs_all = times.values
   secs_ex2 = times.reject { |n, _| n == 2 }.values
   c = { total: total, per_verse: mean(by_verse.values.map(&:size)), reasons: reasons, outer_verses: outer.count { |_, v| v >= 2 },
@@ -327,11 +328,11 @@ runs.each do |r|
 
   pairs.each_with_index do |p, i|
     vr = by_verse[p[:no]] || []
-    verse_rows << [label, p[:no], p[:ori], r[:verses][p[:no] - 1][:season], r[:verses][p[:no] - 1][:forced] ? "FORCED" : "OK",
+    verse_rows << [ label, p[:no], p[:ori], r[:verses][p[:no] - 1][:season], r[:verses][p[:no] - 1][:forced] ? "FORCED" : "OK",
                    p[:maeku], p[:text], p[:overlap_rate].round(6), p[:maeku_bui].join("・"), p[:bui].join("・"),
                    p[:bui_distance]&.round(6), p[:bui_na], vr.size, outer[p[:no]],
                    r[:guard] ? vr.count { |x| x["rejection_reason"] == "partial_echo" } : nil,
-                   times[p[:no]]&.round(1), !aux[i].empty?]
+                   times[p[:no]]&.round(1), !aux[i].empty? ]
   end
 end
 
@@ -342,7 +343,7 @@ CSV.open(OUT_VERSES, "w") { |csv| csv << verse_headers; verse_rows.each { |r| cs
 CSV.open(OUT_SUMMARY, "w") { |csv| csv << %w[run scope metric value]; summary.each { |r| csv << r } }
 
 # ── 標準出力 ──
-labels = [MINASE_LABEL] + runs.map { |r| r[:label] }
+labels = [ MINASE_LABEL ] + runs.map { |r| r[:label] }
 puts "出力: #{OUT_VERSES}（#{verse_rows.size}行） / #{OUT_SUMMARY}（#{summary.size}行）"
 runs.each { |r| puts "読込: #{r[:label]}  句数=#{r[:verses].size}  jsonl試行行数=#{r[:jsonl].size}（本文一致 #{r[:jsonl_hit]}/99）" }
 puts "読込: #{MINASE_LABEL}  句数=#{minase.size}"
@@ -393,11 +394,11 @@ puts "水無瀬 bui_hand折別平均 vs 目標値（±0.001）: #{hand_ok ? 'PAS
 if (b = runs.find { |r| r[:key] == "bonsai2" })
   t = tables[b[:label]]
   checks = {
-    "FORCED" => [t[:forced], RC3_EXPECT[:forced]],
-    "季節分布" => [%w[春 夏 秋 冬 雑].to_h { |s| [s, t[:season][s]] }, RC3_EXPECT[:seasons]],
-    "内部試行総数" => [t[:c][:total], RC3_EXPECT[:attempts]],
-    "partial_echo件数" => [t[:c][:reasons]["partial_echo"].to_i, RC3_EXPECT[:partial_echo]],
-    "外側呼出/句の分布" => [t[:c][:outer_dist], RC3_EXPECT[:outer_calls]]
+    "FORCED" => [ t[:forced], RC3_EXPECT[:forced] ],
+    "季節分布" => [ %w[春 夏 秋 冬 雑].to_h { |s| [ s, t[:season][s] ] }, RC3_EXPECT[:seasons] ],
+    "内部試行総数" => [ t[:c][:total], RC3_EXPECT[:attempts] ],
+    "partial_echo件数" => [ t[:c][:reasons]["partial_echo"].to_i, RC3_EXPECT[:partial_echo] ],
+    "外側呼出/句の分布" => [ t[:c][:outer_dist], RC3_EXPECT[:outer_calls] ]
   }
   puts "RC-3（bonsai2 × M-3 Phase 2報告値）:"
   checks.each { |k, (got, exp)| puts "  #{k}: 実測=#{got} 期待=#{exp} #{got == exp ? 'PASS' : 'FAIL'}" }

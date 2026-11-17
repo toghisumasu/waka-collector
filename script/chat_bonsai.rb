@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # qwen38-27b-q2k-waka 対話型REPL
 #
 # 目的: qwen3:8bの時と同様、モデルの「癖」を対話で探ってからプロンプトを
@@ -125,7 +126,7 @@ loop do
   messages << { role: "user", content: input }
   log_turn(log_path, "user", input)
 
-  request_messages = system_prompt.present? ? [{ role: "system", content: system_prompt }] + messages : messages
+  request_messages = system_prompt.present? ? [ { role: "system", content: system_prompt } ] + messages : messages
 
   started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
   reply =

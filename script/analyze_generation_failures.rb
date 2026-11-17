@@ -50,7 +50,7 @@ CATEGORY_PATTERNS = {
   teiza:       /(?:面|折)「.+?」に(?:月|花)なし/,
   chotan:      /(?:長句|短句)が連続/,
   kuzari:      /部立「.+?」が\d+句目から間\d+句で再出/,
-  generation_failed: /句生成に失敗しました/,
+  generation_failed: /句生成に失敗しました/
 }.freeze
 
 CrashInfo = Struct.new(:signature, :raw, keyword_init: true)
@@ -73,7 +73,7 @@ def category_label(key)
     generation_failed: "生成失敗（連鎖）",
     ok: "OK（直前は正常）",
     none: "履歴なし（先頭句）",
-    other: "分類不能",
+    other: "分類不能"
   }.fetch(key, key.to_s)
 end
 
@@ -94,7 +94,7 @@ def parse_lines(path)
     {
       ts: m[:ts], no: m[:no].to_i, word: m[:word], vt: m[:vt],
       season: m[:season], bui: m[:bui].to_s.strip, status: m[:status],
-      source: path,
+      source: path
     }
   end
 end
@@ -201,7 +201,7 @@ def split_attempts_into_runs(entries)
       running_max = -1
     end
     current << e
-    running_max = [running_max, e[:verse_no]].max
+    running_max = [ running_max, e[:verse_no] ].max
   end
   runs << current if current.any?
   runs
@@ -247,7 +247,7 @@ end
 # dryrun_repeat_run*_HHMM.log）に重複記録されるためdedupする
 seen = {}
 deduped_runs = all_runs.select do |run|
-  key = [run.first[:ts], run.last[:ts], run.last[:no]]
+  key = [ run.first[:ts], run.last[:ts], run.last[:no] ]
   if seen[key]
     false
   else
@@ -261,7 +261,7 @@ end
 pre_fix_runs, unique_runs = if FIX_COMMIT_TIME
   deduped_runs.partition { |run| Time.parse(run.first[:ts]) < FIX_COMMIT_TIME }
 else
-  [[], deduped_runs]
+  [ [], deduped_runs ]
 end
 
 analyzed = unique_runs.map { |run| analyze_run(run) }

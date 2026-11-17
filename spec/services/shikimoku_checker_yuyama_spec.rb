@@ -46,8 +46,8 @@ RSpec.describe ShikimokuChecker, "湯山三吟の回帰テスト" do
     end
 
     it "植物の3句連続(66句目)と居所の間隔不足(82句目)の2件だけが検出される" do
-      found = checker.scan_chain(chain).map { |v| [v[:pos], v[:bui] || v[:type]] }
-      expect(found).to contain_exactly([66, "植物"], [82, "居所"])
+      found = checker.scan_chain(chain).map { |v| [ v[:pos], v[:bui] || v[:type] ] }
+      expect(found).to contain_exactly([ 66, "植物" ], [ 82, "居所" ])
     end
   end
 end

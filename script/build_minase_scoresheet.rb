@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 依頼書M-4 Phase1: 水無瀬三吟 模範スコアシート統合
 #
 # script/measure_minase_distance.rb（語彙非重複率）と
@@ -52,7 +53,7 @@ FOLD_MAP = [
   { range: (51..64), ori: "三折表" },
   { range: (65..78), ori: "三折裏" },
   { range: (79..92), ori: "名残折表" },
-  { range: (93..99), ori: "名残折裏" },
+  { range: (93..99), ori: "名残折裏" }
 ].freeze
 def fold_of(maeku_no)
   (FOLD_MAP.find { |f| f[:range].include?(maeku_no) } || {})[:ori] || "不明"

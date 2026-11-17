@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # G-3: bui辞書一括追記スクリプト（聳物・鳥類・釈教の補完）
 #
 # 使い方:
@@ -22,19 +23,19 @@ DRY_RUN   = ARGV.include?("--dry-run")
 # G-3提案12語のうち、既存登録済み(霞・雁・千鳥、G-2で追加済み)を除いた9語。
 ENTRIES = [
   # --- 聳物 ---
-  ["霧", { primary_bui: "聳物", season: "秋", taiyo: "体" }],
-  ["雲", { primary_bui: "聳物", season: nil,  taiyo: "体" }],
+  [ "霧", { primary_bui: "聳物", season: "秋", taiyo: "体" } ],
+  [ "雲", { primary_bui: "聳物", season: nil,  taiyo: "体" } ],
 
   # --- 動物（鳥類） ---
-  ["鶯",     { primary_bui: "動物", season: "春", taiyo: "体" }],
-  ["郭公",   { primary_bui: "動物", season: "夏", taiyo: "体" }],
-  ["時鳥",   { primary_bui: "動物", season: "夏", taiyo: "体" }],
-  ["鶴",     { primary_bui: "動物", season: nil,  taiyo: "体" }],
-  ["喚子鳥", { primary_bui: "動物", season: "春", taiyo: "体" }],
-  ["たつ",   { primary_bui: "動物", season: nil,  taiyo: "体" }],
+  [ "鶯",     { primary_bui: "動物", season: "春", taiyo: "体" } ],
+  [ "郭公",   { primary_bui: "動物", season: "夏", taiyo: "体" } ],
+  [ "時鳥",   { primary_bui: "動物", season: "夏", taiyo: "体" } ],
+  [ "鶴",     { primary_bui: "動物", season: nil,  taiyo: "体" } ],
+  [ "喚子鳥", { primary_bui: "動物", season: "春", taiyo: "体" } ],
+  [ "たつ",   { primary_bui: "動物", season: nil,  taiyo: "体" } ],
 
   # --- 釈教 ---
-  ["鐘", { primary_bui: "釈教", season: nil, taiyo: "体" }],
+  [ "鐘", { primary_bui: "釈教", season: nil, taiyo: "体" } ]
 ].freeze
 
 existing_keys = YAML.load_file(DICT_PATH).keys.to_set
@@ -45,12 +46,12 @@ ENTRIES.each do |word, attrs|
   if existing_keys.include?(word)
     skipped << word
   else
-    to_add << [word, attrs]
+    to_add << [ word, attrs ]
   end
 end
 
 def format_entry(word, attrs)
-  lines = ["#{word}:"]
+  lines = [ "#{word}:" ]
   lines << "  primary_bui: #{attrs[:primary_bui]}"
   lines << "  season: #{attrs[:season] || 'null'}"
   lines << "  taiyo: #{attrs[:taiyo]}"

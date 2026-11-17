@@ -29,41 +29,41 @@ puts "試験1：句去チェック（合成ケース）"
 puts "─" * 56
 
 p1 = 0; f1 = 0
-def r1(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r1(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 # (1a) 降物の三句去違反
-chain = [["降物"], ["水辺"], ["降物"]]
+chain = [ [ "降物" ], [ "水辺" ], [ "降物" ] ]
 v = checker.scan_chain(chain)
 res = check("降物の三句去違反を検出（pos3・間1句<3）",
-            v.map { |h| [h[:pos], h[:bui], h[:actual], h[:required]] },
-            [[3, "降物", 1, 3]])
+            v.map { |h| [ h[:pos], h[:bui], h[:actual], h[:required] ] },
+            [ [ 3, "降物", 1, 3 ] ])
 p1, f1 = r1(res, p1, f1)
 
 # (1b) 降物が間4句で適法
-chain = [["降物"], ["水辺"], ["植物"], ["山類"], ["動物"], ["降物"]]
+chain = [ [ "降物" ], [ "水辺" ], [ "植物" ], [ "山類" ], [ "動物" ], [ "降物" ] ]
 res = check("降物が間4句で適法（違反0）", checker.scan_chain(chain), [])
 p1, f1 = r1(res, p1, f1)
 
 # (1c) 山類の連続は句去対象外
 res = check("山類の連続は句去対象外（違反0）",
-            checker.scan_chain([["山類"], ["山類"], ["山類"]]), [])
+            checker.scan_chain([ [ "山類" ], [ "山類" ], [ "山類" ] ]), [])
 p1, f1 = r1(res, p1, f1)
 
 # (1d) 山類が直近pos3から間4句<5でNG
-chain = [["山類"],["山類"],["山類"],["水辺"],["動物"],["旅"],["山類"]]
+chain = [ [ "山類" ], [ "山類" ], [ "山類" ], [ "水辺" ], [ "動物" ], [ "旅" ], [ "山類" ] ]
 v = checker.scan_chain(chain)
 res = check("山類の五句去違反（pos7・直近pos3から間3句<5）",
-            v.map { |h| [h[:pos], h[:bui], h[:actual], h[:required], h[:last_pos]] },
-            [[7, "山類", 3, 5, 3]])
+            v.map { |h| [ h[:pos], h[:bui], h[:actual], h[:required], h[:last_pos] ] },
+            [ [ 7, "山類", 3, 5, 3 ] ])
 p1, f1 = r1(res, p1, f1)
 
 # (1e) 規制外の部立（時分・人倫）は近接しても違反なし
 res = check("時分・人倫は句去対象外（違反0）",
-            checker.scan_chain([["時分"],["人倫"],["時分"],["人倫"]]), [])
+            checker.scan_chain([ [ "時分" ], [ "人倫" ], [ "時分" ], [ "人倫" ] ]), [])
 p1, f1 = r1(res, p1, f1)
 
 # (1f) 候補単体検査
-ok = checker.kuzari_ok?([["聳物"],["水辺"]], ["聳物"])
+ok = checker.kuzari_ok?([ [ "聳物" ], [ "水辺" ] ], [ "聳物" ])
 res = check("候補聳物がpos3で句去不足→不可（kuzari_ok?=false）", ok, false)
 p1, f1 = r1(res, p1, f1)
 
@@ -80,7 +80,7 @@ puts "試験2：句数チェック（合成ケース）"
 puts "─" * 56
 
 p2 = 0; f2 = 0
-def r2(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r2(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 # ── 季節の上限 ──────────────────────────────
 # (2a) 春5句（上限ちょうど）→ OK
@@ -93,8 +93,8 @@ p2, f2 = r2(res, p2, f2)
 history = Array.new(5) { { bui: [], season: "春" } }
 v = checker.kukazo_violations(history, { bui: [], season: "春" })
 res = check("春6句目 → 上限超過（kukazo_over）",
-            v.map { |h| [h[:type], h[:season], h[:streak], h[:max]] },
-            [[:kukazo_over, "春", 6, 5]])
+            v.map { |h| [ h[:type], h[:season], h[:streak], h[:max] ] },
+            [ [ :kukazo_over, "春", 6, 5 ] ])
 p2, f2 = r2(res, p2, f2)
 
 # (2c) 夏3句（上限ちょうど）→ OK
@@ -107,8 +107,8 @@ p2, f2 = r2(res, p2, f2)
 history = Array.new(3) { { bui: [], season: "夏" } }
 v = checker.kukazo_violations(history, { bui: [], season: "夏" })
 res = check("夏4句目 → 上限超過（kukazo_over）",
-            v.map { |h| [h[:type], h[:season], h[:streak], h[:max]] },
-            [[:kukazo_over, "夏", 4, 3]])
+            v.map { |h| [ h[:type], h[:season], h[:streak], h[:max] ] },
+            [ [ :kukazo_over, "夏", 4, 3 ] ])
 p2, f2 = r2(res, p2, f2)
 
 # ── 春・秋の最短規制 ────────────────────────
@@ -122,16 +122,16 @@ p2, f2 = r2(res, p2, f2)
 history = Array.new(2) { { bui: [], season: "春" } }
 v = checker.kukazo_violations(history, { bui: [], season: "秋" })
 res = check("春2句で秋へ転換 → 最短不足（kukazo_under）",
-            v.map { |h| [h[:type], h[:season], h[:streak], h[:min]] },
-            [[:kukazo_under, "春", 2, 3]])
+            v.map { |h| [ h[:type], h[:season], h[:streak], h[:min] ] },
+            [ [ :kukazo_under, "春", 2, 3 ] ])
 p2, f2 = r2(res, p2, f2)
 
 # (2g) 春1句で雑へ転換 → kukazo_under
-history = [{ bui: [], season: "春" }]
+history = [ { bui: [], season: "春" } ]
 v = checker.kukazo_violations(history, { bui: [], season: nil })
 res = check("春1句で雑へ転換 → 最短不足（kukazo_under）",
-            v.map { |h| [h[:type], h[:season], h[:streak], h[:min]] },
-            [[:kukazo_under, "春", 1, 3]])
+            v.map { |h| [ h[:type], h[:season], h[:streak], h[:min] ] },
+            [ [ :kukazo_under, "春", 1, 3 ] ])
 p2, f2 = r2(res, p2, f2)
 
 # (2h) 雑→春：最短チェックは発動しない（雑は min 規制なし）
@@ -142,47 +142,47 @@ p2, f2 = r2(res, p2, f2)
 
 # ── 部立の上限 ──────────────────────────────
 # (2i) 恋5句（上限ちょうど）→ OK
-history = Array.new(4) { { bui: ["恋"], season: nil } }
+history = Array.new(4) { { bui: [ "恋" ], season: nil } }
 res = check("恋5句目（上限ちょうど）→ 適法",
-            checker.kukazo_ok?(history, { bui: ["恋"], season: nil }), true)
+            checker.kukazo_ok?(history, { bui: [ "恋" ], season: nil }), true)
 p2, f2 = r2(res, p2, f2)
 
 # (2j) 恋6句目 → kukazo_over
-history = Array.new(5) { { bui: ["恋"], season: nil } }
-v = checker.kukazo_violations(history, { bui: ["恋"], season: nil })
+history = Array.new(5) { { bui: [ "恋" ], season: nil } }
+v = checker.kukazo_violations(history, { bui: [ "恋" ], season: nil })
 res = check("恋6句目 → 上限超過（kukazo_over）",
-            v.map { |h| [h[:type], h[:bui], h[:streak], h[:max]] },
-            [[:kukazo_over, "恋", 6, 5]])
+            v.map { |h| [ h[:type], h[:bui], h[:streak], h[:max] ] },
+            [ [ :kukazo_over, "恋", 6, 5 ] ])
 p2, f2 = r2(res, p2, f2)
 
 # (2k) 山類4句目 → kukazo_over
-history = Array.new(3) { { bui: ["山類"], season: nil } }
-v = checker.kukazo_violations(history, { bui: ["山類"], season: nil })
+history = Array.new(3) { { bui: [ "山類" ], season: nil } }
+v = checker.kukazo_violations(history, { bui: [ "山類" ], season: nil })
 res = check("山類4句目 → 上限超過（kukazo_over）",
-            v.map { |h| [h[:type], h[:bui], h[:streak], h[:max]] },
-            [[:kukazo_over, "山類", 4, 3]])
+            v.map { |h| [ h[:type], h[:bui], h[:streak], h[:max] ] },
+            [ [ :kukazo_over, "山類", 4, 3 ] ])
 p2, f2 = r2(res, p2, f2)
 
 # (2l) 動物は句数制限なし（連続4句でも句数違反なし）
-history = Array.new(3) { { bui: ["動物"], season: nil } }
-v = checker.kukazo_violations(history, { bui: ["動物"], season: nil })
+history = Array.new(3) { { bui: [ "動物" ], season: nil } }
+v = checker.kukazo_violations(history, { bui: [ "動物" ], season: nil })
 res = check("動物4句連続 → 句数違反なし（句数規制対象外）", v, [])
 p2, f2 = r2(res, p2, f2)
 
 # ── ストリークカウンタの直接検証 ─────────────
 # (2m) current_bui_streak：末尾連続のみカウント
 history = [
-  { bui: ["山類"], season: nil },
-  { bui: ["水辺"], season: nil },
-  { bui: ["山類"], season: nil },
-  { bui: ["山類"], season: nil }
+  { bui: [ "山類" ], season: nil },
+  { bui: [ "水辺" ], season: nil },
+  { bui: [ "山類" ], season: nil },
+  { bui: [ "山類" ], season: nil }
 ]
 res = check("current_bui_streak：末尾2句のみを返す（中断後の山類は数えない）",
             checker.current_bui_streak(history, "山類"), 2)
 p2, f2 = r2(res, p2, f2)
 
 # (2n) current_season_streak：雑で中断 → 春のカウント0
-history = [{ season: "春" }, { season: "春" }, { season: nil }]
+history = [ { season: "春" }, { season: "春" }, { season: nil } ]
 res = check("current_season_streak：雑で中断後の春ストリークは0",
             checker.current_season_streak(history, "春"), 0)
 p2, f2 = r2(res, p2, f2)
@@ -205,14 +205,14 @@ require_relative '../app/services/bui_dictionary'
 bui_dict = BuiDictionary.new(File.join(__dir__, '../app/data/bui_dictionary.yml'))
 
 minase = [
-  { bui: ["降物","山類","聳物","時分"], season: "春", word: nil      }, # 1
-  { bui: ["水辺"],                      season: "春", word: "行く水" }, # 2 体
-  { bui: ["植物"],                      season: "春", word: nil      }, # 3
-  { bui: ["水辺"],                      season: nil,  word: "舟"     }, # 4 用
-  { bui: ["光物","聳物"],               season: "秋", word: nil      }, # 5
-  { bui: ["降物"],                      season: "秋", word: nil      }, # 6
-  { bui: ["動物"],                      season: "秋", word: nil      }, # 7
-  { bui: ["居所"],                      season: nil,  word: nil      }, # 8
+  { bui: [ "降物", "山類", "聳物", "時分" ], season: "春", word: nil      }, # 1
+  { bui: [ "水辺" ],                      season: "春", word: "行く水" }, # 2 体
+  { bui: [ "植物" ],                      season: "春", word: nil      }, # 3
+  { bui: [ "水辺" ],                      season: nil,  word: "舟"     }, # 4 用
+  { bui: [ "光物", "聳物" ],               season: "秋", word: nil      }, # 5
+  { bui: [ "降物" ],                      season: "秋", word: nil      }, # 6
+  { bui: [ "動物" ],                      season: "秋", word: nil      }, # 7
+  { bui: [ "居所" ],                      season: nil,  word: nil      } # 8
 ]
 
 v = checker.scan_chain(minase)
@@ -254,20 +254,20 @@ puts "=" * 56
 puts "Test4: Minase Ura 9-22 (kuzari+kukazo)"
 puts "-" * 56
 minase_ura = [
-  { word: "yamafulaki",     bui: ["聳物", "居所"], season: "秋" },
-  { word: "narenusumahi",   bui: ["居所"],  season: "雑" },
-  { word: "imasarani",      bui: ["人倫"], season: "雑" },
+  { word: "yamafulaki",     bui: [ "聳物", "居所" ], season: "秋" },
+  { word: "narenusumahi",   bui: [ "居所" ],  season: "雑" },
+  { word: "imasarani",      bui: [ "人倫" ], season: "雑" },
   { word: "uturohan",       bui: [],                   season: "雑" },
-  { word: "okiwaburu",      bui: ["降物", "植物"], season: "春" },
-  { word: "madanokoru",     bui: ["光物", "聳物"], season: "春" },
-  { word: "kurenuToya",     bui: ["動物"],    season: "春" },
-  { word: "miyamawoyuke",   bui: ["山類"], season: "雑" },
-  { word: "haruruma",       bui: ["衣裳", "降物"], season: "冬" },
-  { word: "wagakusamakura", bui: ["光物"], season: "秋" },
-  { word: "itadura",        bui: ["時分"],   season: "秋" },
-  { word: "yumeni",         bui: ["植物"],  season: "秋" },
-  { word: "mishihamina",    bui: ["名所"], season: "雑" },
-  { word: "oino",           bui: ["述懐"], season: "雑" },
+  { word: "okiwaburu",      bui: [ "降物", "植物" ], season: "春" },
+  { word: "madanokoru",     bui: [ "光物", "聳物" ], season: "春" },
+  { word: "kurenuToya",     bui: [ "動物" ],    season: "春" },
+  { word: "miyamawoyuke",   bui: [ "山類" ], season: "雑" },
+  { word: "haruruma",       bui: [ "衣裳", "降物" ], season: "冬" },
+  { word: "wagakusamakura", bui: [ "光物" ], season: "秋" },
+  { word: "itadura",        bui: [ "時分" ],   season: "秋" },
+  { word: "yumeni",         bui: [ "植物" ],  season: "秋" },
+  { word: "mishihamina",    bui: [ "名所" ], season: "雑" },
+  { word: "oino",           bui: [ "述懐" ], season: "雑" }
 ]
 chain_1_22 = minase + minase_ura
 puts "  [kuzari without dict]"
@@ -293,23 +293,23 @@ puts "Test5: Minase Omote 23-36 (kuzari+kukazo)"
 puts "-" * 56
 minase_omote2 = [
   { word: "irokimotoki",  bui: [],                          season: "雑" },
-  { word: "soretomotomo", bui: ["時分"],         season: "秋" },
-  { word: "kumonikefuu",  bui: ["聳物", "山類", "植物"], season: "春" },
-  { word: "kikebaimaha",  bui: ["動物"],         season: "春" },
-  { word: "oborogeno",    bui: ["光物"],        season: "春" },
-  { word: "karineno",     bui: ["降物", "時分", "旅"], season: "秋" },  # かりね＝旅寝
-  { word: "suenonaru",    bui: ["聳物", "居所"],      season: "秋" },
-  { word: "fukikuru",     bui: ["衣裳"],               season: "秋" },
-  { word: "sayurubi",     bui: ["光物", "時分", "衣裳"], season: "冬" }, # さゆる日も袖うすき
-  { word: "tanomumohakana", bui: ["山類"],      season: "冬" },
-  { word: "saritomono",   bui: ["述懐"],        season: "雑" },
+  { word: "soretomotomo", bui: [ "時分" ],         season: "秋" },
+  { word: "kumonikefuu",  bui: [ "聳物", "山類", "植物" ], season: "春" },
+  { word: "kikebaimaha",  bui: [ "動物" ],         season: "春" },
+  { word: "oborogeno",    bui: [ "光物" ],        season: "春" },
+  { word: "karineno",     bui: [ "降物", "時分", "旅" ], season: "秋" },  # かりね＝旅寝
+  { word: "suenonaru",    bui: [ "聳物", "居所" ],      season: "秋" },
+  { word: "fukikuru",     bui: [ "衣裳" ],               season: "秋" },
+  { word: "sayurubi",     bui: [ "光物", "時分", "衣裳" ], season: "冬" }, # さゆる日も袖うすき
+  { word: "tanomumohakana", bui: [ "山類" ],      season: "冬" },
+  { word: "saritomono",   bui: [ "述懐" ],        season: "雑" },
   { word: "kokorobososhi", bui: [],                         season: "雑" },
-  { word: "inotinoMi",    bui: ["恋"],         season: "恋" },
-  { word: "nahoNani",     bui: ["恋"],         season: "恋" },
+  { word: "inotinoMi",    bui: [ "恋" ],         season: "恋" },
+  { word: "nahoNani",     bui: [ "恋" ],         season: "恋" }
 ]
 chain_1_36 = minase + minase_ura + minase_omote2
 p5 = 0; f5 = 0
-def r5(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r5(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 puts "  [kuzari without dict]"
 v5 = checker.scan_chain(chain_1_36)
@@ -332,8 +332,8 @@ puts "  -- kukazo (kuzari+kukazo 統合) --"
 kukazo5d = v5d.select { |v| v[:type].to_s.start_with?("kukazo") }
 # pos25(雲にけふ 春): 直前の秋(pos24のみ streak=1)から転季 → 秋の最短3句不足
 res5b = check("omote2 pos25 秋→春転換で秋連続1句（最短3句不足）kukazo_under検出",
-              kukazo5d.select { |v| v[:pos] == 25 }.map { |v| [v[:type], v[:season], v[:streak], v[:min]] },
-              [[:kukazo_under, "秋", 1, 3]])
+              kukazo5d.select { |v| v[:pos] == 25 }.map { |v| [ v[:type], v[:season], v[:streak], v[:min] ] },
+              [ [ :kukazo_under, "秋", 1, 3 ] ])
 p5, f5 = r5(res5b, p5, f5)
 
 puts "Test5：#{p5} pass / #{f5} fail"
@@ -348,7 +348,7 @@ puts "試験6：長短交互チェック（chotan_violations）"
 puts "─" * 56
 
 p6 = 0; f6 = 0
-def r6(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r6(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 # (6a) 発句（長）→脇（短）→第三（長）→四句目（短）→五句目（長）: 違反なし
 chain6_ok = [
@@ -356,7 +356,7 @@ chain6_ok = [
   { verse_type: :tanku,  bui: [], season: "春"  }, # 脇
   { verse_type: :chouku, bui: [], season: nil   }, # 第三
   { verse_type: :tanku,  bui: [], season: nil   }, # 四句目
-  { verse_type: :chouku, bui: [], season: nil   }, # 五句目
+  { verse_type: :chouku, bui: [], season: nil   } # 五句目
 ]
 v6a = checker.scan_chain_with_chotan(chain6_ok)
 chotan6a = v6a.select { |v| v[:type] == :chotan_chigai }
@@ -367,51 +367,51 @@ p6, f6 = r6(res6a, p6, f6)
 # (6b) 長→長（連続）: 違反
 chain6_ng1 = [
   { verse_type: :chouku, bui: [], season: "春" },
-  { verse_type: :chouku, bui: [], season: "春" },
+  { verse_type: :chouku, bui: [], season: "春" }
 ]
 v6b = checker.scan_chain_with_chotan(chain6_ng1)
 chotan6b = v6b.select { |v| v[:type] == :chotan_chigai }
 res6b = check("長句連続（pos2）→ chotan_chigai検出",
-              chotan6b.map { |v| [v[:pos], v[:verse_type], v[:expected]] },
-              [[2, :chouku, :tanku]])
+              chotan6b.map { |v| [ v[:pos], v[:verse_type], v[:expected] ] },
+              [ [ 2, :chouku, :tanku ] ])
 p6, f6 = r6(res6b, p6, f6)
 
 # (6c) 短→短（連続）: 違反
 chain6_ng2 = [
   { verse_type: :chouku, bui: [], season: "春" },
   { verse_type: :tanku,  bui: [], season: "春" },
-  { verse_type: :tanku,  bui: [], season: nil  },
+  { verse_type: :tanku,  bui: [], season: nil  }
 ]
 v6c = checker.scan_chain_with_chotan(chain6_ng2)
 chotan6c = v6c.select { |v| v[:type] == :chotan_chigai }
 res6c = check("短句連続（pos3）→ chotan_chigai検出",
-              chotan6c.map { |v| [v[:pos], v[:verse_type], v[:expected]] },
-              [[3, :tanku, :chouku]])
+              chotan6c.map { |v| [ v[:pos], v[:verse_type], v[:expected] ] },
+              [ [ 3, :tanku, :chouku ] ])
 p6, f6 = r6(res6c, p6, f6)
 
 # (6d) verse_type なし句はスキップ（型未確定の句と混在）
 chain6_skip = [
   { verse_type: :chouku, bui: [], season: "春" },
   { bui: [], season: nil },                          # verse_type なし → スキップ
-  { verse_type: :chouku, bui: [], season: nil  },    # 見かけ上長→長だが間に型なし句あり
+  { verse_type: :chouku, bui: [], season: nil  }    # 見かけ上長→長だが間に型なし句あり
 ]
 v6d = checker.scan_chain_with_chotan(chain6_skip)
 chotan6d = v6d.select { |v| v[:type] == :chotan_chigai }
 res6d = check("verse_type なし句をスキップして交互確認",
-              chotan6d.map { |v| [v[:pos], v[:verse_type], v[:expected]] },
-              [[3, :chouku, :tanku]])
+              chotan6d.map { |v| [ v[:pos], v[:verse_type], v[:expected] ] },
+              [ [ 3, :chouku, :tanku ] ])
 p6, f6 = r6(res6d, p6, f6)
 
 # (6e) 水無瀬三吟 初折表1〜8（長短順を反映）: 違反なし
 minase_chotan = [
-  { verse_type: :chouku, bui: ["降物","山類","聳物","時分"], season: "春"  }, # 1 長
-  { verse_type: :tanku,  bui: ["水辺"],                      season: "春"  }, # 2 短
-  { verse_type: :chouku, bui: ["植物"],                      season: "春"  }, # 3 長
-  { verse_type: :tanku,  bui: ["水辺"],                      season: nil   }, # 4 短
-  { verse_type: :chouku, bui: ["光物","聳物"],               season: "秋"  }, # 5 長
-  { verse_type: :tanku,  bui: ["降物"],                      season: "秋"  }, # 6 短
-  { verse_type: :chouku, bui: ["動物"],                      season: "秋"  }, # 7 長
-  { verse_type: :tanku,  bui: ["居所"],                      season: nil   }, # 8 短
+  { verse_type: :chouku, bui: [ "降物", "山類", "聳物", "時分" ], season: "春"  }, # 1 長
+  { verse_type: :tanku,  bui: [ "水辺" ],                      season: "春"  }, # 2 短
+  { verse_type: :chouku, bui: [ "植物" ],                      season: "春"  }, # 3 長
+  { verse_type: :tanku,  bui: [ "水辺" ],                      season: nil   }, # 4 短
+  { verse_type: :chouku, bui: [ "光物", "聳物" ],               season: "秋"  }, # 5 長
+  { verse_type: :tanku,  bui: [ "降物" ],                      season: "秋"  }, # 6 短
+  { verse_type: :chouku, bui: [ "動物" ],                      season: "秋"  }, # 7 長
+  { verse_type: :tanku,  bui: [ "居所" ],                      season: nil   } # 8 短
 ]
 v6e = checker.scan_chain_with_chotan(minase_chotan, bui_dict: bui_dict)
 chotan6e = v6e.select { |v| v[:type] == :chotan_chigai }
@@ -433,113 +433,113 @@ puts
 # ═══════════════════════════════════════════════════════════════
 minase_full = [
   # ── 初折表 1-8 ──
-  { word: "雪ながら",      bui: ["降物","山類","聳物","時分"], season: "春", verse_type: :chouku },                    # 1
-  { word: "行く水とほく",  bui: ["水辺","植物","居所"],       season: "春", verse_type: :tanku,  plant_type: :flower },  # 2 梅
-  { word: "川風に",        bui: ["水辺","植物"],              season: "春", verse_type: :chouku, plant_type: :tree   },  # 3 柳
-  { word: "舟さす音も",   bui: ["水辺","時分"],              season: "雑", verse_type: :tanku  },                    # 4
-  { word: "月や猶",        bui: ["光物","聳物","時分"],       season: "秋", verse_type: :chouku, tsuki: true },       # 5 ★月
-  { word: "霜おく野はら",  bui: ["降物","時分"],              season: "秋", verse_type: :tanku  },                    # 6
-  { word: "なく蟲の",      bui: ["動物","植物"],              season: "秋", verse_type: :chouku, plant_type: :grass  },  # 7 草かれ
-  { word: "かきねをとへば",bui: ["居所"],                    season: "雑", verse_type: :tanku  },                    # 8
+  { word: "雪ながら",      bui: [ "降物", "山類", "聳物", "時分" ], season: "春", verse_type: :chouku },                    # 1
+  { word: "行く水とほく",  bui: [ "水辺", "植物", "居所" ],       season: "春", verse_type: :tanku,  plant_type: :flower },  # 2 梅
+  { word: "川風に",        bui: [ "水辺", "植物" ],              season: "春", verse_type: :chouku, plant_type: :tree   },  # 3 柳
+  { word: "舟さす音も",   bui: [ "水辺", "時分" ],              season: "雑", verse_type: :tanku  },                    # 4
+  { word: "月や猶",        bui: [ "光物", "聳物", "時分" ],       season: "秋", verse_type: :chouku, tsuki: true },       # 5 ★月
+  { word: "霜おく野はら",  bui: [ "降物", "時分" ],              season: "秋", verse_type: :tanku  },                    # 6
+  { word: "なく蟲の",      bui: [ "動物", "植物" ],              season: "秋", verse_type: :chouku, plant_type: :grass  },  # 7 草かれ
+  { word: "かきねをとへば", bui: [ "居所" ],                    season: "雑", verse_type: :tanku  },                    # 8
   # ── 初折裏 9-22 ──
-  { word: "山ふかき",      bui: ["山類","居所"],              season: "秋", verse_type: :chouku },                    # 9
-  { word: "なれぬすまひ",  bui: ["居所","述懐"],              season: "雑", verse_type: :tanku  },                    # 10
-  { word: "今更に",        bui: ["人倫","述懐"],              season: "雑", verse_type: :chouku },                    # 11
-  { word: "うつろはん",    bui: ["述懐"],                    season: "雑", verse_type: :tanku  },                    # 12
-  { word: "置きわぶる",    bui: ["降物","植物"],              season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 13 ★花(桜)
-  { word: "まだ残る日の",  bui: ["光物","聳物"],              season: "春", verse_type: :tanku  },                    # 14
-  { word: "暮れぬとや",    bui: ["動物","時分"],              season: "春", verse_type: :chouku },                    # 15
-  { word: "深山をゆけば",  bui: ["山類"],                    season: "雑", verse_type: :tanku  },                    # 16
-  { word: "はるゝまも",    bui: ["降物","旅","衣裳"],         season: "冬", verse_type: :chouku },                    # 17
-  { word: "わが草枕",      bui: ["旅","光物"],                season: "秋", verse_type: :tanku,  tsuki: true },       # 18 ★月
-  { word: "いたづらに",    bui: ["時分"],                    season: "秋", verse_type: :chouku },                    # 19
-  { word: "夢にうらむる",  bui: ["植物"],                    season: "秋", verse_type: :tanku,  plant_type: :grass  },  # 20 荻
-  { word: "見しはみな",    bui: ["名所","述懐"],              season: "雑", verse_type: :chouku },                    # 21
-  { word: "老の行方よ",    bui: ["述懐"],                    season: "雑", verse_type: :tanku  },                    # 22
+  { word: "山ふかき",      bui: [ "山類", "居所" ],              season: "秋", verse_type: :chouku },                    # 9
+  { word: "なれぬすまひ",  bui: [ "居所", "述懐" ],              season: "雑", verse_type: :tanku  },                    # 10
+  { word: "今更に",        bui: [ "人倫", "述懐" ],              season: "雑", verse_type: :chouku },                    # 11
+  { word: "うつろはん",    bui: [ "述懐" ],                    season: "雑", verse_type: :tanku  },                    # 12
+  { word: "置きわぶる",    bui: [ "降物", "植物" ],              season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 13 ★花(桜)
+  { word: "まだ残る日の",  bui: [ "光物", "聳物" ],              season: "春", verse_type: :tanku  },                    # 14
+  { word: "暮れぬとや",    bui: [ "動物", "時分" ],              season: "春", verse_type: :chouku },                    # 15
+  { word: "深山をゆけば",  bui: [ "山類" ],                    season: "雑", verse_type: :tanku  },                    # 16
+  { word: "はるゝまも",    bui: [ "降物", "旅", "衣裳" ],         season: "冬", verse_type: :chouku },                    # 17
+  { word: "わが草枕",      bui: [ "旅", "光物" ],                season: "秋", verse_type: :tanku,  tsuki: true },       # 18 ★月
+  { word: "いたづらに",    bui: [ "時分" ],                    season: "秋", verse_type: :chouku },                    # 19
+  { word: "夢にうらむる",  bui: [ "植物" ],                    season: "秋", verse_type: :tanku,  plant_type: :grass  },  # 20 荻
+  { word: "見しはみな",    bui: [ "名所", "述懐" ],              season: "雑", verse_type: :chouku },                    # 21
+  { word: "老の行方よ",    bui: [ "述懐" ],                    season: "雑", verse_type: :tanku  },                    # 22
   # ── 二折表 23-36 ──
-  { word: "色もなき",      bui: ["述懐"],                    season: "雑", verse_type: :chouku },                    # 23
-  { word: "それも友なる",  bui: ["時分"],                    season: "秋", verse_type: :tanku  },                    # 24
-  { word: "雲にけふ",      bui: ["聳物","山類","植物"],       season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 25 ★花(桜)
-  { word: "きけば今はの",  bui: ["動物"],                    season: "春", verse_type: :tanku  },                    # 26
-  { word: "おぼろげの",    bui: ["光物"],                    season: "春", verse_type: :chouku, tsuki: true },       # 27 ★月
-  { word: "かりねの露の",  bui: ["降物","時分","旅"],         season: "秋", verse_type: :tanku  },                    # 28
-  { word: "末野なる",      bui: ["聳物","居所"],              season: "秋", verse_type: :chouku },                    # 29
-  { word: "吹きくる風は",  bui: ["衣裳"],                    season: "秋", verse_type: :tanku  },                    # 30
-  { word: "さゆる日も",    bui: ["光物","時分","衣裳"],       season: "冬", verse_type: :chouku },                    # 31
-  { word: "たのむもはかな",bui: ["山類"],                    season: "冬", verse_type: :tanku  },                    # 32
-  { word: "さりともの",    bui: ["述懐"],                    season: "雑", verse_type: :chouku },                    # 33
-  { word: "心ぼそし",      bui: ["述懐"],                    season: "雑", verse_type: :tanku  },                    # 34
-  { word: "命のみ",        bui: ["衣裳","恋"],               season: "恋", verse_type: :chouku },                    # 35
-  { word: "なほ何なれや",  bui: ["恋"],                      season: "恋", verse_type: :tanku  },                    # 36
+  { word: "色もなき",      bui: [ "述懐" ],                    season: "雑", verse_type: :chouku },                    # 23
+  { word: "それも友なる",  bui: [ "時分" ],                    season: "秋", verse_type: :tanku  },                    # 24
+  { word: "雲にけふ",      bui: [ "聳物", "山類", "植物" ],       season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 25 ★花(桜)
+  { word: "きけば今はの",  bui: [ "動物" ],                    season: "春", verse_type: :tanku  },                    # 26
+  { word: "おぼろげの",    bui: [ "光物" ],                    season: "春", verse_type: :chouku, tsuki: true },       # 27 ★月
+  { word: "かりねの露の",  bui: [ "降物", "時分", "旅" ],         season: "秋", verse_type: :tanku  },                    # 28
+  { word: "末野なる",      bui: [ "聳物", "居所" ],              season: "秋", verse_type: :chouku },                    # 29
+  { word: "吹きくる風は",  bui: [ "衣裳" ],                    season: "秋", verse_type: :tanku  },                    # 30
+  { word: "さゆる日も",    bui: [ "光物", "時分", "衣裳" ],       season: "冬", verse_type: :chouku },                    # 31
+  { word: "たのむもはかな", bui: [ "山類" ],                    season: "冬", verse_type: :tanku  },                    # 32
+  { word: "さりともの",    bui: [ "述懐" ],                    season: "雑", verse_type: :chouku },                    # 33
+  { word: "心ぼそし",      bui: [ "述懐" ],                    season: "雑", verse_type: :tanku  },                    # 34
+  { word: "命のみ",        bui: [ "衣裳", "恋" ],               season: "恋", verse_type: :chouku },                    # 35
+  { word: "なほ何なれや",  bui: [ "恋" ],                      season: "恋", verse_type: :tanku  },                    # 36
   # ── 二折裏 37-50 ──
-  { word: "君を置きて",    bui: ["恋","人倫"],               season: "恋", verse_type: :chouku },                    # 37
-  { word: "そのおもかげに",bui: ["恋"],                      season: "恋", verse_type: :tanku  },                    # 38
-  { word: "草木さへ",      bui: ["植物","名所","述懐"],       season: "雑", verse_type: :chouku, plant_type: :grass  },  # 39 草木（草主）
-  { word: "身のうき宿も",  bui: ["居所","述懐"],              season: "雑", verse_type: :tanku  },                    # 40
-  { word: "たらちねの",    bui: ["人倫","述懐"],              season: "雑", verse_type: :chouku },                    # 41
-  { word: "月日の末や",    bui: ["光物"],                    season: "雑", verse_type: :tanku,  tsuki: true },       # 42 ★月
-  { word: "この岸を",      bui: ["水辺"],                    season: "雑", verse_type: :chouku },                    # 43
-  { word: "また生まれこぬ",bui: ["釈教"],                    season: "雑", verse_type: :tanku  },                    # 44
-  { word: "あふまでと",    bui: ["降物","恋"],               season: "恋", verse_type: :chouku },                    # 45
-  { word: "身を秋風も",    bui: ["恋"],                      season: "秋", verse_type: :tanku  },                    # 46
-  { word: "松むしの",      bui: ["動物","植物"],              season: "秋", verse_type: :chouku, plant_type: :grass  },  # 47 蓬生
-  { word: "しめゆふ山は",  bui: ["山類","光物","神祇"],       season: "秋", verse_type: :tanku,  tsuki: true },       # 48 ★月
-  { word: "鐘に我",        bui: ["釈教"],                    season: "冬", verse_type: :chouku },                    # 49
-  { word: "いただきけりな",bui: ["降物"],                    season: "冬", verse_type: :tanku  },                    # 50
+  { word: "君を置きて",    bui: [ "恋", "人倫" ],               season: "恋", verse_type: :chouku },                    # 37
+  { word: "そのおもかげに", bui: [ "恋" ],                      season: "恋", verse_type: :tanku  },                    # 38
+  { word: "草木さへ",      bui: [ "植物", "名所", "述懐" ],       season: "雑", verse_type: :chouku, plant_type: :grass  },  # 39 草木（草主）
+  { word: "身のうき宿も",  bui: [ "居所", "述懐" ],              season: "雑", verse_type: :tanku  },                    # 40
+  { word: "たらちねの",    bui: [ "人倫", "述懐" ],              season: "雑", verse_type: :chouku },                    # 41
+  { word: "月日の末や",    bui: [ "光物" ],                    season: "雑", verse_type: :tanku,  tsuki: true },       # 42 ★月
+  { word: "この岸を",      bui: [ "水辺" ],                    season: "雑", verse_type: :chouku },                    # 43
+  { word: "また生まれこぬ", bui: [ "釈教" ],                    season: "雑", verse_type: :tanku  },                    # 44
+  { word: "あふまでと",    bui: [ "降物", "恋" ],               season: "恋", verse_type: :chouku },                    # 45
+  { word: "身を秋風も",    bui: [ "恋" ],                      season: "秋", verse_type: :tanku  },                    # 46
+  { word: "松むしの",      bui: [ "動物", "植物" ],              season: "秋", verse_type: :chouku, plant_type: :grass  },  # 47 蓬生
+  { word: "しめゆふ山は",  bui: [ "山類", "光物", "神祇" ],       season: "秋", verse_type: :tanku,  tsuki: true },       # 48 ★月
+  { word: "鐘に我",        bui: [ "釈教" ],                    season: "冬", verse_type: :chouku },                    # 49
+  { word: "いただきけりな", bui: [ "降物" ],                    season: "冬", verse_type: :tanku  },                    # 50
   # ── 三折表 51-64 ──
-  { word: "冬がれの",      bui: ["動物","水辺"],              season: "冬", verse_type: :chouku },                    # 51
-  { word: "夕しほ風の",    bui: ["水辺","人倫"],              season: "雑", verse_type: :tanku  },                    # 52
-  { word: "行方なき",      bui: ["聳物"],                    season: "春", verse_type: :chouku },                    # 53
-  { word: "くるかた見えぬ",bui: ["山類","居所"],              season: "春", verse_type: :tanku  },                    # 54
-  { word: "茂みより",      bui: ["植物"],                    season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 55 ★花(桜)
-  { word: "木の本わくる",  bui: ["植物","降物"],              season: "春", verse_type: :tanku,  plant_type: :tree   },  # 56 木の本
-  { word: "秋はなど",      bui: ["降物","山類"],              season: "冬", verse_type: :chouku },                    # 57
-  { word: "こけの袂も",    bui: ["光物","衣裳"],              season: "秋", verse_type: :tanku,  tsuki: true },       # 58 ★月
-  { word: "心あるかぎり",  bui: ["釈教","述懐"],              season: "雑", verse_type: :chouku },                    # 59
-  { word: "をさまる波に",  bui: ["水辺"],                    season: "雑", verse_type: :tanku  },                    # 60
-  { word: "朝なぎの",      bui: ["時分","聳物"],              season: "雑", verse_type: :chouku },                    # 61
-  { word: "雪にさやけき",  bui: ["降物","山類"],              season: "冬", verse_type: :tanku  },                    # 62
-  { word: "嶺の庵",        bui: ["山類","居所","植物"],       season: "冬", verse_type: :chouku, plant_type: :tree   },  # 63 木の葉
-  { word: "さびしさならふ",bui: ["植物"],                    season: "雑", verse_type: :tanku,  plant_type: :tree   },  # 64 松風
+  { word: "冬がれの",      bui: [ "動物", "水辺" ],              season: "冬", verse_type: :chouku },                    # 51
+  { word: "夕しほ風の",    bui: [ "水辺", "人倫" ],              season: "雑", verse_type: :tanku  },                    # 52
+  { word: "行方なき",      bui: [ "聳物" ],                    season: "春", verse_type: :chouku },                    # 53
+  { word: "くるかた見えぬ", bui: [ "山類", "居所" ],              season: "春", verse_type: :tanku  },                    # 54
+  { word: "茂みより",      bui: [ "植物" ],                    season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 55 ★花(桜)
+  { word: "木の本わくる",  bui: [ "植物", "降物" ],              season: "春", verse_type: :tanku,  plant_type: :tree   },  # 56 木の本
+  { word: "秋はなど",      bui: [ "降物", "山類" ],              season: "冬", verse_type: :chouku },                    # 57
+  { word: "こけの袂も",    bui: [ "光物", "衣裳" ],              season: "秋", verse_type: :tanku,  tsuki: true },       # 58 ★月
+  { word: "心あるかぎり",  bui: [ "釈教", "述懐" ],              season: "雑", verse_type: :chouku },                    # 59
+  { word: "をさまる波に",  bui: [ "水辺" ],                    season: "雑", verse_type: :tanku  },                    # 60
+  { word: "朝なぎの",      bui: [ "時分", "聳物" ],              season: "雑", verse_type: :chouku },                    # 61
+  { word: "雪にさやけき",  bui: [ "降物", "山類" ],              season: "冬", verse_type: :tanku  },                    # 62
+  { word: "嶺の庵",        bui: [ "山類", "居所", "植物" ],       season: "冬", verse_type: :chouku, plant_type: :tree   },  # 63 木の葉
+  { word: "さびしさならふ", bui: [ "植物" ],                    season: "雑", verse_type: :tanku,  plant_type: :tree   },  # 64 松風
   # ── 三折裏 65-78 ──
-  { word: "誰かこの",      bui: ["時分","恋"],               season: "雑", verse_type: :chouku },                    # 65
-  { word: "月はしるやの",  bui: ["光物","旅"],               season: "秋", verse_type: :tanku,  tsuki: true },       # 66 ★月
-  { word: "露ふかみ",      bui: ["降物","衣裳"],              season: "秋", verse_type: :chouku },                    # 67
-  { word: "うす花すゝき",  bui: ["植物"],                    season: "秋", verse_type: :tanku,  plant_type: :grass  },  # 68 薄
-  { word: "うづらなく",    bui: ["動物","山類","時分"],       season: "秋", verse_type: :chouku },                    # 69
-  { word: "野となる里も",  bui: ["居所","述懐"],              season: "雑", verse_type: :tanku  },                    # 70
-  { word: "かへりこば",    bui: ["恋"],                      season: "恋", verse_type: :chouku },                    # 71
-  { word: "うときも",      bui: ["恋"],                      season: "恋", verse_type: :tanku  },                    # 72
-  { word: "むかしより",    bui: ["恋"],                      season: "恋", verse_type: :chouku },                    # 73
-  { word: "わすられがたき",bui: ["恋"],                      season: "恋", verse_type: :tanku  },                    # 74
-  { word: "山がつに",      bui: ["山類","人倫"],              season: "雑", verse_type: :chouku },                    # 75
-  { word: "植ゑぬ草葉の",  bui: ["植物","居所"],              season: "雑", verse_type: :tanku,  plant_type: :grass  },  # 76 草葉
-  { word: "かたはらに",    bui: ["居所","植物"],              season: "春", verse_type: :chouku, plant_type: :grass  },  # 77 荒田返し
-  { word: "行く人かすむ",  bui: ["聳物","降物","時分"],       season: "春", verse_type: :tanku  },                    # 78
+  { word: "誰かこの",      bui: [ "時分", "恋" ],               season: "雑", verse_type: :chouku },                    # 65
+  { word: "月はしるやの",  bui: [ "光物", "旅" ],               season: "秋", verse_type: :tanku,  tsuki: true },       # 66 ★月
+  { word: "露ふかみ",      bui: [ "降物", "衣裳" ],              season: "秋", verse_type: :chouku },                    # 67
+  { word: "うす花すゝき",  bui: [ "植物" ],                    season: "秋", verse_type: :tanku,  plant_type: :grass  },  # 68 薄
+  { word: "うづらなく",    bui: [ "動物", "山類", "時分" ],       season: "秋", verse_type: :chouku },                    # 69
+  { word: "野となる里も",  bui: [ "居所", "述懐" ],              season: "雑", verse_type: :tanku  },                    # 70
+  { word: "かへりこば",    bui: [ "恋" ],                      season: "恋", verse_type: :chouku },                    # 71
+  { word: "うときも",      bui: [ "恋" ],                      season: "恋", verse_type: :tanku  },                    # 72
+  { word: "むかしより",    bui: [ "恋" ],                      season: "恋", verse_type: :chouku },                    # 73
+  { word: "わすられがたき", bui: [ "恋" ],                      season: "恋", verse_type: :tanku  },                    # 74
+  { word: "山がつに",      bui: [ "山類", "人倫" ],              season: "雑", verse_type: :chouku },                    # 75
+  { word: "植ゑぬ草葉の",  bui: [ "植物", "居所" ],              season: "雑", verse_type: :tanku,  plant_type: :grass  },  # 76 草葉
+  { word: "かたはらに",    bui: [ "居所", "植物" ],              season: "春", verse_type: :chouku, plant_type: :grass  },  # 77 荒田返し
+  { word: "行く人かすむ",  bui: [ "聳物", "降物", "時分" ],       season: "春", verse_type: :tanku  },                    # 78
   # ── 名残表 79-92 ──
-  { word: "やどりせん",    bui: ["動物"],                    season: "春", verse_type: :chouku },                    # 79
-  { word: "さ夜もしづかに",bui: ["光物","植物","時分"],       season: "春", verse_type: :tanku,  tsuki: true, hana: true, plant_type: :flower }, # 80 ★月★花(桜)
-  { word: "とぼし火を",    bui: ["植物","時分"],              season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 81 ★花
-  { word: "誰が手枕に",    bui: ["恋"],                      season: "恋", verse_type: :tanku  },                    # 82
-  { word: "契りはや",      bui: ["恋"],                      season: "恋", verse_type: :chouku },                    # 83
-  { word: "今はのよはひ",  bui: ["山類","述懐"],              season: "雑", verse_type: :tanku  },                    # 84
-  { word: "かくす身を",    bui: ["述懐"],                    season: "雑", verse_type: :chouku },                    # 85
-  { word: "さてもうき世に",bui: ["述懐"],                    season: "雑", verse_type: :tanku  },                    # 86
-  { word: "松の葉を",      bui: ["植物","時分"],              season: "雑", verse_type: :chouku, plant_type: :tree   },  # 87 松
-  { word: "浦曲のさとよ",  bui: ["水辺","居所"],              season: "雑", verse_type: :tanku  },                    # 88
-  { word: "秋風の",        bui: ["水辺","旅"],                season: "秋", verse_type: :chouku },                    # 89
-  { word: "鴈なく山の",    bui: ["動物","山類","光物"],       season: "秋", verse_type: :tanku,  tsuki: true },       # 90 ★月
-  { word: "小萩はら",      bui: ["植物","降物"],              season: "秋", verse_type: :chouku, plant_type: :grass  },  # 91 萩
-  { word: "あだの大野を",  bui: ["人倫"],                    season: "雑", verse_type: :tanku  },                    # 92
+  { word: "やどりせん",    bui: [ "動物" ],                    season: "春", verse_type: :chouku },                    # 79
+  { word: "さ夜もしづかに", bui: [ "光物", "植物", "時分" ],       season: "春", verse_type: :tanku,  tsuki: true, hana: true, plant_type: :flower }, # 80 ★月★花(桜)
+  { word: "とぼし火を",    bui: [ "植物", "時分" ],              season: "春", verse_type: :chouku, hana: true, plant_type: :flower }, # 81 ★花
+  { word: "誰が手枕に",    bui: [ "恋" ],                      season: "恋", verse_type: :tanku  },                    # 82
+  { word: "契りはや",      bui: [ "恋" ],                      season: "恋", verse_type: :chouku },                    # 83
+  { word: "今はのよはひ",  bui: [ "山類", "述懐" ],              season: "雑", verse_type: :tanku  },                    # 84
+  { word: "かくす身を",    bui: [ "述懐" ],                    season: "雑", verse_type: :chouku },                    # 85
+  { word: "さてもうき世に", bui: [ "述懐" ],                    season: "雑", verse_type: :tanku  },                    # 86
+  { word: "松の葉を",      bui: [ "植物", "時分" ],              season: "雑", verse_type: :chouku, plant_type: :tree   },  # 87 松
+  { word: "浦曲のさとよ",  bui: [ "水辺", "居所" ],              season: "雑", verse_type: :tanku  },                    # 88
+  { word: "秋風の",        bui: [ "水辺", "旅" ],                season: "秋", verse_type: :chouku },                    # 89
+  { word: "鴈なく山の",    bui: [ "動物", "山類", "光物" ],       season: "秋", verse_type: :tanku,  tsuki: true },       # 90 ★月
+  { word: "小萩はら",      bui: [ "植物", "降物" ],              season: "秋", verse_type: :chouku, plant_type: :grass  },  # 91 萩
+  { word: "あだの大野を",  bui: [ "人倫" ],                    season: "雑", verse_type: :tanku  },                    # 92
   # ── 名残裏 93-100 ──
-  { word: "忘るなよ",      bui: ["述懐"],                    season: "雑", verse_type: :chouku },                    # 93
-  { word: "おもへばいつを",bui: ["述懐"],                    season: "雑", verse_type: :tanku  },                    # 94
-  { word: "佛たちかくれては",bui: ["釈教"],                   season: "雑", verse_type: :chouku },                    # 95
-  { word: "かれし林も",    bui: ["植物"],                    season: "春", verse_type: :tanku,  plant_type: :tree   },  # 96 枯れ林
-  { word: "山はけさ",      bui: ["山類","降物","聳物"],       season: "春", verse_type: :chouku },                    # 97
-  { word: "けぶり長閑に",  bui: ["聳物","居所"],              season: "春", verse_type: :tanku  },                    # 98
-  { word: "いやしきも",    bui: ["人倫"],                    season: "雑", verse_type: :chouku },                    # 99
-  { word: "人におしなべ",  bui: ["人倫"],                    season: "雑", verse_type: :tanku  },                    # 100
+  { word: "忘るなよ",      bui: [ "述懐" ],                    season: "雑", verse_type: :chouku },                    # 93
+  { word: "おもへばいつを", bui: [ "述懐" ],                    season: "雑", verse_type: :tanku  },                    # 94
+  { word: "佛たちかくれては", bui: [ "釈教" ],                   season: "雑", verse_type: :chouku },                    # 95
+  { word: "かれし林も",    bui: [ "植物" ],                    season: "春", verse_type: :tanku,  plant_type: :tree   },  # 96 枯れ林
+  { word: "山はけさ",      bui: [ "山類", "降物", "聳物" ],       season: "春", verse_type: :chouku },                    # 97
+  { word: "けぶり長閑に",  bui: [ "聳物", "居所" ],              season: "春", verse_type: :tanku  },                    # 98
+  { word: "いやしきも",    bui: [ "人倫" ],                    season: "雑", verse_type: :chouku },                    # 99
+  { word: "人におしなべ",  bui: [ "人倫" ],                    season: "雑", verse_type: :tanku  }                    # 100
 ]
 
 # ─────────────────────────────────────────────────────────────
@@ -550,7 +550,7 @@ puts "試験7：水無瀬三吟 全100句 統合スキャン"
 puts "─" * 56
 
 p7 = 0; f7 = 0
-def r7(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r7(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 v7d = checker.scan_chain_with_chotan(minase_full, bui_dict: bui_dict)
 kuzari7  = v7d.reject { |v| v[:type].to_s.start_with?("kukazo") || v[:type] == :chotan_chigai }
@@ -617,7 +617,7 @@ puts "試験8：月・花の定座チェック（百韻）"
 puts "─" * 56
 
 p8 = 0; f8 = 0
-def r8(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r8(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 # 月の定座: 各面に1回以上（名残裏は免除）
 tsuki_faces = [
@@ -628,7 +628,7 @@ tsuki_faces = [
   { name: "三折表", range: 51..64,  req: true  },
   { name: "三折裏", range: 65..78,  req: true  },
   { name: "名残表", range: 79..92,  req: true  },
-  { name: "名残裏", range: 93..100, req: false }, # 揚句付近は月免除
+  { name: "名残裏", range: 93..100, req: false } # 揚句付近は月免除
 ]
 
 # 花の定座: 各折（4折単位）に1回以上
@@ -636,7 +636,7 @@ hana_folds = [
   { name: "初折", range:  1..22  },
   { name: "二折", range: 23..50  },
   { name: "三折", range: 51..78  },
-  { name: "名残", range: 79..100 },
+  { name: "名残", range: 79..100 }
 ]
 
 tsuki_viols = checker.teiza_tsuki_violations(minase_full, tsuki_faces)
@@ -660,18 +660,18 @@ p8, f8 = r8(res8b, p8, f8)
 # ── 定座チェッカーのネガティブ確認 ──
 # 月がない面が生じるケースを検出できるか
 chain_tsuki_ng = Array.new(8) { { bui: [], season: "雑", verse_type: :tanku } }  # 月なし8句
-faces_ng = [{ name: "テスト面", range: 1..8, req: true }]
+faces_ng = [ { name: "テスト面", range: 1..8, req: true } ]
 res8c = check("月なし面 → teiza_tsuki_violations 検出",
               checker.teiza_tsuki_violations(chain_tsuki_ng, faces_ng).map { |v| v[:type] },
-              [:teiza_tsuki])
+              [ :teiza_tsuki ])
 p8, f8 = r8(res8c, p8, f8)
 
 # 花がない折が生じるケースを検出できるか
-chain_hana_ng = Array.new(8) { { bui: ["植物"], season: "秋", verse_type: :tanku } }  # 花なし(秋植物)
-folds_ng = [{ name: "テスト折", range: 1..8 }]
+chain_hana_ng = Array.new(8) { { bui: [ "植物" ], season: "秋", verse_type: :tanku } }  # 花なし(秋植物)
+folds_ng = [ { name: "テスト折", range: 1..8 } ]
 res8d = check("花なし折 → teiza_hana_violations 検出",
               checker.teiza_hana_violations(chain_hana_ng, folds_ng).map { |v| v[:type] },
-              [:teiza_hana])
+              [ :teiza_hana ])
 p8, f8 = r8(res8d, p8, f8)
 
 puts "試験8：#{p8} pass / #{f8} fail"
@@ -687,27 +687,27 @@ puts "試陸91：next_constraints (初折表pos1～6)"
 puts "-" * 56
 
 chain_omote1_nc = [
-  { bui: ["降物","植物"], season: "春", verse_type: :chouku },
-  { bui: ["水辺","植物"], season: "春", verse_type: :tanku  },
-  { bui: ["植物","水辺"], season: "春", verse_type: :chouku },
-  { bui: ["時分","水辺"], season: "春", verse_type: :tanku  },
-  { bui: ["光物","時分"], season: "秋", verse_type: :chouku },
-  { bui: ["降物"],                season: "秋", verse_type: :tanku  },
+  { bui: [ "降物", "植物" ], season: "春", verse_type: :chouku },
+  { bui: [ "水辺", "植物" ], season: "春", verse_type: :tanku  },
+  { bui: [ "植物", "水辺" ], season: "春", verse_type: :chouku },
+  { bui: [ "時分", "水辺" ], season: "春", verse_type: :tanku  },
+  { bui: [ "光物", "時分" ], season: "秋", verse_type: :chouku },
+  { bui: [ "降物" ],                season: "秋", verse_type: :tanku  }
 ]
 
 c = checker.next_constraints(chain_omote1_nc)
 
 r9 = []
 [
-  [c[:verse_type] == :chouku,                   "(9a) verse_type=:chouku"],
-  [c[:forbidden_bui].include?("降物"),  "(9b) 降物は禁止"],
-  [c[:forbidden_bui].include?("光物"),  "(9c) 光物は禁止"],
-  [c[:forbidden_bui].include?("植物"),  "(9d) 植物は禁止"],
-  [c[:forbidden_bui].include?("水辺"),  "(9e) 水辺は禁止(五句去)"],
-  [c[:season_hint][:current] == "秋",       "(9f) current=秋"],
-  [c[:season_hint][:count]   == 2,              "(9g) count=2"],
-  [c[:season_hint][:must_continue] == true,     "(9h) must_continue=true"],
-  [c[:season_hint][:must_switch]   == false,    "(9i) must_switch=false"],
+  [ c[:verse_type] == :chouku,                   "(9a) verse_type=:chouku" ],
+  [ c[:forbidden_bui].include?("降物"),  "(9b) 降物は禁止" ],
+  [ c[:forbidden_bui].include?("光物"),  "(9c) 光物は禁止" ],
+  [ c[:forbidden_bui].include?("植物"),  "(9d) 植物は禁止" ],
+  [ c[:forbidden_bui].include?("水辺"),  "(9e) 水辺は禁止(五句去)" ],
+  [ c[:season_hint][:current] == "秋",       "(9f) current=秋" ],
+  [ c[:season_hint][:count]   == 2,              "(9g) count=2" ],
+  [ c[:season_hint][:must_continue] == true,     "(9h) must_continue=true" ],
+  [ c[:season_hint][:must_switch]   == false,    "(9i) must_switch=false" ]
 ].each do |ok, label|
   puts "#{ok ? '  OK ' : '✗ NG '} #{label}"
   r9 << ok
@@ -725,34 +725,34 @@ puts "試験10：一座一句物チェック（ichiza_violations）"
 puts "─" * 56
 
 p10 = 0; f10 = 0
-def r10(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r10(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 # テスト用句
-ich_uguis_hist  = { word: "鶯なく春",   bui: ["動物"], season: "春" }
-ich_uguis_cand  = { word: "鶯の声に",   bui: ["動物"], season: "春" }
-ich_ume_cand    = { word: "梅の香り",   bui: ["植物"], season: "春" }
-ich_hotaru_hist = { word: "蛍の光に",   bui: ["動物"], season: "夏" }
-ich_hotaru_dup  = { word: "蛍が夜を",   bui: ["動物"], season: "夏" }
-ich_kinuta_cand = { word: "砧の音か",   bui: ["衣裳"], season: "秋" }
-ich_tsuru_cand  = { word: "鶴が空を舞う", bui: ["動物"], season: "春" }
+ich_uguis_hist  = { word: "鶯なく春",   bui: [ "動物" ], season: "春" }
+ich_uguis_cand  = { word: "鶯の声に",   bui: [ "動物" ], season: "春" }
+ich_ume_cand    = { word: "梅の香り",   bui: [ "植物" ], season: "春" }
+ich_hotaru_hist = { word: "蛍の光に",   bui: [ "動物" ], season: "夏" }
+ich_hotaru_dup  = { word: "蛍が夜を",   bui: [ "動物" ], season: "夏" }
+ich_kinuta_cand = { word: "砧の音か",   bui: [ "衣裳" ], season: "秋" }
+ich_tsuru_cand  = { word: "鶴が空を舞う", bui: [ "動物" ], season: "春" }
 
 # (10a) 候補が history の鶯と重複 → ichiza_duplicate 検出
-v_ich1 = checker.ichiza_violations([ich_uguis_hist, { word: "春の野かな", bui: [], season: "春" }],
-                                   ich_uguis_cand, ["鶯"])
+v_ich1 = checker.ichiza_violations([ ich_uguis_hist, { word: "春の野かな", bui: [], season: "春" } ],
+                                   ich_uguis_cand, [ "鶯" ])
 res10a = check("鶯が history に既出の候補 → ichiza_duplicate 検出（初出pos1・候補pos3）",
-               v_ich1.map { |h| [h[:type], h[:word], h[:first_pos], h[:pos]] },
-               [[:ichiza_duplicate, "鶯", 1, 3]])
+               v_ich1.map { |h| [ h[:type], h[:word], h[:first_pos], h[:pos] ] },
+               [ [ :ichiza_duplicate, "鶯", 1, 3 ] ])
 p10, f10 = r10(res10a, p10, f10)
 
 # (10b) 候補が初出（history に鶯なし）→ 違反なし
 res10b = check("鶯が history に未出の候補（初出）→ 違反なし",
-               checker.ichiza_violations([], ich_uguis_hist, ["鶯"]), [])
+               checker.ichiza_violations([], ich_uguis_hist, [ "鶯" ]), [])
 p10, f10 = r10(res10b, p10, f10)
 
 # (10c) 各一座語が候補では初出 → 違反なし
-history_c = [ich_uguis_hist, ich_hotaru_hist]
+history_c = [ ich_uguis_hist, ich_hotaru_hist ]
 res10c = check("候補の砧は history に未出（各一座語は初出のみ）→ 違反なし",
-               checker.ichiza_violations(history_c, ich_kinuta_cand, ["鶯", "蛍", "砧"]), [])
+               checker.ichiza_violations(history_c, ich_kinuta_cand, [ "鶯", "蛍", "砧" ]), [])
 p10, f10 = r10(res10c, p10, f10)
 
 # (10d) 水無瀬三吟全100句をchain走査 → 一座一句物違反0件
@@ -765,19 +765,19 @@ p10, f10 = r10(res10d, p10, f10)
 
 # (10e) ichiza_ok? 重複あり → false
 res10e = check("ichiza_ok? 候補が history の鶯と重複 → false",
-               checker.ichiza_ok?([ich_uguis_hist], ich_uguis_cand, ["鶯"]), false)
+               checker.ichiza_ok?([ ich_uguis_hist ], ich_uguis_cand, [ "鶯" ]), false)
 p10, f10 = r10(res10e, p10, f10)
 
 # (10f) ichiza_ok? 候補が初出 → true
 res10f = check("ichiza_ok? 候補が初出 → true",
-               checker.ichiza_ok?([], ich_uguis_hist, ["鶯"]), true)
+               checker.ichiza_ok?([], ich_uguis_hist, [ "鶯" ]), true)
 p10, f10 = r10(res10f, p10, f10)
 
 # (10g) バグ再現テスト: history内にichiza重複が既存でも無関係候補は誤検出しない
 #   （17句目誤FORCED問題の再現: history[蛍初出 + 蛍FORCED済み重複]、候補=鶴）
-history_dup = [ich_hotaru_hist, { word: "夜の野かな", bui: [], season: "夏" }, ich_hotaru_dup]
+history_dup = [ ich_hotaru_hist, { word: "夜の野かな", bui: [], season: "夏" }, ich_hotaru_dup ]
 res10g = check("history内ichiza重複済みでも無関係候補（鶴）は誤検出しない",
-               checker.ichiza_violations(history_dup, ich_tsuru_cand, ["蛍"]), [])
+               checker.ichiza_violations(history_dup, ich_tsuru_cand, [ "蛍" ]), [])
 p10, f10 = r10(res10g, p10, f10)
 
 puts "試験10：#{p10} pass / #{f10} fail"
@@ -794,7 +794,7 @@ puts "試験11：describe(:generation_failed) 回帰テスト"
 puts "─" * 56
 
 p11 = 0; f11 = 0
-def r11(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r11(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 # (11a) reason なし → クラッシュせず専用メッセージを返す
 res11a = check("generation_failed（reasonなし）→ クラッシュせず専用メッセージ",
@@ -835,7 +835,7 @@ puts "試験12：describe(:mora_error) 回帰テスト"
 puts "─" * 56
 
 p12 = 0; f12 = 0
-def r12(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r12(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 # (12a) desc あり → クラッシュせず desc をそのまま返す
 res12a = check("mora_error（desc付き）→ クラッシュせずdescを表示",
@@ -871,7 +871,7 @@ puts "試験13：BuiDictionary#normalize_bui 回帰テスト（其の二十八�
 puts "─" * 56
 
 p13 = 0; f13 = 0
-def r13(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r13(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 valid_categories = (checker.rules.keys + %w[時分 人倫]).uniq
 
@@ -919,56 +919,56 @@ puts "試験14：七句去物チェック（nanaku_gomono_violations）"
 puts "─" * 56
 
 p14 = 0; f14 = 0
-def r14(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r14(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 # (14a) 月が1句目に既出・候補7句目（間隔6）→ 違反検出
-history_a = [{ text: "月かげ澄める夜半の空" }] + Array.new(5) { |i| { text: "無関係な句#{i}" } }
+history_a = [ { text: "月かげ澄める夜半の空" } ] + Array.new(5) { |i| { text: "無関係な句#{i}" } }
 cand_a    = { text: "また月を見る夕まぐれ" }
-v14a = checker.nanaku_gomono_violations(history_a, cand_a, ["月"])
+v14a = checker.nanaku_gomono_violations(history_a, cand_a, [ "月" ])
 res14a = check("月が1句目・候補7句目（間隔6）→ nanaku_gomono検出",
-               v14a.map { |h| [h[:type], h[:word], h[:last_pos], h[:pos], h[:interval]] },
-               [[:nanaku_gomono, "月", 1, 7, 6]])
+               v14a.map { |h| [ h[:type], h[:word], h[:last_pos], h[:pos], h[:interval] ] },
+               [ [ :nanaku_gomono, "月", 1, 7, 6 ] ])
 p14, f14 = r14(res14a, p14, f14)
 
 # (14b) 月が1句目に既出・候補8句目（間隔7、境界値）→ 違反なし
-history_b = history_a + [{ text: "無関係な句6" }]
-v14b = checker.nanaku_gomono_violations(history_b, cand_a, ["月"])
+history_b = history_a + [ { text: "無関係な句6" } ]
+v14b = checker.nanaku_gomono_violations(history_b, cand_a, [ "月" ])
 res14b = check("月が1句目・候補8句目（間隔7、境界値）→ 違反なし",
                v14b, [])
 p14, f14 = r14(res14b, p14, f14)
 
 # (14c) 対象語を含まない候補 → 違反なし
 res14c = check("対象語を含まない候補 → 違反なし",
-               checker.nanaku_gomono_violations(history_a, { text: "無関係な句のみ" }, ["月"]), [])
+               checker.nanaku_gomono_violations(history_a, { text: "無関係な句のみ" }, [ "月" ]), [])
 p14, f14 = r14(res14c, p14, f14)
 
 # (14d) nanaku_gomono_ok? のラッパー動作確認
 res14d1 = check("nanaku_gomono_ok? 間隔6 → false",
-                checker.nanaku_gomono_ok?(history_a, cand_a, ["月"]), false)
+                checker.nanaku_gomono_ok?(history_a, cand_a, [ "月" ]), false)
 p14, f14 = r14(res14d1, p14, f14)
 res14d2 = check("nanaku_gomono_ok? 間隔7 → true",
-                checker.nanaku_gomono_ok?(history_b, cand_a, ["月"]), true)
+                checker.nanaku_gomono_ok?(history_b, cand_a, [ "月" ]), true)
 p14, f14 = r14(res14d2, p14, f14)
 
 # (14e) :text 優先・:word フォールバック（旧形式呼び出しの後方互換）
-history_e = [{ word: "月かげ澄める夜半の空" }] + Array.new(5) { |i| { word: "無関係な句#{i}" } }
+history_e = [ { word: "月かげ澄める夜半の空" } ] + Array.new(5) { |i| { word: "無関係な句#{i}" } }
 cand_e    = { word: "また月を見る夕まぐれ" }
 res14e = check(":text未設定でも :word への部分文字列マッチにフォールバック",
-               checker.nanaku_gomono_violations(history_e, cand_e, ["月"]).map { |h| h[:word] },
-               ["月"])
+               checker.nanaku_gomono_violations(history_e, cand_e, [ "月" ]).map { |h| h[:word] },
+               [ "月" ])
 p14, f14 = r14(res14e, p14, f14)
 
 # (14f) :word が辞書完全一致の代表語1つだけの場合でも :text があれば正しく検出
 #   （候補句に複数の辞書語が含まれ :word が対象外の語になっているケースの再現。
 #    :word だけで照合すると見落とす、其の五十九で発見した配線ギャップと同型）
-history_f = [{ text: "桜さく庭の面影" }] + Array.new(5) { |i| { text: "無関係な句#{i}" } }
+history_f = [ { text: "桜さく庭の面影" } ] + Array.new(5) { |i| { text: "無関係な句#{i}" } }
 cand_f    = { text: "松風に月の光そふ", word: "松" } # detect_wordが「松」を返した想定（「月」は非対象）
 res14f = check("candidate[:word]が「松」でも:textの「月」を正しく検出（配線ギャップ再現防止）",
                checker.nanaku_gomono_violations(
-                 [{ text: "月かげ澄める夜半の空" }] + Array.new(5) { |i| { text: "無関係な句#{i}" } },
-                 cand_f, ["月", "松"]
+                 [ { text: "月かげ澄める夜半の空" } ] + Array.new(5) { |i| { text: "無関係な句#{i}" } },
+                 cand_f, [ "月", "松" ]
                ).map { |h| h[:word] }.sort,
-               ["月"])
+               [ "月" ])
 p14, f14 = r14(res14f, p14, f14)
 
 # (14g) describe(:nanaku_gomono) がクラッシュせず読める文言を返す
@@ -1018,7 +1018,7 @@ puts "試験15：BuiDictionary「かりね」「かりふし」旅検出回帰�
 puts "─" * 56
 
 p15 = 0; f15 = 0
-def r15(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r15(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 nm15 = Natto::MeCab.new(userdic: File.expand_path("../dict/user.dic", __dir__))
 
@@ -1039,7 +1039,7 @@ p15, f15 = r15(res15b, p15, f15)
   "はるゝまも袖は時雨の旅衣" => "旅衣",
   "わが草枕月ややつさん"     => "草枕",
   "かへりこむをも知らぬ旅路" => "旅路",
-  "なみだの海を渡る旅人"     => "旅人",
+  "なみだの海を渡る旅人"     => "旅人"
 }.each do |text, word|
   res = check("既存語「#{word}」を含む句 → detect_allに'旅'を含む（回帰確認）",
               bui_dict.detect_all(text, nm15).include?("旅"), true)
@@ -1065,17 +1065,17 @@ p15, f15 = r15(res15e, p15, f15)
 #   紅葉・東風・時雨・妙高はbui_dictionary.ymlにも登録済みのためprimary_buiも確認、
 #   春雨・五月雨・若菜はbui未登録（読み・分割のみが目的）のため1トークン化のみ確認。
 {
-  "紅葉" => "植物", "東風" => "風体", "時雨" => "降物", "妙高" => "山類",
+  "紅葉" => "植物", "東風" => "風体", "時雨" => "降物", "妙高" => "山類"
 }.each do |word, expected_bui|
   res = check("既存ユーザー辞書語「#{word}」→ primary_bui「#{expected_bui}」（回帰確認）",
-              bui_dict.detect_all(word, nm15), [expected_bui])
+              bui_dict.detect_all(word, nm15), [ expected_bui ])
   p15, f15 = r15(res, p15, f15)
 end
 %w[春雨 五月雨 若菜].each do |word|
   surfaces = []
   nm15.parse(word) { |n| surfaces << n.surface unless n.is_eos? }
   res = check("既存ユーザー辞書語「#{word}」→ 1トークンのまま（回帰確認）",
-              surfaces, [word])
+              surfaces, [ word ])
   p15, f15 = r15(res, p15, f15)
 end
 
@@ -1098,7 +1098,7 @@ puts "試験16：build_mecab のuserdicフォールバック監視（其の六�
 puts "─" * 56
 
 p16 = 0; f16 = 0
-def r16(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r16(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 user_dic_path = File.expand_path("../dict/user.dic", __dir__)
 
@@ -1141,22 +1141,22 @@ puts "試験17：一座一句物・七句去物のひらがな表記揺れ吸収
 puts "─" * 56
 
 p17 = 0; f17 = 0
-def r17(r, p, f) = r ? [p+1, f] : [p, f+1]
+def r17(r, p, f) = r ? [ p+1, f ] : [ p, f+1 ]
 
 # (17a) 漢字→ひらがな：history「鶯」・候補「うぐいす」でichiza_duplicate検出
-hist17a = [{ text: "鶯の声すみて", word: "鶯", bui: [], season: "春" }]
+hist17a = [ { text: "鶯の声すみて", word: "鶯", bui: [], season: "春" } ]
 cand17a = { text: "うぐいすの初音を聞く" }
 v17a = checker.ichiza_violations(hist17a, cand17a)
 res17a = check("ichiza: history「鶯」→候補「うぐいす」で重複検出",
-               v17a.map { |v| v[:type] }, [:ichiza_duplicate])
+               v17a.map { |v| v[:type] }, [ :ichiza_duplicate ])
 p17, f17 = r17(res17a, p17, f17)
 
 # (17b) ひらがな→漢字（逆方向）でも検出される
-hist17b = [{ text: "うぐいすの初音を聞く" }]
+hist17b = [ { text: "うぐいすの初音を聞く" } ]
 cand17b = { text: "鶯の声すみて" }
 v17b = checker.ichiza_violations(hist17b, cand17b)
 res17b = check("ichiza: history「うぐいす」→候補「鶯」でも重複検出（逆方向）",
-               v17b.map { |v| v[:type] }, [:ichiza_duplicate])
+               v17b.map { |v| v[:type] }, [ :ichiza_duplicate ])
 p17, f17 = r17(res17b, p17, f17)
 
 # (17c) 無関係語は誤検出しない（回帰確認）
@@ -1165,17 +1165,17 @@ res17c = check("ichiza: 無関係な候補（花）は誤検出しない", v17c,
 p17, f17 = r17(res17c, p17, f17)
 
 # (17d) 七句去物: 漢字「船」→ひらがな「ふね」で検出（依頼書やること：nanaku側にも適用）
-hist17d = [{ text: "船出のさまを見送りにけり" }]
+hist17d = [ { text: "船出のさまを見送りにけり" } ]
 cand17d = { text: "ふねよそひして出づるあけぼの" }
 v17d = checker.nanaku_gomono_violations(hist17d, cand17d)
 res17d = check("nanaku_gomono: history「船」→候補「ふね」で重複検出",
-               v17d.map { |v| v[:type] }, [:nanaku_gomono])
+               v17d.map { |v| v[:type] }, [ :nanaku_gomono ])
 p17, f17 = r17(res17d, p17, f17)
 
 # (17e) yomiを追加していない語（田）は漢字のみ一致・ひらがな「た」では誤検出しない
 #   （「た」は過去の助動詞語尾等で高頻度に出現するため、意図的にyomi未登録。
 #    ここでの検証は「たまたま『た』を含む無関係文」で誤爆しないことの確認）
-hist17e = [{ text: "田を耕す春の朝かな" }]
+hist17e = [ { text: "田を耕す春の朝かな" } ]
 cand17e = { text: "花を見たり月を見たりして過ごしたり" }
 v17e = checker.nanaku_gomono_violations(hist17e, cand17e)
 res17e = check("nanaku_gomono: 「田」はyomi未登録のため「た」を含む無関係文で誤検出しない",
@@ -1189,4 +1189,3 @@ puts
 puts "═" * 56
 puts "総合：#{total_pass} pass / #{total_fail} fail"
 exit(total_fail.zero? ? 0 : 1)
-

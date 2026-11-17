@@ -131,8 +131,8 @@ hakku = {
   text:       HAKKU_TEXT,
   plant_type: bui_dict.plant_type(hakku_word)
 }
-history     = [hakku]
-verse_texts = [HAKKU_TEXT]
+history     = [ hakku ]
+verse_texts = [ HAKKU_TEXT ]
 log_line(logfile, 1, hakku, [])
 
 (2..TOTAL_VERSES).each do |verse_no|
@@ -186,7 +186,7 @@ log_line(logfile, 1, hakku, [])
 
   if best_candidate.nil?
     placeholder = { bui: [], season: nil, verse_type: target_vt, word: "(生成失敗)", text: "(生成失敗)", plant_type: nil }
-    log_line(logfile, verse_no, placeholder, [{ type: :generation_failed }], forced: true)
+    log_line(logfile, verse_no, placeholder, [ { type: :generation_failed } ], forced: true)
     history << placeholder
     verse_texts << placeholder[:text]
     next

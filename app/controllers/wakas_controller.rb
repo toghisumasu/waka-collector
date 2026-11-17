@@ -2,7 +2,7 @@ class WakasController < ApplicationController
   def index
     @wakas = Waka.all
     if params[:keyword].present?
-      @wakas = @wakas.where('upper_phrase_text LIKE ? OR lower_phrase_text LIKE ? OR upper_phrase_yomi LIKE ? OR lower_phrase_yomi LIKE ? OR author LIKE ? OR source LIKE ? OR era LIKE ? OR notes LIKE ?',
+      @wakas = @wakas.where("upper_phrase_text LIKE ? OR lower_phrase_text LIKE ? OR upper_phrase_yomi LIKE ? OR lower_phrase_yomi LIKE ? OR author LIKE ? OR source LIKE ? OR era LIKE ? OR notes LIKE ?",
                             "%#{params[:keyword]}%",
                             "%#{params[:keyword]}%",
                             "%#{params[:keyword]}%",
@@ -33,7 +33,7 @@ class WakasController < ApplicationController
   def create
     @waka = Waka.new(waka_params)
     if @waka.save
-      redirect_to @waka, notice: '和歌を登録しました'
+      redirect_to @waka, notice: "和歌を登録しました"
     else
       render :new, status: :unprocessable_entity
     end
@@ -42,7 +42,7 @@ class WakasController < ApplicationController
   def update
     @waka = Waka.find(params[:id])
     if @waka.update(waka_params)
-      redirect_to @waka, notice: '和歌を更新しました'
+      redirect_to @waka, notice: "和歌を更新しました"
     else
       render :edit, status: :unprocessable_entity
     end
@@ -51,7 +51,7 @@ class WakasController < ApplicationController
   def destroy
     @waka = Waka.find(params[:id])
     @waka.destroy
-    redirect_to wakas_path, notice: '和歌を削除しました'
+    redirect_to wakas_path, notice: "和歌を削除しました"
   end
 
   private
@@ -59,5 +59,4 @@ class WakasController < ApplicationController
   def waka_params
       params.require(:waka).permit(:upper_phrase_text, :lower_phrase_text, :upper_phrase_yomi, :lower_phrase_yomi, :author, :source, :era, :notes, :flag)
   end
-
 end

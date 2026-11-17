@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # メンタム百韻 bui Jaccard距離計測スクリプト（ログファイル版）
 #
 # 使い方:
@@ -135,11 +136,11 @@ ARGV.each do |log_path|
   (1..99).each do |i|
     type = if !verses[i][:bui].empty? && !verses[i + 1][:bui].empty?
              "A"
-           elsif verses[i][:bui].empty? && verses[i + 1][:bui].empty?
+    elsif verses[i][:bui].empty? && verses[i + 1][:bui].empty?
              "C"
-           else
+    else
              "B"
-           end
+    end
     all_csv_rows << {
       log:          label,
       pair_no:      i,

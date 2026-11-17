@@ -32,7 +32,7 @@ rescue => e
   Natto::MeCab.new
 end
 
-rows = Renga.where.not(tsugeku: [nil, '']).order(:id)
+rows = Renga.where.not(tsugeku: [ nil, '' ]).order(:id)
 puts "対象: #{rows.size} 件\n\n"
 
 pattern_counts  = Hash.new(0)  # パターン文字列 → 件数
@@ -44,8 +44,8 @@ rows.each do |renga|
   next if ms.empty?
 
   # 末尾3〜4形態素の表層を語尾パターンとして採用
-  tail4 = ms.last([ms.size, 4].min).map { |m| m[:surface] }.join
-  tail3 = ms.last([ms.size, 3].min).map { |m| m[:surface] }.join
+  tail4 = ms.last([ ms.size, 4 ].min).map { |m| m[:surface] }.join
+  tail3 = ms.last([ ms.size, 3 ].min).map { |m| m[:surface] }.join
 
   # 音数が多い方（4形態素）を優先し、2文字以下になる場合は3形態素
   pattern = tail4.length >= 3 ? tail4 : tail3

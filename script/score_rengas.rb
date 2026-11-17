@@ -38,8 +38,8 @@ FileUtils.mkdir_p("tmp")
 CSV.open("tmp/rengas_match_scores.csv", "w", encoding: "utf-8") do |csv|
   csv << %w[id batch result maeku tsugeku maeku_bui tsugeku_bui maeku_season tsugeku_season similarity score]
   rows.each do |x|
-    csv << [x[:id], x[:batch], x[:result], x[:maeku], x[:tsugeku], x[:a][:bui].join(","), x[:b][:bui].join(","),
-            x[:a][:season], x[:b][:season], x[:sim].round(3), x[:score].round(1)]
+    csv << [ x[:id], x[:batch], x[:result], x[:maeku], x[:tsugeku], x[:a][:bui].join(","), x[:b][:bui].join(","),
+            x[:a][:season], x[:b][:season], x[:sim].round(3), x[:score].round(1) ]
   end
 end
 

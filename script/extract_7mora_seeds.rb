@@ -31,7 +31,7 @@ def split_7_7(morphemes)
       second = morphemes[(i + 1)..]
       return {
         first_surface:  first.map  { |x| x[:surface] }.join,
-        first_yomi:     first.map  { |x| x[:yomi].tr('ァ-ヴー','ぁ-ゔー') }.join,
+        first_yomi:     first.map  { |x| x[:yomi].tr('ァ-ヴー', 'ぁ-ゔー') }.join,
         second_surface: second.map { |x| x[:surface] }.join,
         second_mora:    second.sum { |x| x[:mora] }
       }
@@ -54,7 +54,7 @@ seeds = []
 
 puts "=== 下の句 7+7 分割テスト（最初の500首） ==="
 
-Waka.where.not(lower_phrase_text: [nil, '']).limit(500).each do |w|
+Waka.where.not(lower_phrase_text: [ nil, '' ]).limit(500).each do |w|
   text = w.lower_phrase_text.strip
   next if text.empty?
   total += 1

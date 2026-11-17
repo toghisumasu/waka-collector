@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # qwen38-27b-q2k-waka「意図の一貫性」検証スクリプト
 #
 # 背景: 依頼書M-2の実時間再計測（script/measure_compare_walltime.rb）で

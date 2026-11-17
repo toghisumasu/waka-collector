@@ -30,7 +30,7 @@ by_id.each do |_id, r|
     ids.unshift(cur)
     cur = by_id[cur][:prev]
   end
-  texts = ids.empty? ? [r[:maeku].to_s] : ids.map { |i| by_id[i][:tsugeku].to_s }
+  texts = ids.empty? ? [ r[:maeku].to_s ] : ids.map { |i| by_id[i][:tsugeku].to_s }
   texts << r[:tsugeku].to_s
   next if texts.any?(&:empty?)
   last = texts.size

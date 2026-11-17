@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require "rails_helper"
 
 RSpec.describe WakaUnidicAnalyzer do
@@ -59,11 +60,11 @@ RSpec.describe WakaUnidicAnalyzer do
     # アクセント型欄等がカンマを含む引用符付きCSVフィールドになっている単語。
     # 修正前は node.feature.split(",") で列数が29→30/31にずれ、例外が発生していた。
     [
-      ["面影", "面影"],
-      ["て", "手"],
-      ["しのぶ", "偲ぶ"],
-      ["人目", "人目"],
-      ["きぬぎぬ", "後朝"],
+      [ "面影", "面影" ],
+      [ "て", "手" ],
+      [ "しのぶ", "偲ぶ" ],
+      [ "人目", "人目" ],
+      [ "きぬぎぬ", "後朝" ]
     ].each do |surface, expected_lemma|
       it "「#{surface}」を例外なく解析でき、lemmaが「#{expected_lemma}」になる" do
         morphemes = analyzer.analyze(surface)

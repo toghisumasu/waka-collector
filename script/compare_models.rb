@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # 依頼書M: qwen3:14b × qwen38-27b-q2k-waka(27b) 付句生成比較
 #
 # 使い方: bin/rails runner script/compare_models.rb
@@ -100,11 +101,11 @@ MAEKU_SET = [
   { no: 6,  vt: :tanku,  text: "霜おく野はら秋は暮れけり",   season: "秋" },
   { no: 32, vt: :tanku,  text: "たのむもはかなつま木とる山", season: "冬" },
   { no: 4,  vt: :tanku,  text: "舟さす音もしるきあけがた",   season: "雑" },
-  { no: 8,  vt: :tanku,  text: "かきねをとへばあらはなるみち", season: "雑" },
+  { no: 8,  vt: :tanku,  text: "かきねをとへばあらはなるみち", season: "雑" }
 ].freeze
 
-MODELS     = ["qwen3:14b", "qwen38-27b-q2k-waka"].freeze
-STRATEGIES = [:direct, :waka_extraction].freeze
+MODELS     = [ "qwen3:14b", "qwen38-27b-q2k-waka" ].freeze
+STRATEGIES = [ :direct, :waka_extraction ].freeze
 TRIALS     = 3
 
 # ─────────────────────────────────────────────────────────
@@ -240,7 +241,7 @@ puts "\n" + "=" * 60
 puts "出力: #{out_path}（#{rows.size}行）"
 puts "=" * 60
 puts "\n【集計サマリ】モデル×戦略ごと"
-rows.group_by { |r| [r[:model], r[:strategy]] }.each do |(model, strategy), group|
+rows.group_by { |r| [ r[:model], r[:strategy] ] }.each do |(model, strategy), group|
   n = group.size
   echo_rate      = (100.0 * group.count { |r| r[:echo] } / n).round(1)
   mora_rate      = (100.0 * group.count { |r| r[:mora_ok] } / n).round(1)

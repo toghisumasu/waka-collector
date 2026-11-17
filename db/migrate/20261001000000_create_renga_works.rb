@@ -29,6 +29,6 @@ class CreateRengaWorks < ActiveRecord::Migration[7.1]
       t.string  :kyoken_tokens  # 去嫌表の印そのまま(木・草・朝・夕・□・×など)
       t.timestamps
     end
-    add_index :renga_work_verses, [:renga_work_id, :verse_no], unique: true
+    add_index :renga_work_verses, [ :renga_work_id, :verse_no ], unique: true
   end
 end

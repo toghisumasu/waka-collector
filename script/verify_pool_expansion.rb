@@ -140,9 +140,8 @@ rejected_samples = []  # 除外サンプル（最大15件）
 
 puts "スキャン中..."
 
-Waka.where.not(upper_phrase_text: [nil, ''])
-    .where.not(lower_phrase_text:  [nil, '']).each do |w|
-
+Waka.where.not(upper_phrase_text: [ nil, '' ])
+    .where.not(lower_phrase_text:  [ nil, '' ]).each do |w|
   upper_ms = morphemes_of(w.upper_phrase_text.strip, nm)
   lower_ms = morphemes_of(w.lower_phrase_text.strip, nm)
   stag     = season_tag(w.upper_phrase_text, w.lower_phrase_text)
@@ -220,19 +219,19 @@ total_open = stats.values.sum { |s| s[:open] }
 total_season = Hash.new(0)
 stats.each_value { |s| s[:season].each { |k, v| total_season[k] += v } }
 
-puts "%-10s %8s %12s %10s %10s" % ["位置", "採取数", "主部フィルタ後", "通過率", "季タグ付き"]
+puts "%-10s %8s %12s %10s %10s" % [ "位置", "採取数", "主部フィルタ後", "通過率", "季タグ付き" ]
 puts "-" * 58
 [
-  ["二句(7音)", stats[:niku]],
-  ["四句(7音)", stats[:yonku]],
-  ["結句(7音)", stats[:kekku]]
+  [ "二句(7音)", stats[:niku] ],
+  [ "四句(7音)", stats[:yonku] ],
+  [ "結句(7音)", stats[:kekku] ]
 ].each do |label, s|
   rate = s[:raw] > 0 ? (s[:open].to_f / s[:raw] * 100).round(1) : 0
-  puts "%-10s %8d %12d %9.1f%% %10d" % [label, s[:raw], s[:open], rate, s[:season].values.sum]
+  puts "%-10s %8d %12d %9.1f%% %10d" % [ label, s[:raw], s[:open], rate, s[:season].values.sum ]
 end
 puts "-" * 58
 rate = total_raw > 0 ? (total_open.to_f / total_raw * 100).round(1) : 0
-puts "%-10s %8d %12d %9.1f%% %10d" % ["合計", total_raw, total_open, rate, total_season.values.sum]
+puts "%-10s %8d %12d %9.1f%% %10d" % [ "合計", total_raw, total_open, rate, total_season.values.sum ]
 puts "\n参考: 従来の四句のみ・フィルタなし = #{stats[:yonku][:raw]}件"
 
 puts "\n--- 季節別内訳（主部フィルタ後・全位置合計）---"
@@ -250,4 +249,3 @@ puts "\n--- 主部フィルタ除外サンプル（最大15件）---"
 rejected_samples.each do |s|
   puts "  [#{s[:pos]}] #{s[:surface]} ← 除外: #{s[:label]}"
 end
-

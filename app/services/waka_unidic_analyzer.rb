@@ -32,9 +32,9 @@ class WakaUnidicAnalyzer
     dicdir = ENV["WAKA_UNIDIC_DICDIR"]
     raise UnavailableError, "WAKA_UNIDIC_DICDIR is not set" if dicdir.blank?
 
-    args = ["-d", dicdir]
+    args = [ "-d", dicdir ]
     userdic = ENV["WAKA_UNIDIC_USERDIC"]
-    args += ["-u", userdic] if userdic.present?
+    args += [ "-u", userdic ] if userdic.present?
 
     @mecab = Natto::MeCab.new(args.join(" "))
   end

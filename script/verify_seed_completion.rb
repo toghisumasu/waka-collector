@@ -27,7 +27,7 @@ EXAMPLES = [
   { before: "かすみたなびく", after: "ゆくはるのそら" },
   { before: "しらくもかかる", after: "やまのあおぞら" },
   { before: "ながめておれば", after: "つきのかたむく" },
-  { before: "うぐいすのねに", after: "はるをよぶこえ" },
+  { before: "うぐいすのねに", after: "はるをよぶこえ" }
 ].freeze
 ECHO_AFTERS = EXAMPLES.map { |e| e[:after] }.freeze
 
@@ -170,9 +170,8 @@ end
 puts "前7音核プールを構築中（三位置採取 + 主部フィルタ）..."
 seeds = []
 
-Waka.where.not(upper_phrase_text: [nil, ''])
-    .where.not(lower_phrase_text:  [nil, '']).each do |w|
-
+Waka.where.not(upper_phrase_text: [ nil, '' ])
+    .where.not(lower_phrase_text:  [ nil, '' ]).each do |w|
   upper_ms = morphemes_of(w.upper_phrase_text.strip, nm)
   lower_ms = morphemes_of(w.lower_phrase_text.strip, nm)
   stag     = compute_season_tag(w.upper_phrase_text, w.lower_phrase_text)
@@ -247,7 +246,7 @@ all_attempts = []  # 音数NG含む全候補ブラックリスト
     # wrong_streak が2回以上で温度を上げて多様性を確保
     temperature = wrong_streak >= 2 ? 0.8 : 0.5
 
-    hint_parts = [maeku_hint, hints ? "元の和歌より：#{hints}" : nil].compact
+    hint_parts = [ maeku_hint, hints ? "元の和歌より：#{hints}" : nil ].compact
     hint_line  = hint_parts.any? ? "【付合の手がかり】#{hint_parts.join(' / ')}\n" : ""
 
     prompt = <<~PROMPT
@@ -320,15 +319,15 @@ all_attempts = []  # 音数NG含む全候補ブラックリスト
     # 音数は「あと○音」の差分指示（収束実績あり）
     # それ以外は理由を明示して意識を向け直す
     issue, msg = if is_repetition
-      ["前半と同じ言葉", "前半とは別の言葉で後半を詠んでください。"]
+      [ "前半と同じ言葉", "前半とは別の言葉で後半を詠んでください。" ]
     elsif is_echo
-      ["例文と同じ言葉", "例文の言葉をそのままコピーしないでください。別の表現で詠んでください。"]
+      [ "例文と同じ言葉", "例文の言葉をそのままコピーしないでください。別の表現で詠んでください。" ]
     elsif has_kanji
-      ["漢字が含まれている", "ひらがなのみで出力してください（漢字・カタカナ禁止）。"]
+      [ "漢字が含まれている", "ひらがなのみで出力してください（漢字・カタカナ禁止）。" ]
     elsif mora < 7
-      ["#{mora}音", "あと#{7 - mora}音増やして7音にしてください。"]
+      [ "#{mora}音", "あと#{7 - mora}音増やして7音にしてください。" ]
     else
-      ["#{mora}音", "#{mora - 7}音減らして7音にしてください。"]
+      [ "#{mora}音", "#{mora - 7}音減らして7音にしてください。" ]
     end
     feedback = { ku: ku, issue: issue, message: msg }
   end
@@ -341,4 +340,3 @@ all_attempts = []  # 音数NG含む全候補ブラックリスト
   end
   puts ""
 end
-

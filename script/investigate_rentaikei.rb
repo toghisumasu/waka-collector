@@ -103,8 +103,8 @@ collect = lambda do |seg, position, waka|
   end
 end
 
-Waka.where.not(upper_phrase_text: [nil, ''])
-    .where.not(lower_phrase_text:  [nil, '']).each do |w|
+Waka.where.not(upper_phrase_text: [ nil, '' ])
+    .where.not(lower_phrase_text:  [ nil, '' ]).each do |w|
   upper_ms = morphemes_of(w.upper_phrase_text.strip, nm)
   lower_ms = morphemes_of(w.lower_phrase_text.strip, nm)
   waka = "#{w.upper_phrase_text}#{w.lower_phrase_text}"
@@ -125,8 +125,8 @@ puts "=" * 70
 
 # 件数の多い順に表示
 counts = Hash.new(0)
-Waka.where.not(upper_phrase_text: [nil, ''])
-    .where.not(lower_phrase_text:  [nil, '']).each do |w|
+Waka.where.not(upper_phrase_text: [ nil, '' ])
+    .where.not(lower_phrase_text:  [ nil, '' ]).each do |w|
   upper_ms = morphemes_of(w.upper_phrase_text.strip, nm)
   lower_ms = morphemes_of(w.lower_phrase_text.strip, nm)
   check = lambda do |seg|
@@ -149,4 +149,3 @@ rentai.keys.sort_by { |k| -counts[k] }.each do |key|
     puts "  #{s[:surface]}  （末尾: #{s[:tail]}）"
   end
 end
-
