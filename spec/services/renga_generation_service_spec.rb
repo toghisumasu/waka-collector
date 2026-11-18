@@ -107,14 +107,15 @@ RSpec.describe RengaGenerationService do
     let(:bui_dict) { BuiDictionary.new }
     let(:checker)  { ShikimokuChecker.new }
 
-    def kukazo_result_for(previous_renga, candidate_text)
+    # season: 候補の季を明示したいとき（省略時は本文から判定）
+    def kukazo_result_for(previous_renga, candidate_text, season: :auto)
       history = controller.send(
         :build_verse_history, previous_renga.id, previous_renga.tsugeku, :tanku,
         nm: nm, bui_dict: bui_dict
       )
       candidate = {
         bui: bui_dict.detect_all(candidate_text, nm),
-        season: controller.send(:season_from_text, candidate_text),
+        season: season == :auto ? controller.send(:season_from_text, candidate_text) : season,
         verse_type: :tanku
       }
       checker.kukazo_violations(history, candidate)
@@ -144,8 +145,12 @@ RSpec.describe RengaGenerationService do
       r3 = Renga.create!(maeku: "まえく", tsugeku: "つもれは人のもみちに露そそぐ", previous_renga_id: r2.id)
       r4 = Renga.create!(maeku: "まえく", tsugeku: "きりの紅葉ゆかし秋の嵐", previous_renga_id: r3.id)
 
-      # Run5実データ: この候補は修正前streak超過でattempt1のみng却下されていた
-      expect(kukazo_result_for(r4, "しぐれの音に心の雨やと願う")).to eq([])
+      # Run5実データ: この候補は修正前streak超過でattempt1のみng却下されていた（違反は「句数:秋」）。
+      # 注: 現行のseason_from_textは「しぐれ」を冬と判定する（本文判定のままだと秋の
+      # 連続数が検査対象にならず、二重カウントがあっても緑のままだった）。そこで候補の季は
+      # Run5ログの違反ラベル「句数:秋」に合わせて秋を明示する。
+      # 秋の連続は正しくは4句+候補=5句（max=5ちょうどで受理）、二重カウントなら6句で超過。
+      expect(kukazo_result_for(r4, "しぐれの音に心の雨やと願う", season: "秋")).to eq([])
     end
 
     it "verse21相当: kukazo_under（最短規制）の判定結論は修正前後で変わらない" do
