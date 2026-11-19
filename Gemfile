@@ -63,3 +63,6 @@ group :test do
   gem "selenium-webdriver"
 end
 gem "natto"
+
+# Ruby 3.4 で標準ライブラリから外れるため明示（waka_unidic_analyzer.rb が require "csv"）
+gem "csv"
