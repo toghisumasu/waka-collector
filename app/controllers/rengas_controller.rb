@@ -31,7 +31,7 @@ class RengasController < ApplicationController
       @renga  = Renga.new(maeku: maeku, previous_renga_id: previous_renga_id)
       @honkas = Waka.limit(5)
       flash.now[:alert] = check[:message]
-      render :new, status: :unprocessable_entity
+      render :new, status: :unprocessable_content
       return
     end
 
@@ -55,7 +55,7 @@ class RengasController < ApplicationController
       @renga  = Renga.new(maeku: maeku, previous_renga_id: previous_renga_id)
       @honkas = Waka.limit(5)
       flash.now[:alert] = "式目違反: #{shikimoku_issues.join('、')}"
-      render :new, status: :unprocessable_entity
+      render :new, status: :unprocessable_content
       return
     end
 
@@ -172,7 +172,7 @@ class RengasController < ApplicationController
       @renga                 = renga
       @manual_tsugeku_draft  = tsugeku
       @manual_tsugeku_error  = check[:message]
-      render :show, status: :unprocessable_entity
+      render :show, status: :unprocessable_content
       return
     end
 
@@ -181,7 +181,7 @@ class RengasController < ApplicationController
       @renga                = renga
       @manual_tsugeku_draft = tsugeku
       @manual_tsugeku_error = "式目違反: #{shikimoku_issues.join('、')}"
-      render :show, status: :unprocessable_entity
+      render :show, status: :unprocessable_content
       return
     end
 

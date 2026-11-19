@@ -35,7 +35,7 @@ class WakasController < ApplicationController
     if @waka.save
       redirect_to @waka, notice: "和歌を登録しました"
     else
-      render :new, status: :unprocessable_entity
+      render :new, status: :unprocessable_content
     end
   end
 
@@ -44,7 +44,7 @@ class WakasController < ApplicationController
     if @waka.update(waka_params)
       redirect_to @waka, notice: "和歌を更新しました"
     else
-      render :edit, status: :unprocessable_entity
+      render :edit, status: :unprocessable_content
     end
   end
 
