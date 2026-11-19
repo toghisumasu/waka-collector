@@ -15,7 +15,6 @@
 # If set to `:offset`, `to_time` methods will use the UTC offset.
 # If `false`, `to_time` methods will convert to the local system UTC offset instead.
 #++
-# Rails.application.config.active_support.to_time_preserves_timezone = :zone  # config/application.rb で設定（読み込み時警告のため）
 
 ###
 # When both `If-Modified-Since` and `If-None-Match` are provided by the client

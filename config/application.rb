@@ -11,8 +11,6 @@ module WakaCollector
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 7.2
     config.i18n.default_locale = :ja
-    # Rails 8.1 で常時有効になる挙動を先行して有効化（8.0 の to_time 非推奨警告への対応）
-    config.active_support.to_time_preserves_timezone = :zone
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
     # Common ones are `templates`, `generators`, or `middleware`, for example.
