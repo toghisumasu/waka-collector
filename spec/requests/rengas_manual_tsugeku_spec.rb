@@ -19,7 +19,7 @@ RSpec.describe "PATCH /rengas/:id/manual_tsugeku", type: :request do
     patch manual_tsugeku_renga_path(renga), params: { tsugeku: "" }
 
     renga.reload
-    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response).to have_http_status(:unprocessable_content)
     expect(renga.status).to eq("failed")
     expect(renga.tsugeku).to be_nil
   end

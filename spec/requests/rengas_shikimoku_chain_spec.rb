@@ -8,7 +8,7 @@ RSpec.describe "POST /rengas", type: :request do
 
     post rengas_path, params: { renga: { maeku: "水面ゆらめく秋の夕暮れ", previous_renga_id: previous.id } }
 
-    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response).to have_http_status(:unprocessable_content)
     expect(flash[:alert]).to include("式目違反")
     expect(flash[:alert]).to include("水面")
   end
