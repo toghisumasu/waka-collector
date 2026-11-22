@@ -6,6 +6,7 @@ require "csv"
 require_relative "../../../script/label_bot/telegram_api"
 require_relative "../../../script/label_bot/sender"
 require_relative "../../../script/label_bot/poller"
+require_relative "../../../script/label_bot/whoami"
 
 # ダミーデータ（無意味な句）だけを使う。実データ・DB・ネットワークには触れない。
 RSpec.describe "LabelBot" do
@@ -163,11 +164,78 @@ RSpec.describe "LabelBot" do
       expect(store.sent_batch_numbers).to eq([ 1, 2 ])
     end
 
-    it "送信が途中で失敗しても配信済みとして残り、再実行で二重配信しない" do
-      allow(api).to receive(:send_message).and_raise(LabelBot::TelegramApi::Error, "boom")
-      expect { sender.run(day1) }.to raise_error(LabelBot::TelegramApi::Error)
-      expect(store.sent_entries.map { |e| e["kind"] }).to eq(%w[batch batch_partial])
-      expect(sender.run(day1)).to eq(:skipped_same_day)
+    context "送信が途中で失敗したとき" do
+      # n 件目の送信で失敗する偽 API（それまでに n-1 件が届く）
+      def fail_at(nth)
+        count = 0
+        allow(api).to receive(:send_message).and_wrap_original do |orig, **kw|
+          count += 1
+          raise LabelBot::TelegramApi::Error, "boom" if count == nth
+
+          orig.call(**kw)
+        end
+      end
+
+      it "送れた件数を batch_partial に記録する" do
+        fail_at(8)
+        expect { sender.run(day1) }.to raise_error(LabelBot::TelegramApi::Error)
+        expect(store.sent_entries.map { |e| e["kind"] }).to eq(%w[batch batch_partial])
+        expect(store.pending_partial).to eq({ batch: 1, sent: 7, count: 20 })
+      end
+
+      it "次の実行で未送信の句だけを送り直し、結果を sent.jsonl に残す（同日でも）" do
+        fail_at(8)
+        expect { sender.run(day1) }.to raise_error(LabelBot::TelegramApi::Error)
+        allow(api).to receive(:send_message).and_call_original
+        api.sent.clear
+
+        expect(sender.run(day1 + 600)).to eq(:resumed)
+        expect(api.sent.size).to eq(13)
+        expect(api.sent.first[:text]).to eq("8/20 【短句】テスト句1-8")
+        expect(api.sent.last[:text]).to start_with("20/20")
+        expect(store.sent_entries.map { |e| e["kind"] }).to eq(%w[batch batch_partial batch_resume batch_resumed])
+        expect(store.sent_entries[2]).to include("from" => 7, "count" => 20)
+        expect(store.sent_entries.last).to include("sent" => 20)
+        expect(store.pending_partial).to be_nil
+      end
+
+      it "送り直しでさらに失敗したら、そこまでの件数を記録し、次の実行で続きから送る" do
+        fail_at(8)
+        expect { sender.run(day1) }.to raise_error(LabelBot::TelegramApi::Error)
+        fail_at(4) # 送り直しの 4 件目（全体の 11 件目）で失敗
+        expect { sender.run(day1 + 600) }.to raise_error(LabelBot::TelegramApi::Error)
+        expect(store.pending_partial).to eq({ batch: 1, sent: 10, count: 20 })
+
+        allow(api).to receive(:send_message).and_call_original
+        api.sent.clear
+        expect(sender.run(day2)).to eq(:resumed)
+        expect(api.sent.first[:text]).to eq("11/20 【長句】テスト句1-11")
+        expect(api.sent.size).to eq(10)
+      end
+
+      it "全件送れた後は通常のゲートに戻る（同日は送らず、翌日は未完了ならリマインダーのみ）" do
+        fail_at(8)
+        expect { sender.run(day1) }.to raise_error(LabelBot::TelegramApi::Error)
+        allow(api).to receive(:send_message).and_call_original
+        sender.run(day1 + 600)
+        api.sent.clear
+
+        expect(sender.run(day1 + 1200)).to eq(:skipped_same_day)
+        expect(sender.run(day2)).to eq(:reminded)
+        expect(api.sent.size).to eq(1)
+        expect(store.sent_batch_numbers).to eq([ 1 ])
+      end
+
+      it "送り直しの途中でも、次の batch は送らない（2 日目は送り直しが先）" do
+        fail_at(1)
+        expect { sender.run(day1) }.to raise_error(LabelBot::TelegramApi::Error)
+        allow(api).to receive(:send_message).and_call_original
+        api.sent.clear
+        expect(sender.run(day2)).to eq(:resumed)
+        expect(api.sent.size).to eq(20)
+        expect(api.sent.first[:text]).to start_with("1/20")
+        expect(store.sent_batch_numbers).to eq([ 1 ])
+      end
     end
 
     it "配信する batch がなければ何も送らない" do
@@ -251,6 +319,22 @@ RSpec.describe "LabelBot" do
       poller.handle({ "update_id" => 4, "message" => { "chat" => { "id" => chat }, "text" => "/memo 21 x" } })
       expect(label_lines).to be_empty
       expect(api.sent.last[:text]).to include("21")
+    end
+  end
+
+  describe "LabelBot::Whoami" do
+    def msg_update(id, chat_id) = { "update_id" => id, "message" => { "chat" => { "id" => chat_id }, "text" => "hi" } }
+
+    it "最後のメッセージの chat_id を返す" do
+      updates = [ msg_update(1, 111), msg_update(2, 222) ]
+      expect(LabelBot::Whoami.last_chat_id(updates)).to eq(222)
+    end
+
+    it "ボタン操作の更新からも取れる。メッセージがなければ nil" do
+      cq = { "update_id" => 3, "callback_query" => { "message" => { "chat" => { "id" => 333 } } } }
+      expect(LabelBot::Whoami.last_chat_id([ msg_update(1, 111), cq ])).to eq(333)
+      expect(LabelBot::Whoami.last_chat_id([ { "update_id" => 4, "my_chat_member" => {} } ])).to be_nil
+      expect(LabelBot::Whoami.last_chat_id([])).to be_nil
     end
   end
 end

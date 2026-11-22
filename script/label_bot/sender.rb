@@ -13,9 +13,14 @@ module LabelBot
       @out = out
     end
 
-    # 戻り値: :sent / :reminded / :skipped_same_day / :nothing / :no_batches
+    # 戻り値: :sent / :resumed / :reminded / :skipped_same_day / :nothing / :no_batches
     def run(now = Config.now_jst)
       date = now.strftime("%Y-%m-%d")
+      # 途中失敗した batch があれば、未送信の句だけを送り直す（同日でも行う）。全件送れるまでゲートは通常に戻らない。
+      if (partial = @store.pending_partial)
+        return resume(partial, date, now)
+      end
+
       if @store.sent_on?(date)
         say "本日（#{date}）はすでに送信済みです。何も送りません。"
         return :skipped_same_day
@@ -48,22 +53,39 @@ module LabelBot
       end
 
       items = @store.batch_items(n)
-      # 先に記録する（途中で失敗しても、同じ batch を再送して二重配信にならないため）
+      # 先に記録する（途中で失敗しても、同じ batch を最初から再送して二重配信にならないため）
       @store.append_sent({ kind: "batch", batch: n, date: date, sent_at: now.iso8601, count: items.size })
-      sent = 0
-      begin
-        items.each_with_index do |it, i|
-          @api.send_message(chat_id: @chat_id,
-                            text: "#{i + 1}/#{items.size} 【#{it['form']}】#{it['text']}",
-                            reply_markup: Keyboard.markup(it["id"]))
-          sent += 1
-        end
-      rescue StandardError => e
-        @store.append_sent({ kind: "batch_partial", batch: n, date: date, sent: sent, count: items.size })
-        raise e
-      end
+      deliver(n, items, from: 0, date: date)
       say "#{n}日目の #{items.size} 句を送信しました。"
       :sent
+    end
+
+    # batch_partial の続きから、未送信の句だけを送る。結果は sent.jsonl に残す。
+    def resume(partial, date, now)
+      n = partial[:batch]
+      items = @store.batch_items(n)
+      from = partial[:sent]
+      @store.append_sent({ kind: "batch_resume", batch: n, date: date, sent_at: now.iso8601, from: from, count: items.size })
+      deliver(n, items, from: from, date: date)
+      @store.append_sent({ kind: "batch_resumed", batch: n, date: date, sent_at: now.iso8601, sent: items.size, count: items.size })
+      say "#{n}日目の未送信分（#{from + 1}〜#{items.size} 件目）を送り直しました。"
+      :resumed
+    end
+
+    # items[from..] を順に送る。失敗したら、送れた件数を batch_partial に記録して再送出する。
+    def deliver(batch, items, from:, date:)
+      sent = from
+      items.each_with_index do |it, i|
+        next if i < from
+
+        @api.send_message(chat_id: @chat_id,
+                          text: "#{i + 1}/#{items.size} 【#{it['form']}】#{it['text']}",
+                          reply_markup: Keyboard.markup(it["id"]))
+        sent += 1
+      end
+    rescue StandardError
+      @store.append_sent({ kind: "batch_partial", batch: batch, date: date, sent: sent, count: items.size })
+      raise
     end
 
     def say(msg)

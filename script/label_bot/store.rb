@@ -60,9 +60,23 @@ module LabelBot
       sent_batch_numbers.last
     end
 
-    # 今日（JST の日付）すでに何か（batch / reminder）送っているか
+    # 今日（JST の日付）すでに何か（batch / reminder / 送り直し）送っているか
     def sent_on?(date)
-      sent_entries.any? { |e| %w[batch reminder].include?(e["kind"]) && e["date"] == date }
+      sent_entries.any? { |e| %w[batch reminder batch_resumed].include?(e["kind"]) && e["date"] == date }
+    end
+
+    # 途中で送信に失敗し、まだ全件送れていない batch。
+    # batch_partial（送れた件数 sent）が、同じ batch の batch_resumed（全件送れた）より後ろにある場合。
+    # 戻り値: { batch:, sent:, count: } / なければ nil
+    def pending_partial
+      pending = nil
+      sent_entries.each do |e|
+        case e["kind"]
+        when "batch_partial" then pending = { batch: e["batch"], sent: e["sent"], count: e["count"] }
+        when "batch_resumed" then pending = nil if pending && pending[:batch] == e["batch"]
+        end
+      end
+      pending
     end
 
     def completion_recorded?(batch)
