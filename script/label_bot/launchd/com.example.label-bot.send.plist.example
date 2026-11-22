@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 雛形のみ。配置（~/Library/LaunchAgents）と launchctl load はユーザーが行う。
+     トークンはこのファイルに書かない。LABEL_BOT_ENV_FILE が指す、リポジトリ外・権限 0600 のファイルから読む。
+     下の /ABS/... と YOUR_USER は実環境の値に置き換える。 -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.example.label-bot.send</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/ABS/PATH/TO/ruby</string>
+    <string>/Volumes/externalHDD/projects/waka-collector/script/label_bot/send_batch.rb</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Volumes/externalHDD/projects/waka-collector</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- パスだけを書く（トークンの値は書かない） -->
+    <key>LABEL_BOT_ENV_FILE</key><string>/Users/YOUR_USER/.config/label_bot/env</string>
+  </dict>
+  <!-- 毎日 07:30（システムのタイムゾーン＝Asia/Tokyo）。スリープ中なら復帰時に1回実行、電源オフ中は実行されない -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>7</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key><string>/Users/YOUR_USER/Library/Logs/label_bot_send.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOUR_USER/Library/Logs/label_bot_send.log</string>
+</dict>
+</plist>
