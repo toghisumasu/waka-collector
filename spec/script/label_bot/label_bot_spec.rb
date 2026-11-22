@@ -119,10 +119,103 @@ RSpec.describe "LabelBot" do
   end
 
   describe LabelBot::TelegramApi do
-    it "通信エラーの文面にトークンを含めない" do
-      client = described_class.new(token: "SECRET-DUMMY-TOKEN", base: "http://127.0.0.1:1")
-      expect { client.send_message(chat_id: 1, text: "x") }
-        .to raise_error(LabelBot::TelegramApi::Error) { |e| expect(e.message).not_to include("SECRET-DUMMY-TOKEN") }
+    let(:token) { "SECRET-DUMMY-TOKEN" }
+    let(:v4) { "149.154.166.110" }
+    let(:resolver) { ->(_host) { [ v4 ] } }
+    let(:client) { described_class.new(token: token, resolver: resolver) }
+    let(:ok_response) do
+      Net::HTTPOK.new("1.1", "200", "OK").tap { |r| allow(r).to receive(:body).and_return('{"ok":true,"result":[]}') }
+    end
+    # 実際の通信はしない。Net::HTTP に設定された値だけを検査する。
+    let(:http) do
+      instance_double(Net::HTTP, :ipaddr= => nil, :use_ssl= => nil, :open_timeout= => nil, :read_timeout= => nil,
+                                 request: ok_response)
+    end
+
+    before { allow(Net::HTTP).to receive(:new).and_return(http) }
+
+    it "通信エラーの文面にトークンを含めない（実際の接続失敗でも）" do
+      allow(Net::HTTP).to receive(:new).and_call_original
+      c = described_class.new(token: token, base: "http://127.0.0.1:1")
+      expect { c.send_message(chat_id: 1, text: "x") }
+        .to raise_error(LabelBot::TelegramApi::Error) { |e| expect(e.message).not_to include(token) }
+    end
+
+    describe "IPv4 固定" do
+      it "元のホスト名で Net::HTTP を作り、接続先だけ IPv4 アドレスに固定する（SNI・ホスト名検証は元のホスト名のまま）" do
+        expect(Net::HTTP).to receive(:new).with("api.telegram.org", 443).and_return(http)
+        expect(http).to receive(:ipaddr=).with(v4)
+        expect(http).to receive(:use_ssl=).with(true)
+        client.send_message(chat_id: 1, text: "x")
+      end
+
+      it "証明書検証を無効にする設定（verify_mode / verify_hostname）をしない" do
+        expect(http).not_to receive(:verify_mode=)
+        expect(http).not_to receive(:verify_hostname=)
+        client.send_message(chat_id: 1, text: "x")
+      end
+
+      it "既定のリゾルバは AF_INET のみを問い合わせる" do
+        expect(Socket).to receive(:getaddrinfo).with("api.telegram.org", nil, Socket::AF_INET, Socket::SOCK_STREAM)
+                                               .and_return([ [ "AF_INET", 0, v4, v4, 2, 1, 6 ] ])
+        expect(http).to receive(:ipaddr=).with(v4)
+        described_class.new(token: token).send_message(chat_id: 1, text: "x")
+      end
+
+      it "IPv4 が引けない（空）ときは明確なエラーにし、通信しない（IPv6 へ切り替えない）" do
+        c = described_class.new(token: token, resolver: ->(_h) { [] })
+        expect(Net::HTTP).not_to receive(:new)
+        expect { c.send_message(chat_id: 1, text: "x") }
+          .to raise_error(LabelBot::TelegramApi::Error, /IPv4 アドレスを解決できません.*IPv6 へは切り替えません/)
+      end
+
+      it "名前解決が SocketError のときも明確なエラーにし、通信しない" do
+        c = described_class.new(token: token, resolver: ->(_h) { raise SocketError, "getaddrinfo: nodename nor servname" })
+        expect(Net::HTTP).not_to receive(:new)
+        expect { c.get_updates(timeout: 0) }
+          .to raise_error(LabelBot::TelegramApi::Error, /IPv4 アドレスを解決できません/) { |e| expect(e.message).not_to include(token) }
+      end
+    end
+
+    describe "タイムアウト" do
+      it "open_timeout は 5 秒、通常の呼び出しの read_timeout は 30 秒" do
+        expect(http).to receive(:open_timeout=).with(5)
+        expect(http).to receive(:read_timeout=).with(30)
+        client.send_message(chat_id: 1, text: "x")
+      end
+
+      it "getUpdates の read_timeout は long polling の timeout より長い" do
+        expect(http).to receive(:read_timeout=).with(65)
+        expect(http).to receive(:open_timeout=).with(5)
+        client.get_updates(timeout: 50)
+        expect(described_class::LONG_POLL_MARGIN).to be > 0
+      end
+
+      it "timeout を変えても read_timeout は常に timeout より長い" do
+        [ 0, 10, 30, 50 ].each do |t|
+          expect(http).to receive(:read_timeout=).with(t + described_class::LONG_POLL_MARGIN)
+          client.get_updates(timeout: t)
+        end
+      end
+    end
+
+    describe "エラー文" do
+      it "通信中の例外にトークンが含まれていても伏せる" do
+        allow(http).to receive(:request).and_raise(RuntimeError, "failed for /bot#{token}/sendMessage")
+        expect { client.send_message(chat_id: 1, text: "x") }
+          .to raise_error(LabelBot::TelegramApi::Error) { |e|
+            expect(e.message).not_to include(token)
+            expect(e.message).to include("[REDACTED]")
+          }
+      end
+
+      it "API が ok:false を返したときも、トークンを含めない" do
+        bad = Net::HTTPBadRequest.new("1.1", "400", "Bad Request")
+        allow(bad).to receive(:body).and_return(%({"ok":false,"description":"bad #{token}"}))
+        allow(http).to receive(:request).and_return(bad)
+        expect { client.send_message(chat_id: 1, text: "x") }
+          .to raise_error(LabelBot::TelegramApi::Error, /HTTP 400/) { |e| expect(e.message).not_to include(token) }
+      end
     end
   end
 
